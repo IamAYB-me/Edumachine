@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useToastStore } from '@/store/useToastStore';
 import { Search, Filter, Plus, Edit, Trash2, X, Users, CheckCircle, AlertCircle, GraduationCap, CreditCard } from 'lucide-react';
 import { cn } from '@/utils';
-import { useDataStore, Student, PortalLevel } from '@/store/useDataStore';
+import { useDataStore, Student, PortalLevel, AdmissionFieldKey, buildDefaultAdmissionFormConfig } from '@/store/useDataStore';
 import ExcelImport from '@/components/ui/ExcelImport';
 import { KPICard } from '@/components/ui/KPICard';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -149,6 +149,11 @@ const createEmptyStudentForm = (portalLevel: PortalLevel): StudentFormState => {
     fingerprintId: '',
     facialRecognitionId: '',
     digitalSignatureUrl: '',
+    bankName: '',
+    accountNumber: '',
+    qrCode: '',
+    barcode: '',
+    rfidTag: '',
     birthCertificate: '',
     immunizationCard: '',
     parentIdDocument: '',
@@ -168,8 +173,6 @@ const baseSections: Array<{ title: string; fields: FieldConfig[] }> = [
   {
     title: 'System Details',
     fields: [
-      { name: 'portalLevel', label: 'Portal Level', type: 'select', options: portalLevelOptions, colSpan: 1 },
-      { name: 'studentId', label: 'Student ID', readOnly: true },
       { name: 'admissionNumber', label: 'Admission Number', readOnly: true },
       { name: 'regNo', label: 'Registration Number' },
       { name: 'nin', label: 'NIN' },
@@ -367,6 +370,28 @@ const commonAdminSection: Array<{ title: string; fields: FieldConfig[] }> = [
   },
 ];
 
+const bankingSection: Array<{ title: string; fields: FieldConfig[] }> = [
+  {
+    title: 'Bank Information',
+    fields: [
+      { name: 'bankName', label: 'Bank Name' },
+      { name: 'accountNumber', label: 'Account Number' },
+    ],
+  },
+];
+
+const systemGeneratedSection: Array<{ title: string; fields: FieldConfig[] }> = [
+  {
+    title: 'System Generated Fields',
+    fields: [
+      { name: 'studentId', label: 'Student ID', readOnly: true },
+      { name: 'qrCode', label: 'QR Code', readOnly: true },
+      { name: 'barcode', label: 'Barcode', readOnly: true },
+      { name: 'rfidTag', label: 'RFID Tag' },
+    ],
+  },
+];
+
 const documentSection: Array<{ title: string; fields: FieldConfig[] }> = [
   {
     title: 'Documents',
@@ -402,6 +427,59 @@ const buildPrimaryGuardianName = (student: Partial<StudentFormState>) =>
   student.guardianName?.trim() ||
   student.motherName?.trim() ||
   '';
+
+
+const validateStudentPayload = (
+  payload: StudentFormState,
+  enabledFields: Set<AdmissionFieldKey>,
+): StudentFormErrors => {
+  const errors: StudentFormErrors = {};
+  const fullName = buildStudentDisplayName(payload);
+  const guardianName = buildPrimaryGuardianName(payload);
+  const resolvedClass = payload.classDepartment?.trim() || payload.classApplyingFor?.trim() || payload.class?.trim() || payload.department?.trim() || '';
+
+  const requiresName = ['surname', 'firstName', 'middleName', 'name'].some((field) => enabledFields.has(field as AdmissionFieldKey));
+  const requiresGuardian = ['parentName', 'fatherName', 'motherName', 'guardianName'].some((field) => enabledFields.has(field as AdmissionFieldKey));
+  const requiresClass = ['class', 'classDepartment', 'classApplyingFor', 'department'].some((field) => enabledFields.has(field as AdmissionFieldKey));
+
+  if (requiresName && !fullName) {
+    errors.name = 'Enter the student full name or fill surname and first name.';
+  }
+
+  if (enabledFields.has('email')) {
+    if (!payload.email?.trim()) {
+      errors.email = 'Email address is required.';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email.trim())) {
+      errors.email = 'Enter a valid email address.';
+    }
+  }
+
+  if (enabledFields.has('regNo') && !payload.regNo?.trim()) {
+    errors.regNo = 'Registration number is required.';
+  }
+
+  if (requiresClass && !resolvedClass) {
+    errors.class = 'Class or department is required.';
+  }
+
+  if (requiresGuardian && !guardianName) {
+    errors.parentName = 'Parent or guardian name is required.';
+  }
+
+  if (enabledFields.has('dateOfAdmission') && !payload.dateOfAdmission?.trim()) {
+    errors.dateOfAdmission = 'Date of admission is required.';
+  }
+
+  if (enabledFields.has('department') && !payload.department?.trim()) {
+    errors.department = 'Department is required.';
+  }
+
+  if (enabledFields.has('programme') && !payload.programme?.trim()) {
+    errors.programme = 'Programme is required.';
+  }
+
+  return errors;
+};
 
 const validateStudentPayload = (
   payload: StudentFormState,
@@ -488,6 +566,8 @@ export default function StudentsDirectory() {
   const showToast = useToastStore((state) => state.showToast);
   const schoolProfile = resolveSchoolProfile(user, schools);
   const activePortalLevel = schoolProfile.portalLevel ?? 'Secondary';
+  const configuredFieldKeys = schoolProfile.admissionFormConfig?.enabledFields ?? buildDefaultAdmissionFormConfig(activePortalLevel).enabledFields;
+  const enabledFieldSet = useMemo(() => new Set<AdmissionFieldKey>(configuredFieldKeys), [configuredFieldKeys]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
@@ -652,6 +732,7 @@ export default function StudentsDirectory() {
 
     const payload: StudentFormState = {
       ...formData,
+      portalLevel: activePortalLevel,
       name: fullName,
       parentName,
       studentId,
@@ -659,9 +740,11 @@ export default function StudentsDirectory() {
       regNo: formData.regNo || admissionNumber,
       classDepartment,
       class: formData.class || classDepartment,
+      qrCode: formData.qrCode || generateCode('QR'),
+      barcode: formData.barcode || generateCode('BAR'),
     };
 
-    const validationErrors = validateStudentPayload(payload, students, editingStudent?.id);
+    const validationErrors = validateStudentPayload(payload, enabledFieldSet);
     if (Object.keys(validationErrors).length > 0) {
       setFormErrors(validationErrors);
       showToast({
@@ -784,10 +867,17 @@ export default function StudentsDirectory() {
 
   const sectionsToRender = [
     ...baseSections,
-    ...(levelSpecificSections[formData.portalLevel] || []),
+    ...(levelSpecificSections[activePortalLevel] || []),
     ...commonAdminSection,
+    ...bankingSection,
+    ...systemGeneratedSection,
     ...documentSection,
-  ];
+  ]
+    .map((section) => ({
+      ...section,
+      fields: section.fields.filter((field) => enabledFieldSet.has(field.name as AdmissionFieldKey)),
+    }))
+    .filter((section) => section.fields.length > 0);
 
   return (
     <div className="space-y-6">
@@ -1021,7 +1111,7 @@ export default function StudentsDirectory() {
                   {editingStudent ? 'Edit Admission Record' : `${formData.portalLevel} Admission Form`}
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Required fields: name, email, registration number, class/department, parent or guardian, and admission date.
+                  This registration form now follows the Super Admin admission builder for this school's portal level.
                 </p>
               </div>
               <button onClick={closeModal} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors">
