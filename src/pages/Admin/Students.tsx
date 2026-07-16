@@ -798,7 +798,7 @@ export default function StudentsDirectory() {
             Manage admissions for {schoolProfile.portalLevel.toLowerCase()} institutions and generate school-branded student ID cards.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-nowrap items-center gap-3 shrink-0 self-start sm:self-auto">
           <ExcelImport
             onImport={handleImport}
             templateName="Students"
