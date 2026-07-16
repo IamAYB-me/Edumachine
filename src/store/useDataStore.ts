@@ -3,6 +3,23 @@ import { persist } from 'zustand/middleware';
 
 export type PortalLevel = 'Primary' | 'Secondary' | 'College' | 'University';
 
+export type AdmissionFieldKey = keyof Omit<Student, 'id'>;
+
+export interface AdmissionFormConfig {
+  enabledFields: AdmissionFieldKey[];
+}
+
+export const buildDefaultAdmissionFormConfig = (portalLevel: PortalLevel): AdmissionFormConfig => {
+  const defaults: Record<PortalLevel, AdmissionFieldKey[]> = {
+    Primary: ['admissionNumber', 'regNo', 'surname', 'firstName', 'middleName', 'gender', 'dateOfBirth', 'placeOfBirth', 'nationality', 'stateOfOrigin', 'lga', 'tribeEthnicity', 'religion', 'passportUrl', 'residentialAddress', 'townCity', 'state', 'postalAddress', 'fatherName', 'fatherOccupation', 'fatherEmployer', 'fatherPhone', 'fatherEmail', 'fatherAddress', 'motherName', 'motherOccupation', 'motherEmployer', 'motherPhone', 'motherEmail', 'guardianName', 'guardianRelationship', 'guardianPhone', 'guardianAddress', 'bloodGroup', 'genotype', 'allergies', 'medicalConditions', 'disability', 'hospitalDoctor', 'emergencyContact', 'previousSchoolName', 'previousSchoolAddress', 'lastClassAttended', 'reasonForLeaving', 'classApplyingFor', 'classDepartment', 'academicSession', 'dateOfAdmission', 'admissionStatus', 'birthCertificate', 'passportDocument', 'immunizationCard', 'previousSchoolResult', 'parentIdDocument', 'status'],
+    Secondary: ['admissionNumber', 'regNo', 'surname', 'firstName', 'middleName', 'gender', 'dateOfBirth', 'placeOfBirth', 'nationality', 'stateOfOrigin', 'lga', 'tribeEthnicity', 'religion', 'passportUrl', 'residentialAddress', 'townCity', 'state', 'postalAddress', 'fatherName', 'fatherOccupation', 'fatherEmployer', 'fatherPhone', 'fatherEmail', 'fatherAddress', 'motherName', 'motherOccupation', 'motherEmployer', 'motherPhone', 'motherEmail', 'guardianName', 'guardianRelationship', 'guardianPhone', 'guardianAddress', 'bloodGroup', 'genotype', 'allergies', 'medicalConditions', 'disability', 'hospitalDoctor', 'emergencyContact', 'entranceExamScore', 'commonEntranceResult', 'previousSchoolResult', 'lastClassAttended', 'subjectsOffered', 'preferredSport', 'clubSociety', 'specialTalent', 'accommodationType', 'hostelPreference', 'classApplyingFor', 'classDepartment', 'academicSession', 'dateOfAdmission', 'admissionStatus', 'transferLetter', 'testimonial', 'birthCertificate', 'passportDocument', 'stateOfOriginCertificate', 'status'],
+    College: ['admissionNumber', 'regNo', 'jambRegistrationNumber', 'jambScore', 'surname', 'firstName', 'middleName', 'gender', 'dateOfBirth', 'maritalStatus', 'nationality', 'state', 'lga', 'passportUrl', 'oLevelResults', 'oLevelSitting', 'oLevelSubjectsGrades', 'institutionChoice', 'department', 'programme', 'level', 'entryMode', 'screeningScore', 'phone', 'email', 'residentialAddress', 'parentName', 'sponsorOccupation', 'guardianPhone', 'guardianAddress', 'bloodGroup', 'genotype', 'disability', 'medicalConditions', 'birthCertificate', 'localGovernmentCertificate', 'acceptanceLetter', 'admissionLetter', 'classDepartment', 'academicSession', 'dateOfAdmission', 'admissionStatus', 'status'],
+    University: ['admissionNumber', 'regNo', 'matricNumber', 'jambRegistrationNumber', 'jambScore', 'surname', 'firstName', 'middleName', 'gender', 'dateOfBirth', 'maritalStatus', 'nationality', 'state', 'lga', 'passportUrl', 'faculty', 'department', 'programme', 'degreeType', 'entryMode', 'admissionType', 'session', 'semester', 'level', 'oLevelExaminationBody', 'oLevelExamNumber', 'oLevelYear', 'oLevelResults', 'oLevelSubjectsGrades', 'aLevelQualifications', 'aLevelResults', 'cgpa', 'phone', 'email', 'residentialAddress', 'fatherName', 'motherName', 'sponsorName', 'sponsorOccupation', 'sponsorEmployer', 'sponsorPhone', 'sponsorEmail', 'bloodGroup', 'genotype', 'disability', 'medicalHistory', 'bankName', 'accountNumber', 'sponsor', 'jambAdmissionLetter', 'admissionLetter', 'birthCertificate', 'localGovernmentCertificate', 'passportDocument', 'medicalReport', 'acceptanceLetter', 'guarantorForm', 'classDepartment', 'academicSession', 'termSemester', 'dateOfAdmission', 'admissionStatus', 'status'],
+  };
+
+  return { enabledFields: defaults[portalLevel] ?? defaults.Secondary };
+};
+
 export interface Student {
   id: string;
   name: string;
@@ -141,6 +158,13 @@ export interface Student {
   facialRecognitionId?: string;
   digitalSignatureUrl?: string;
 
+  // Banking / Advanced Identity
+  bankName?: string;
+  accountNumber?: string;
+  qrCode?: string;
+  barcode?: string;
+  rfidTag?: string;
+
   // Documents
   birthCertificate?: string;
   immunizationCard?: string;
@@ -236,6 +260,7 @@ export interface School {
   status: 'Active' | 'Suspended';
   subscriptionPlan: 'Basic' | 'Standard' | 'Professional' | 'Enterprise';
   expiryDate: string;
+  admissionFormConfig?: AdmissionFormConfig;
 }
 
 export type PortalPrivilegeKey =
@@ -604,6 +629,7 @@ export const useDataStore = create<DataState>()(
           status: 'Active',
           subscriptionPlan: 'Professional',
           expiryDate: '2025-12-31',
+          admissionFormConfig: buildDefaultAdmissionFormConfig('Secondary'),
         },
         {
           id: '2',
@@ -626,6 +652,7 @@ export const useDataStore = create<DataState>()(
           status: 'Active',
           subscriptionPlan: 'Standard',
           expiryDate: '2025-06-30',
+          admissionFormConfig: buildDefaultAdmissionFormConfig('Primary'),
         },
         {
           id: '3',
@@ -648,6 +675,7 @@ export const useDataStore = create<DataState>()(
           status: 'Active',
           subscriptionPlan: 'Enterprise',
           expiryDate: '2026-08-31',
+          admissionFormConfig: buildDefaultAdmissionFormConfig('University'),
         },
       ],
       delegatedAccess: [
