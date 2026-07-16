@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Search, Filter, Plus, Building2, Edit, Trash2, X, Shield, Calendar } from 'lucide-react';
+import { Search, Filter, Plus, Building2, Edit, Trash2, X, Shield, Calendar, Settings2, CheckCircle2, RefreshCw } from 'lucide-react';
 import { cn } from '@/utils';
-import { SchoolIntegrations, useDataStore, School } from '@/store/useDataStore';
+import { SchoolIntegrations, useDataStore, School, AdmissionFieldKey, buildDefaultAdmissionFormConfig } from '@/store/useDataStore';
 import { useToastStore } from '@/store/useToastStore';
 import { readFileAsDataUrl } from '@/utils/fileHelpers';
+import { getAdmissionBuilderSections } from '@/utils/admissionBuilder';
 
 const createDefaultIntegrations = (): SchoolIntegrations => ({
   paymentGateway: {
@@ -59,6 +60,7 @@ export default function SchoolsManagement() {
     hodSignatureUrl: '',
     principalSignatureUrl: '',
     integrations: createDefaultIntegrations(),
+    admissionFormConfig: buildDefaultAdmissionFormConfig('Secondary'),
     status: 'Active' as 'Active' | 'Suspended',
     subscriptionPlan: 'Standard' as 'Basic' | 'Standard' | 'Professional' | 'Enterprise',
     expiryDate: new Date().toISOString().split('T')[0]
@@ -89,6 +91,7 @@ export default function SchoolsManagement() {
         hodSignatureUrl: school.hodSignatureUrl ?? '',
         principalSignatureUrl: school.principalSignatureUrl ?? '',
         integrations: school.integrations ?? createDefaultIntegrations(),
+        admissionFormConfig: school.admissionFormConfig ?? buildDefaultAdmissionFormConfig(school.portalLevel),
         status: school.status,
         subscriptionPlan: school.subscriptionPlan,
         expiryDate: school.expiryDate
@@ -111,6 +114,7 @@ export default function SchoolsManagement() {
         hodSignatureUrl: '',
         principalSignatureUrl: '',
         integrations: createDefaultIntegrations(),
+        admissionFormConfig: buildDefaultAdmissionFormConfig('Secondary'),
         status: 'Active',
         subscriptionPlan: 'Standard',
         expiryDate: new Date().toISOString().split('T')[0]
@@ -139,6 +143,53 @@ export default function SchoolsManagement() {
     }));
   };
 
+
+
+const admissionBuilderSections = getAdmissionBuilderSections(formData.portalLevel);
+const enabledAdmissionFields = formData.admissionFormConfig?.enabledFields ?? [];
+
+const handlePortalLevelChange = (portalLevel: School['portalLevel']) => {
+  setFormData((current) => ({
+    ...current,
+    portalLevel,
+    admissionFormConfig: buildDefaultAdmissionFormConfig(portalLevel),
+  }));
+
+  showToast({
+    title: 'Admission builder reset',
+    description: `Recommended ${portalLevel.toLowerCase()} admission fields have been loaded.`,
+    variant: 'info',
+  });
+};
+
+const toggleAdmissionField = (fieldKey: AdmissionFieldKey) => {
+  setFormData((current) => {
+    const enabledFields = current.admissionFormConfig?.enabledFields ?? [];
+    const nextEnabledFields = enabledFields.includes(fieldKey)
+      ? enabledFields.filter((field) => field !== fieldKey)
+      : [...enabledFields, fieldKey];
+
+    return {
+      ...current,
+      admissionFormConfig: {
+        enabledFields: nextEnabledFields,
+      },
+    };
+  });
+};
+
+const resetAdmissionBuilder = () => {
+  setFormData((current) => ({
+    ...current,
+    admissionFormConfig: buildDefaultAdmissionFormConfig(current.portalLevel),
+  }));
+
+  showToast({
+    title: 'Admission builder restored',
+    description: 'Recommended fields for this school level have been restored.',
+    variant: 'success',
+  });
+};
   const handleAssetSelected = async (
     field: 'logoUrl' | 'teacherSignatureUrl' | 'hodSignatureUrl' | 'principalSignatureUrl',
     file?: File
@@ -406,7 +457,7 @@ export default function SchoolsManagement() {
                   <label className="text-xs font-bold text-slate-500 uppercase">Portal Level</label>
                   <select
                     value={formData.portalLevel}
-                    onChange={(e) => setFormData({...formData, portalLevel: e.target.value as School['portalLevel']})}
+                    onChange={(e) => handlePortalLevelChange(e.target.value as School['portalLevel'])}
                     className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500 dark:text-white"
                   >
                     <option value="Primary">Primary</option>
@@ -449,7 +500,77 @@ export default function SchoolsManagement() {
                     <option value="Suspended">Suspended</option>
                   </select>
                 </div>
-                <div className="col-span-2 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 space-y-4 bg-slate-50/60 dark:bg-slate-800/40">
+                
+<div className="col-span-2 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 space-y-4 bg-slate-50/60 dark:bg-slate-800/40">
+  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+    <div>
+      <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+        <Settings2 className="w-4 h-4 text-blue-600" />
+        Admission Form Builder
+      </h3>
+      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+        Choose which student registration fields should appear for this school during deployment.
+      </p>
+    </div>
+    <div className="flex items-center gap-2">
+      <span className="px-3 py-1 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 text-[10px] font-bold uppercase tracking-wider">
+        {enabledAdmissionFields.length} fields enabled
+      </span>
+      <button
+        type="button"
+        onClick={resetAdmissionBuilder}
+        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+      >
+        <RefreshCw className="w-3.5 h-3.5" />
+        Reset Recommended
+      </button>
+    </div>
+  </div>
+
+  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+    {admissionBuilderSections.map((section) => (
+      <div key={section.title} className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-3">
+        <div>
+          <h4 className="text-sm font-bold text-slate-900 dark:text-white">{section.title}</h4>
+          {section.description ? (
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{section.description}</p>
+          ) : null}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          {section.fields.map((field) => {
+            const checked = enabledAdmissionFields.includes(field.key);
+            return (
+              <label
+                key={field.key}
+                className={cn(
+                  'flex items-start gap-3 rounded-xl border px-3 py-2 cursor-pointer transition-colors',
+                  checked
+                    ? 'border-blue-200 bg-blue-50/70 dark:border-blue-800 dark:bg-blue-900/20'
+                    : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                )}
+              >
+                <input
+                  type="checkbox"
+                  className="mt-1 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  checked={checked}
+                  onChange={() => toggleAdmissionField(field.key)}
+                />
+                <div>
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{field.label}</p>
+                  {field.description ? (
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{field.description}</p>
+                  ) : null}
+                </div>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+    ))}
+  </div>
+</div>
+
+<div className="col-span-2 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 space-y-4 bg-slate-50/60 dark:bg-slate-800/40">
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">School Service Integrations</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 p-4 space-y-3">
