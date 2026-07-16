@@ -409,6 +409,56 @@ export interface AttendanceRecord {
   markedBy: string;
 }
 
+export interface StudentMutationResult {
+  success: boolean;
+  error?: string;
+  student?: Student;
+}
+
+const normalizeStudentIdentityValue = (value?: string) => value?.trim().toLowerCase() ?? '';
+
+const getDuplicateStudentError = (
+  students: Student[],
+  candidate: Partial<Student>,
+  excludedId?: string,
+): string | undefined => {
+  const comparableStudentId = normalizeStudentIdentityValue(candidate.studentId);
+  const comparableRegNo = normalizeStudentIdentityValue(candidate.regNo);
+  const comparableAdmissionNumber = normalizeStudentIdentityValue(candidate.admissionNumber);
+  const comparableEmail = normalizeStudentIdentityValue(candidate.email);
+
+  const duplicate = students.find((student) => {
+    if (student.id === excludedId) return false;
+
+    return (
+      (comparableStudentId && normalizeStudentIdentityValue(student.studentId) === comparableStudentId) ||
+      (comparableRegNo && normalizeStudentIdentityValue(student.regNo) === comparableRegNo) ||
+      (comparableAdmissionNumber && normalizeStudentIdentityValue(student.admissionNumber) === comparableAdmissionNumber) ||
+      (comparableEmail && normalizeStudentIdentityValue(student.email) === comparableEmail)
+    );
+  });
+
+  if (!duplicate) return undefined;
+
+  if (comparableStudentId && normalizeStudentIdentityValue(duplicate.studentId) === comparableStudentId) {
+    return `Student ID already exists for ${duplicate.name}.`;
+  }
+
+  if (comparableRegNo && normalizeStudentIdentityValue(duplicate.regNo) === comparableRegNo) {
+    return `Registration number already exists for ${duplicate.name}.`;
+  }
+
+  if (comparableAdmissionNumber && normalizeStudentIdentityValue(duplicate.admissionNumber) === comparableAdmissionNumber) {
+    return `Admission number already exists for ${duplicate.name}.`;
+  }
+
+  if (comparableEmail && normalizeStudentIdentityValue(duplicate.email) === comparableEmail) {
+    return `Email address already exists for ${duplicate.name}.`;
+  }
+
+  return 'A student with the same identity details already exists.';
+};
+
 interface DataState {
   students: Student[];
   parents: Parent[];
@@ -432,9 +482,9 @@ interface DataState {
   setHasHydrated: (value: boolean) => void;
 
   // Student Actions
-  addStudent: (student: Omit<Student, 'id'>) => void;
-  updateStudent: (id: string, student: Partial<Student>) => void;
-  deleteStudent: (id: string) => void;
+  addStudent: (student: Omit<Student, 'id'>) => StudentMutationResult;
+  updateStudent: (id: string, student: Partial<Student>) => StudentMutationResult;
+  deleteStudent: (id: string) => StudentMutationResult;
   
   // Parent Actions
   addParent: (parent: Omit<Parent, 'id'>) => void;
@@ -675,15 +725,76 @@ export const useDataStore = create<DataState>()(
         { id: 'PAY-702', staffId: '2', staffName: 'James Wilson', role: 'Administrator', category: 'Non-Academic', basic: 2800, bonus: 0, tax: 280, net: 2520, status: 'Pending', month: 'July 2026' },
       ],
 
-      addStudent: (student) => set((state) => ({ 
-        students: [...state.students, { ...student, id: Math.random().toString(36).substr(2, 9) }] 
-      })),
-      updateStudent: (id, updatedStudent) => set((state) => ({
-        students: state.students.map((s) => (s.id === id ? { ...s, ...updatedStudent } : s))
-      })),
-      deleteStudent: (id) => set((state) => ({
-        students: state.students.filter((s) => s.id !== id)
-      })),
+      addStudent: (student) => {
+        let result: StudentMutationResult = { success: false, error: 'Unable to create student record.' };
+
+        set((state) => {
+          const duplicateError = getDuplicateStudentError(state.students, student);
+          if (duplicateError) {
+            result = { success: false, error: duplicateError };
+            return {};
+          }
+
+          const createdStudent: Student = {
+            ...student,
+            id: Math.random().toString(36).substr(2, 9),
+          };
+
+          result = { success: true, student: createdStudent };
+          return {
+            students: [...state.students, createdStudent],
+          };
+        });
+
+        return result;
+      },
+      updateStudent: (id, updatedStudent) => {
+        let result: StudentMutationResult = { success: false, error: 'Unable to update student record.' };
+
+        set((state) => {
+          const existingStudent = state.students.find((student) => student.id === id);
+          if (!existingStudent) {
+            result = { success: false, error: 'Student record could not be found.' };
+            return {};
+          }
+
+          const mergedStudent: Student = {
+            ...existingStudent,
+            ...updatedStudent,
+          };
+
+          const duplicateError = getDuplicateStudentError(state.students, mergedStudent, id);
+          if (duplicateError) {
+            result = { success: false, error: duplicateError };
+            return {};
+          }
+
+          result = { success: true, student: mergedStudent };
+          return {
+            students: state.students.map((student) => (student.id === id ? mergedStudent : student)),
+          };
+        });
+
+        return result;
+      },
+      deleteStudent: (id) => {
+        let result: StudentMutationResult = { success: false, error: 'Unable to delete student record.' };
+
+        set((state) => {
+          const existingStudent = state.students.find((student) => student.id === id);
+          if (!existingStudent) {
+            result = { success: false, error: 'Student record could not be found.' };
+            return {};
+          }
+
+          result = { success: true, student: existingStudent };
+          return {
+            students: state.students.filter((student) => student.id !== id),
+          };
+        });
+
+        return result;
+      },
 
       addParent: (parent) => set((state) => ({ 
         parents: [...state.parents, { ...parent, id: Math.random().toString(36).substr(2, 9) }] 
