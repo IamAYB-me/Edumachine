@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bell, Plus, Search, Filter, Calendar, Megaphone, Trash2, Edit, X, User, Clock, FileText } from 'lucide-react';
+import { Bell, Plus, Search, Calendar, Megaphone, Trash2, Edit, X, User } from 'lucide-react';
 import { cn } from '@/utils';
 import { KPICard } from '@/components/ui/KPICard';
 
@@ -69,7 +69,7 @@ export default function AdminNoticeBoard() {
     } else {
       const newNotice: Notice = {
         ...formData as Notice,
-        id: Math.random().toString(36).substr(2, 9),
+        id: Math.random().toString(36).substring(2, 11),
         date: new Date().toISOString().split('T')[0],
       };
       setNotices([newNotice, ...notices]);
@@ -200,7 +200,7 @@ export default function AdminNoticeBoard() {
       {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-md overflow-hidden">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-md flex flex-col overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
               <h2 className="text-lg font-bold text-slate-900 dark:text-white">
                 {editingNotice ? 'Edit Notice' : 'Create New Notice'}

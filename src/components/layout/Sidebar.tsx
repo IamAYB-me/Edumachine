@@ -6,7 +6,7 @@ import {
   Settings, LogOut, Home, Key, BedDouble,
   FileText, ClipboardCheck, Award, Users2, Clock, Calendar,
   ChevronDown, ChevronRight, Briefcase, Landmark, ShieldCheck,
-  Truck, Library, Layers
+  Truck, Library, Layers, ClipboardList, UserPlus
 } from 'lucide-react';
 import { cn } from '@/utils';
 import { useAuthStore, Role } from '@/store/useAuthStore';
@@ -54,6 +54,7 @@ const roleNavLinks: Record<Role, NavItem[]> = {
       ]
     },
     { name: 'User Management', icon: Users, path: '/super-admin/users' },
+    { name: 'Registration Fields', icon: ClipboardList, path: '/super-admin/registration-fields' },
     { name: 'System Settings', icon: Settings, path: '/super-admin/settings' },
   ],
   ADMIN: [
@@ -96,6 +97,7 @@ const roleNavLinks: Record<Role, NavItem[]> = {
         { name: 'Finance Overview', path: '/admin/finance', icon: DollarSign },
       ]
     },
+    { name: 'Admissions', icon: UserPlus, path: '/admin/admissions' },
   ],
   TEACHER: [
     { name: 'Dashboard', icon: LayoutDashboard, path: '/teacher' },
@@ -112,7 +114,7 @@ const roleNavLinks: Record<Role, NavItem[]> = {
       icon: FileText, 
       subItems: [
         { name: 'Assignments', path: '/teacher/assignments', icon: FileText },
-        { name: 'CBT & Exams', path: '/teacher/exams', icon: ClipboardCheck },
+        { name: 'Assessments & Scores', path: '/teacher/exams', icon: ClipboardCheck },
         { name: 'Exam Results', path: '/admin/results', icon: Award },
       ]
     },
@@ -230,9 +232,11 @@ const roleColors: Record<Role, string> = {
 
 interface SidebarProps {
   role: Role;
+  open: boolean;
+  onClose: () => void;
 }
 
-export default function Sidebar({ role }: SidebarProps) {
+export default function Sidebar({ role, open, onClose }: SidebarProps) {
   const location = useLocation();
   const logout = useAuthStore(state => state.logout);
   const user = useAuthStore(state => state.user);
@@ -384,13 +388,21 @@ export default function Sidebar({ role }: SidebarProps) {
   };
 
   return (
-    <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col h-screen sticky top-0 transition-colors border-r border-slate-800/50 shadow-2xl z-20">
+    <aside className={cn(
+      "w-64 bg-slate-900 text-slate-300 flex flex-col h-screen transition-colors border-r border-slate-800/50 shadow-2xl z-40",
+      "fixed inset-y-0 left-0 lg:sticky lg:top-0",
+      open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+    )}>
       {/* Logo Area */}
       <div className="h-16 flex items-center px-6 bg-slate-950/50 border-b border-slate-800">
         <Link to="/" className="flex items-center gap-2 group">
-          <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shadow-lg transition-transform group-hover:scale-110", activeColorClass.split(' ')[0])}>
-            <GraduationCap className="w-5 h-5 text-white" />
-          </div>
+          {globalSettings?.logoUrl ? (
+            <img src={globalSettings.logoUrl} alt="Logo" className="w-8 h-8 rounded-lg object-contain shadow-lg transition-transform group-hover:scale-110" />
+          ) : (
+            <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shadow-lg transition-transform group-hover:scale-110", activeColorClass.split(' ')[0])}>
+              <GraduationCap className="w-5 h-5 text-white" />
+            </div>
+          )}
           <span className="font-bold text-white text-lg tracking-tight truncate max-w-[140px]">
             {globalSettings?.appName?.split(' ')[0] || 'EduPlatform'}
           </span>
@@ -414,6 +426,7 @@ export default function Sidebar({ role }: SidebarProps) {
               <NavLink
                 key={link.name}
                 to={link.path!}
+                onClick={onClose}
                 className={({ isActive }) => cn(
                   "group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 ease-out",
                   isActive 
@@ -477,6 +490,7 @@ export default function Sidebar({ role }: SidebarProps) {
                     <NavLink
                       key={sub.name}
                       to={sub.path}
+                      onClick={onClose}
                       className={({ isActive }) => cn(
                         "flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all",
                         isActive 

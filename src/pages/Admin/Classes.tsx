@@ -6,6 +6,7 @@ import { KPICard } from '@/components/ui/KPICard';
 
 export default function ClassesManagement() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const { classes, addClass, updateClass, deleteClass, teachers, students, feeRecords } = useDataStore();
   
   const stats = {
@@ -142,18 +143,20 @@ export default function ClassesManagement() {
           </div>
           <div className="flex items-center gap-2">
             <div className="flex bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-1">
-              <button className="p-1.5 rounded-md bg-slate-100 dark:bg-slate-700 text-blue-600">
+              <button onClick={() => setViewMode('grid')} className={cn("p-1.5 rounded-md", viewMode === 'grid' ? "bg-slate-100 dark:bg-slate-700 text-blue-600" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300")}>
                 <LayoutGrid className="w-4 h-4" />
               </button>
-              <button className="p-1.5 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+              <button onClick={() => setViewMode('list')} className={cn("p-1.5 rounded-md", viewMode === 'list' ? "bg-slate-100 dark:bg-slate-700 text-blue-600" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300")}>
                 <List className="w-4 h-4" />
               </button>
             </div>
           </div>
         </div>
 
-        {/* Grid of Classes */}
-        <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto flex-1">
+        {/* Grid / List of Classes */}
+        <div className={cn("p-6 gap-6 overflow-y-auto flex-1",
+          viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3" : "flex flex-col"
+        )}>
           {filteredClasses.map((cls) => (
             <div key={cls.id} className="bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 hover:shadow-xl hover:border-blue-200 dark:hover:border-blue-900/50 transition-all group relative">
               <div className="flex justify-between items-start mb-4">
@@ -217,7 +220,7 @@ export default function ClassesManagement() {
       {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-md flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
               <h2 className="text-lg font-bold text-slate-900 dark:text-white">
                 {editingClass ? 'Edit Class' : 'Create New Class'}
@@ -298,7 +301,7 @@ export default function ClassesManagement() {
       {reportClass && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => setReportClass(null)}>
           <div
-            className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-2xl overflow-hidden"
+            className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
@@ -310,7 +313,7 @@ export default function ClassesManagement() {
                 <X className="w-5 h-5 text-slate-500" />
               </button>
             </div>
-            <div className="p-6 space-y-6">
+            <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/70 dark:bg-slate-800/40">
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Assigned Teacher</p>

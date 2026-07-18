@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Clock, Calendar, Plus, Save, Download, Filter, Search, MoreVertical, Trash2, Edit2, CheckCircle2 } from 'lucide-react';
+import { Clock, Calendar, Plus, Save, Download, Filter, Trash2, Edit2, CheckCircle2 } from 'lucide-react';
 import { KPICard } from '@/components/ui/KPICard';
 import { cn } from '@/utils';
+import { useToastStore } from '@/store/useToastStore';
 
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const periods = [
@@ -17,6 +18,7 @@ const periods = [
 export default function AdminTimetable() {
   const [selectedClass, setSelectedClass] = useState('Grade 10A');
   const [isEditing, setIsEditing] = useState(false);
+  const showToast = useToastStore((state) => state.showToast);
 
   return (
     <div className="space-y-6">
@@ -26,7 +28,7 @@ export default function AdminTimetable() {
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Configure and manage class schedules and subject allocations.</p>
         </div>
         <div className="flex gap-3 w-full sm:w-auto">
-          <button className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition-all">
+          <button onClick={() => showToast({ title: 'Exporting PDF', description: 'Generating timetable PDF for download.', variant: 'info' })} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition-all">
             <Download className="w-4 h-4" />
             Export PDF
           </button>
@@ -67,10 +69,10 @@ export default function AdminTimetable() {
             <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Academic Year 2025/2026</p>
           </div>
           <div className="flex gap-2">
-            <button className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
+            <button onClick={() => showToast({ title: 'Filter timetable', description: 'Filter options for timetable are being prepared.', variant: 'info' })} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
               <Filter className="w-4 h-4 text-slate-500" />
             </button>
-            <button className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
+            <button onClick={() => showToast({ title: 'Add period', description: 'Opening period editor for timetable.', variant: 'info' })} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
               <Plus className="w-4 h-4 text-blue-600" />
             </button>
           </div>
@@ -109,7 +111,7 @@ export default function AdminTimetable() {
                           <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Mathematics</p>
                           <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Dr. Emily Carter</p>
                           {isEditing && (
-                            <button className="absolute -top-1 -right-1 p-1 bg-rose-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
+                            <button onClick={() => showToast({ title: 'Remove period', description: 'Period has been removed from the timetable.', variant: 'info' })} className="absolute -top-1 -right-1 p-1 bg-rose-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
                               <Trash2 className="w-3 h-3" />
                             </button>
                           )}
@@ -134,7 +136,7 @@ export default function AdminTimetable() {
             <p className="text-blue-100 text-sm">The system automatically prevents double-booking teachers or classrooms.</p>
           </div>
         </div>
-        <button className="w-full sm:w-auto px-8 py-3 bg-white text-blue-600 font-bold rounded-2xl text-sm hover:bg-blue-50 transition-all shadow-lg active:scale-95">
+        <button onClick={() => showToast({ title: 'Conflict check', description: 'Running conflict analysis on the timetable.', variant: 'info' })} className="w-full sm:w-auto px-8 py-3 bg-white text-blue-600 font-bold rounded-2xl text-sm hover:bg-blue-50 transition-all shadow-lg active:scale-95">
           Run Conflict Check
         </button>
       </div>

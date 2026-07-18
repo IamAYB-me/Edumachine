@@ -1,18 +1,19 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Filter, Plus, CreditCard, Download, TrendingDown, Wallet, FileText, PieChart as PieChartIcon, X, Edit2, Trash2, Paperclip } from 'lucide-react';
+import { Search, Filter, Plus, Download, TrendingDown, Wallet, FileText, X, Edit2, Trash2, Paperclip } from 'lucide-react';
 import { cn } from '@/utils';
 import { KPICard } from '@/components/ui/KPICard';
 import { useCurrency } from '@/hooks/useCurrency';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { useDataStore, Expense } from '@/store/useDataStore';
 import { useToastStore } from '@/store/useToastStore';
-import { downloadFromUrl, readFileAsDataUrl } from '@/utils/fileHelpers';
+import { downloadFromUrl, downloadTextFile, readFileAsDataUrl } from '@/utils/fileHelpers';
 
 export default function AccountantExpenses() {
   const { format } = useCurrency();
   const { expenses, addExpense, updateExpense, deleteExpense } = useDataStore();
   const showToast = useToastStore((state) => state.showToast);
   const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<'All' | 'Maintenance' | 'Utilities' | 'Salaries' | 'Transport'>('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
@@ -73,11 +74,13 @@ export default function AccountantExpenses() {
   };
 
   const filteredExpenses = useMemo(() => {
-    return expenses.filter(exp => 
-      exp.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      exp.category.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [expenses, searchTerm]);
+    return expenses.filter(exp => {
+      const matchesSearch = exp.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        exp.category.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = categoryFilter === 'All' || exp.category === categoryFilter;
+      return matchesSearch && matchesCategory;
+    });
+  }, [expenses, searchTerm, categoryFilter]);
 
   const expenseCategoryData = useMemo(() => {
     const categories: Record<string, number> = {};
@@ -100,7 +103,15 @@ export default function AccountantExpenses() {
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Track and authorize school expenditures.</p>
         </div>
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition-all">
+          <button
+            onClick={() => {
+              const header = 'Title,Category,Amount,Status,Date,Method';
+              const rows = expenses.map(e => `${e.title},${e.category},${e.amount},${e.status},${e.date},${e.method}`);
+              downloadTextFile('expense-logs.csv', [header, ...rows].join('\n'), 'text/csv;charset=utf-8;');
+              showToast({ title: 'Logs downloaded', description: 'Expense logs exported as CSV.', variant: 'success' });
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition-all"
+          >
             <Download className="w-4 h-4" />
             Download Logs
           </button>
@@ -157,9 +168,17 @@ export default function AccountantExpenses() {
                 />
               </div>
               <div className="flex gap-2">
-                <button className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition-all">
+                <button
+                  onClick={() => {
+                    setCategoryFilter(current => {
+                      const order = ['All', 'Maintenance', 'Utilities', 'Salaries', 'Transport'] as const;
+                      return order[(order.indexOf(current) + 1) % order.length];
+                    });
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition-all"
+                >
                   <Filter className="w-4 h-4" />
-                  Category
+                  {categoryFilter}
                 </button>
               </div>
             </div>

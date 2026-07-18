@@ -18,7 +18,7 @@ export default function ExamSession() {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [timeLeft, setTimeLeft] = useState(0);
-  const [isFinished, setIsClosed] = useState(false);
+  const [isFinished, setIsFinished] = useState(false);
 
   const handlePrint = () => {
     window.print();
@@ -48,9 +48,10 @@ export default function ExamSession() {
     if (isStarted && timeLeft > 0) {
       const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
       return () => clearInterval(timer);
-    } else if (isStarted && timeLeft === 0) {
+    } else if (isStarted && timeLeft === 0 && !isFinished) {
       handleSubmit();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isStarted, timeLeft]);
 
   const startExam = (exam: Exam) => {
@@ -77,6 +78,8 @@ export default function ExamSession() {
     const result: Omit<ExamResult, 'id'> = {
       examId: selectedExam.id,
       examTitle: selectedExam.title,
+      subject: selectedExam.subject,
+      type: 'Exam',
       studentId: user.id,
       studentName: user.name,
       score: score,
@@ -85,7 +88,7 @@ export default function ExamSession() {
     };
 
     addExamResult(result);
-    setIsClosed(true);
+    setIsFinished(true);
   };
 
   const formatTime = (seconds: number) => {

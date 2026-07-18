@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Search, FileText, Calendar, Users, CheckCircle, Clock, Filter, GraduationCap, Award, MoreVertical, Edit, Trash2 } from 'lucide-react';
+import { Plus, Search, FileText, Calendar, Users, Clock, Filter, Award, MoreVertical, Edit, Trash2, X } from 'lucide-react';
 import { cn } from '@/utils';
 import { KPICard } from '@/components/ui/KPICard';
 import { useToastStore } from '@/store/useToastStore';
@@ -13,6 +13,7 @@ const mockAssignments = [
 
 export default function TeacherAssignments() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const showToast = useToastStore((state) => state.showToast);
   const [assignments, setAssignments] = useState(mockAssignments);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -114,11 +115,16 @@ export default function TeacherAssignments() {
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
           <div className="w-full max-w-2xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
-            <div className="border-b border-slate-100 bg-slate-50/50 px-8 py-6 dark:border-slate-800 dark:bg-slate-800/50">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                {editingAssignmentId ? 'Edit Assignment' : 'Create Assignment'}
-              </h2>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Set the class, subject, deadline, and priority for the assignment.</p>
+            <div className="border-b border-slate-100 bg-slate-50/50 px-8 py-6 dark:border-slate-800 dark:bg-slate-800/50 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                  {editingAssignmentId ? 'Edit Assignment' : 'Create Assignment'}
+                </h2>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Set the class, subject, deadline, and priority for the assignment.</p>
+              </div>
+              <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-500">
+                <X className="w-5 h-5" />
+              </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4 p-8">
               <div className="space-y-1">
@@ -341,7 +347,15 @@ export default function TeacherAssignments() {
                     <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                        <button onClick={() => handleOpenModal(asg)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"><Edit className="w-4 h-4" /></button>
                        <button onClick={() => handleDelete(asg.id, asg.title)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg"><Trash2 className="w-4 h-4" /></button>
-                       <button onClick={() => showToast({ title: 'Assignment actions', description: `${asg.title} is selected for review.`, variant: 'info' })} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg"><MoreVertical className="w-4 h-4" /></button>
+                       <div className="relative">
+                         <button onClick={() => setOpenMenuId(openMenuId === asg.id ? null : asg.id)} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg"><MoreVertical className="w-4 h-4" /></button>
+                         {openMenuId === asg.id && (
+                           <div className="absolute right-0 top-full mt-1 z-20 w-40 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-1">
+                             <button onClick={() => { setOpenMenuId(null); showToast({ title: 'View Details', description: `Opening details for ${asg.title}.`, variant: 'info' }); }} className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">View Details</button>
+                             <button onClick={() => { setOpenMenuId(null); setAssignments(current => current.map(a => a.id === asg.id ? { ...a, status: 'Completed' } : a)); showToast({ title: 'Assignment closed', description: `${asg.title} has been marked as completed.`, variant: 'success' }); }} className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">Close</button>
+                           </div>
+                         )}
+                       </div>
                     </div>
                   </td>
                 </tr>

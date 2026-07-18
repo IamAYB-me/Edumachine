@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useDataStore, ExamResult, Student } from '@/store/useDataStore';
+import { useDataStore, ExamResult } from '@/store/useDataStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { Search, Download, Printer, Filter, Award, TrendingUp, User, CheckCircle, BarChart2, Clock, Mail, Phone, MapPin } from 'lucide-react';
 import { cn } from '@/utils';
@@ -13,30 +13,41 @@ export default function ResultSheet() {
   const { user } = useAuthStore();
   const showToast = useToastStore((state) => state.showToast);
   const [selectedClass, setSelectedClass] = useState<string>('all');
+  const [selectedSubject, setSelectedSubject] = useState<string>('all');
+  const [selectedType, setSelectedType] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
   const isStudent = user?.role === 'STUDENT';
+  const isTeacher = user?.role === 'TEACHER';
   const schoolProfile = resolveSchoolProfile(user ?? null, schools);
   const labels = getPortalLevelLabels(schoolProfile.portalLevel);
   
-  // If student, only show their own results
-  const studentResults = isStudent 
+  // If student, only show their own results; if teacher, only show their recorded results
+  const roleResults = isStudent
     ? examResults.filter(r => r.studentId === user?.id || r.studentName === user?.name)
+    : isTeacher
+    ? examResults.filter(r => r.recordedBy === user?.name)
     : examResults;
 
   const stats = {
-    totalResults: studentResults.length,
-    avgPercentage: Math.round(studentResults.reduce((acc, r) => acc + (r.score / r.totalMarks * 100), 0) / (studentResults.length || 1)),
-    passed: studentResults.filter(r => (r.score / r.totalMarks) >= 0.5).length,
-    distinctions: studentResults.filter(r => (r.score / r.totalMarks) >= 0.8).length
+    totalResults: roleResults.length,
+    avgPercentage: Math.round(roleResults.reduce((acc, r) => acc + (r.score / r.totalMarks * 100), 0) / (roleResults.length || 1)),
+    passed: roleResults.filter(r => (r.score / r.totalMarks) >= 0.5).length,
+    distinctions: roleResults.filter(r => (r.score / r.totalMarks) >= 0.8).length
   };
 
-  const filteredResults = studentResults.filter(result => {
+  const uniqueSubjects = [...new Set(roleResults.map(r => r.subject).filter(Boolean))];
+  const uniqueTypes = [...new Set(roleResults.map(r => r.type).filter(Boolean))];
+
+  const filteredResults = roleResults.filter(result => {
     const student = students.find(s => s.id === result.studentId);
     const matchesSearch = result.studentName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         result.examTitle.toLowerCase().includes(searchTerm.toLowerCase());
+                         result.examTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         result.subject?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesClass = selectedClass === 'all' || student?.class === classes.find(c => c.id === selectedClass)?.name;
-    return matchesSearch && matchesClass;
+    const matchesSubject = selectedSubject === 'all' || result.subject === selectedSubject;
+    const matchesType = selectedType === 'all' || result.type === selectedType;
+    return matchesSearch && matchesClass && matchesSubject && matchesType;
   });
 
   const getGrade = (score: number, total: number) => {
@@ -66,14 +77,16 @@ export default function ResultSheet() {
 
   const handleExportCsv = () => {
     const csvRows = [
-      ['Student Name', 'Student ID', 'Exam', 'Score', 'Total Marks', 'Percentage', 'Grade', 'Date'],
+      ['Student Name', 'Reg No', 'Exam', 'Subject', 'Type', 'Score', 'Total Marks', 'Percentage', 'Grade', 'Date'],
       ...filteredResults.map((result) => {
         const percentage = Math.round((result.score / result.totalMarks) * 100);
         const grade = getGrade(result.score, result.totalMarks).label;
         return [
           result.studentName,
-          result.studentId,
+          result.regNo || result.studentId,
           result.examTitle,
+          result.subject || '',
+          result.type || '',
           String(result.score),
           String(result.totalMarks),
           `${percentage}%`,
@@ -219,16 +232,36 @@ export default function ResultSheet() {
             />
           </div>
           {!isStudent && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Filter className="w-4 h-4 text-slate-400" />
               <select 
                 value={selectedClass}
                 onChange={(e) => setSelectedClass(e.target.value)}
-                className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 focus:outline-none"
               >
                 <option value="all">All {labels.structurePlural}</option>
                 {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
+              {uniqueSubjects.length > 0 && (
+                <select 
+                  value={selectedSubject}
+                  onChange={(e) => setSelectedSubject(e.target.value)}
+                  className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 focus:outline-none"
+                >
+                  <option value="all">All {labels.subjectPlural}</option>
+                  {uniqueSubjects.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              )}
+              {uniqueTypes.length > 0 && (
+                <select 
+                  value={selectedType}
+                  onChange={(e) => setSelectedType(e.target.value)}
+                  className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 focus:outline-none"
+                >
+                  <option value="all">All Types</option>
+                  {uniqueTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              )}
             </div>
           )}
         </div>
@@ -240,8 +273,9 @@ export default function ResultSheet() {
               <tr className="border-b border-slate-200 dark:border-slate-700 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest bg-slate-50/50 dark:bg-slate-800/30">
                 <th className="py-4 px-6">{labels.learnerSingular} Information</th>
                 <th className="py-4 px-6">{labels.assessmentLabel.replace('Assessments', 'Assessment')}</th>
+                <th className="py-4 px-6">{labels.subjectSingular}</th>
+                <th className="py-4 px-6">Type</th>
                 <th className="py-4 px-6 text-center">Score</th>
-                <th className="py-4 px-6 text-center">Rank</th>
                 <th className="py-4 px-6 text-center">Performance</th>
                 <th className="py-4 px-6 text-center">Grade</th>
                 <th className="py-4 px-6">Exam Date</th>
@@ -262,27 +296,27 @@ export default function ResultSheet() {
                         </div>
                         <div>
                           <p className="font-bold text-slate-900 dark:text-white text-sm tracking-tight">{result.studentName}</p>
-                          <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono font-bold uppercase">{result.studentId}</p>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono font-bold uppercase">{result.regNo || result.studentId}</p>
                         </div>
                       </div>
                     </td>
                     <td className="py-4 px-6">
                       <p className="font-bold text-slate-700 dark:text-slate-300 text-sm tracking-tight">{result.examTitle}</p>
                     </td>
+                    <td className="py-4 px-6">
+                      <span className="text-xs font-bold text-slate-600 dark:text-slate-400">{result.subject || '—'}</span>
+                    </td>
+                    <td className="py-4 px-6">
+                      <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-bold uppercase",
+                        result.type === 'Exam' ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" :
+                        result.type === 'Test' ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" :
+                        result.type === 'Quiz' ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" :
+                        "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+                      )}>{result.type || '—'}</span>
+                    </td>
                     <td className="py-4 px-6 text-center">
                       <span className="font-bold text-slate-900 dark:text-white">{result.score}</span>
                       <span className="text-slate-400 text-xs ml-1">/ {result.totalMarks}</span>
-                    </td>
-                    <td className="py-4 px-6 text-center">
-                      <span className={cn(
-                        "font-bold px-2 py-1 rounded text-xs",
-                        position === '1st' ? "bg-amber-100 text-amber-700 border border-amber-200" : 
-                        position === '2nd' ? "bg-slate-100 text-slate-700 border border-slate-200" :
-                        position === '3rd' ? "bg-orange-50 text-orange-700 border border-orange-100" :
-                        "text-slate-600 dark:text-slate-400"
-                      )}>
-                        {position}
-                      </span>
                     </td>
                     <td className="py-4 px-6">
                       <div className="flex items-center justify-center gap-3">

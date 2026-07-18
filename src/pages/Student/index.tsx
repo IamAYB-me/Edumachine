@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, Award, UserCheck, Bell, Download, Calendar, CheckCircle, DollarSign, ShieldCheck, Search, RotateCcw, BellRing } from 'lucide-react';
+import { BookOpen, Award, UserCheck, Bell, Download, Calendar, DollarSign, ShieldCheck, Search, RotateCcw, BellRing } from 'lucide-react';
 import { KPICard } from '@/components/ui/KPICard';
 import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '@/utils';
@@ -48,18 +48,14 @@ export default function StudentDashboard() {
       return;
     }
 
-    showToast({
-      title: 'Reminder center ready',
-      description: 'Reminder support is available for upcoming books, classes, and deadlines.',
-      variant: 'info',
-    });
+    navigate('/student/attendance');
   };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Welcome back, John Doe 👋</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Welcome back, {user?.name || 'Student'} 👋</h1>
           <p className="text-slate-500 text-sm mt-1">Here's what's happening in your academic journey.</p>
         </div>
         
@@ -191,14 +187,23 @@ export default function StudentDashboard() {
                 { name: 'Course Material', icon: BookOpen, bg: 'bg-indigo-50', color: 'text-indigo-600', path: '/student/courses' },
                 { name: 'Pay Fees', icon: DollarSign, bg: 'bg-emerald-50', color: 'text-emerald-600', path: '/student/fees' },
                 { name: 'Library', icon: BookOpen, bg: 'bg-purple-50', color: 'text-purple-600', path: '/librarian' },
-                { name: labels.hallPassLabel, icon: Download, bg: 'bg-amber-50', color: 'text-amber-600', path: '/student' },
+                { name: labels.hallPassLabel, icon: Download, bg: 'bg-amber-50', color: 'text-amber-600', action: 'hallpass' as const },
               ].map((link, i) => (
-                <Link key={i} to={link.path} className="flex flex-col items-center text-center gap-2 group">
-                  <div className={cn("p-3 rounded-xl transition-transform group-hover:-translate-y-1", link.bg, link.color)}>
-                    <link.icon className="w-5 h-5" />
-                  </div>
-                  <span className="text-[10px] font-medium text-slate-600 leading-tight">{link.name}</span>
-                </Link>
+                link.path ? (
+                  <Link key={i} to={link.path} className="flex flex-col items-center text-center gap-2 group">
+                    <div className={cn("p-3 rounded-xl transition-transform group-hover:-translate-y-1", link.bg, link.color)}>
+                      <link.icon className="w-5 h-5" />
+                    </div>
+                    <span className="text-[10px] font-medium text-slate-600 leading-tight">{link.name}</span>
+                  </Link>
+                ) : (
+                  <button key={i} onClick={() => { showToast({ title: 'Hall Pass', description: 'Hall pass download is being prepared...', variant: 'info' }); }} className="flex flex-col items-center text-center gap-2 group">
+                    <div className={cn("p-3 rounded-xl transition-transform group-hover:-translate-y-1", link.bg, link.color)}>
+                      <link.icon className="w-5 h-5" />
+                    </div>
+                    <span className="text-[10px] font-medium text-slate-600 leading-tight">{link.name}</span>
+                  </button>
+                )
               ))}
             </div>
           </div>
@@ -275,7 +280,7 @@ export default function StudentDashboard() {
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
            <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-semibold text-slate-900">{labels.resultsLabel}</h3>
-            <button className="text-sm text-blue-600 font-medium hover:text-blue-700">View All</button>
+            <button onClick={() => navigate('/student/exams')} className="text-sm text-blue-600 font-medium hover:text-blue-700">View All</button>
           </div>
           <div className="space-y-3">
              <div className="flex justify-between items-center pb-3 border-b border-slate-100">

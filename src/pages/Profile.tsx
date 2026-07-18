@@ -3,15 +3,19 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { Mail, Phone, MapPin, Shield, Camera, Save, X, Lock, CheckCircle2, Users, CreditCard } from 'lucide-react';
 import { cn } from '@/utils';
 import { useDataStore } from '@/store/useDataStore';
+import { useToastStore } from '@/store/useToastStore';
 import { resolveSchoolProfile } from '@/utils/schoolProfile';
 import { PrintableIdCardModal } from '@/components/ui/PrintableIdCardModal';
 
 export default function Profile() {
   const { user, updateProfile } = useAuthStore();
   const { schools } = useDataStore();
+  const showToast = useToastStore((s) => s.showToast);
   const [isEditing, setIsEditing] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showIdCard, setShowIdCard] = useState(false);
+  const [passwordFields, setPasswordFields] = useState({ current: '', newPass: '', confirm: '' });
+  const [passwordError, setPasswordError] = useState('');
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -23,8 +27,8 @@ export default function Profile() {
 
   const schoolProfile = resolveSchoolProfile(user, schools);
 
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = (e?: React.FormEvent | React.MouseEvent) => {
+    e?.preventDefault?.();
     updateProfile(formData);
     setIsEditing(false);
   };
@@ -44,7 +48,7 @@ export default function Profile() {
           <div className="relative -mt-12 flex items-end justify-between mb-6">
             <div className="relative group">
               <img 
-                src={user.avatarUrl || `https://ui-avatars.com/api/?name=${user.name.replace(' ', '+')}&size=256&background=2563eb&color=fff&bold=true`} 
+                src={user.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&size=256&background=2563eb&color=fff&bold=true`} 
                 alt={user.name} 
                 className="w-28 h-28 rounded-2xl border-4 border-white dark:border-slate-900 shadow-xl object-cover transition-transform duration-500 group-hover:scale-105"
               />
@@ -63,6 +67,7 @@ export default function Profile() {
                   Cancel
                 </button>
                 <button 
+                  type="button"
                   onClick={handleSave}
                   className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-xl text-sm font-bold transition-all shadow-lg shadow-blue-900/20"
                 >
@@ -109,7 +114,7 @@ export default function Profile() {
               Personal Information
             </h3>
             
-            <form onSubmit={handleSave} className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Full Name</label>
                 {isEditing ? (
@@ -177,7 +182,7 @@ export default function Profile() {
                   </div>
                 )}
               </div>
-            </form>
+            </div>
           </div>
         </div>
 
@@ -245,27 +250,47 @@ export default function Profile() {
               </button>
             </div>
             <div className="p-8 space-y-4">
+              {passwordError && (
+                <p className="text-sm text-red-500 bg-red-50 dark:bg-red-900/20 px-4 py-2 rounded-xl">{passwordError}</p>
+              )}
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Current Password</label>
-                <input type="password" placeholder="••••••••" className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:border-blue-500 dark:text-white" />
+                <input type="password" placeholder="••••••••" value={passwordFields.current} onChange={(e) => setPasswordFields({ ...passwordFields, current: e.target.value })} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:border-blue-500 dark:text-white" />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">New Password</label>
-                <input type="password" placeholder="••••••••" className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:border-blue-500 dark:text-white" />
+                <input type="password" placeholder="••••••••" value={passwordFields.newPass} onChange={(e) => setPasswordFields({ ...passwordFields, newPass: e.target.value })} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:border-blue-500 dark:text-white" />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Confirm New Password</label>
-                <input type="password" placeholder="••••••••" className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:border-blue-500 dark:text-white" />
+                <input type="password" placeholder="••••••••" value={passwordFields.confirm} onChange={(e) => setPasswordFields({ ...passwordFields, confirm: e.target.value })} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:border-blue-500 dark:text-white" />
               </div>
               <div className="pt-4 flex gap-3">
                 <button 
-                  onClick={() => setShowPasswordModal(false)}
+                  onClick={() => { setShowPasswordModal(false); setPasswordFields({ current: '', newPass: '', confirm: '' }); setPasswordError(''); }}
                   className="flex-1 px-6 py-3 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                 >
                   Cancel
                 </button>
                 <button 
-                  onClick={() => setShowPasswordModal(false)}
+                  onClick={() => {
+                    setPasswordError('');
+                    if (!passwordFields.current || !passwordFields.newPass || !passwordFields.confirm) {
+                      setPasswordError('All fields are required.');
+                      return;
+                    }
+                    if (passwordFields.newPass.length < 6) {
+                      setPasswordError('New password must be at least 6 characters.');
+                      return;
+                    }
+                    if (passwordFields.newPass !== passwordFields.confirm) {
+                      setPasswordError('New passwords do not match.');
+                      return;
+                    }
+                    showToast({ title: 'Password updated', description: 'Your password has been changed successfully.', variant: 'success' });
+                    setShowPasswordModal(false);
+                    setPasswordFields({ current: '', newPass: '', confirm: '' });
+                  }}
                   className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-sm font-bold shadow-lg shadow-blue-900/20 transition-all"
                 >
                   Update

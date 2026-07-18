@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
-import { Search, Filter, Plus, UserCheck, Edit, Trash2, X, Mail, Phone, Users, CheckCircle, GraduationCap, Award, CreditCard } from 'lucide-react';
+import { Search, Filter, Plus, UserCheck, Edit, Trash2, X, Users, CheckCircle, GraduationCap, Award, CreditCard } from 'lucide-react';
 import { cn } from '@/utils';
 import { useDataStore, Teacher } from '@/store/useDataStore';
 import { KPICard } from '@/components/ui/KPICard';
 import ExcelImport from '@/components/ui/ExcelImport';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { useAuthStore } from '@/store/useAuthStore';
 import { resolveSchoolProfile } from '@/utils/schoolProfile';
 import { PrintableIdCardModal } from '@/components/ui/PrintableIdCardModal';
+import { useToastStore } from '@/store/useToastStore';
 
 export default function TeachersDirectory() {
   const [searchTerm, setSearchTerm] = useState('');
   const { teachers, addTeacher, updateTeacher, deleteTeacher, schools } = useDataStore();
   const { user } = useAuthStore();
+  const showToast = useToastStore((state) => state.showToast);
 
   const stats = {
     total: teachers.length,
@@ -298,7 +300,7 @@ export default function TeachersDirectory() {
               Staff Recognition
             </h4>
             <p className="text-xs text-indigo-100 mb-4 opacity-80">Nominate staff members for the monthly excellence award.</p>
-            <button className="w-full py-2.5 bg-white text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-50 transition-colors shadow-md">
+            <button onClick={() => showToast({ title: 'Nominations', description: 'Teacher nomination list is being compiled.', variant: 'info' })} className="w-full py-2.5 bg-white text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-50 transition-colors shadow-md">
               View Nominations
             </button>
           </div>
@@ -308,7 +310,7 @@ export default function TeachersDirectory() {
       {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-md flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
               <h2 className="text-lg font-bold text-slate-900 dark:text-white">
                 {editingTeacher ? 'Edit Teacher' : 'Add New Teacher'}

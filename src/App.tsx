@@ -1,7 +1,11 @@
-import React from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import DashboardLayout from './components/layout/DashboardLayout';
-import { useAuthStore, Role } from './store/useAuthStore';
+import { useSettingsStore } from './store/useSettingsStore';
+
+import LoginPage from './pages/auth/Login';
+import RegisterPage from './pages/auth/Register';
+import VerifyEmailPage from './pages/auth/VerifyEmail';
 
 import SuperAdminDashboard from './pages/SuperAdmin';
 import SchoolsManagement from './pages/SuperAdmin/Schools';
@@ -9,6 +13,7 @@ import UsersManagement from './pages/SuperAdmin/Users';
 import SubscriptionPlans from './pages/SuperAdmin/Subscriptions';
 import PaymentsManagement from './pages/SuperAdmin/Payments';
 import GlobalSettings from './pages/SuperAdmin/Settings';
+import RegistrationFields from './pages/SuperAdmin/RegistrationFields';
 import AdminDashboard from './pages/Admin';
 import AdminFinanceDashboard from './pages/Admin/Finance';
 import StudentsDirectory from './pages/Admin/Students';
@@ -66,77 +71,31 @@ import LibraryBooks from './pages/Librarian/Books';
 import IssueReturn from './pages/Librarian/IssueReturn';
 import LibraryMembers from './pages/Librarian/Members';
 import Profile from './pages/Profile';
-
-// Placeholder components for remaining sub-pages
-const PlaceholderPage = ({ title }: { title: string }) => (
-  <div className="flex items-center justify-center h-full">
-    <div className="text-center">
-      <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">{title}</h1>
-      <p className="text-slate-500 dark:text-slate-400">This module is under development and will be active soon.</p>
-    </div>
-  </div>
-);
-
-const Login = () => {
-  const login = useAuthStore(state => state.login);
-  const navigate = useNavigate();
-
-  const handleLogin = (role: Role, path: string) => {
-    login(role);
-    navigate(path);
-  };
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 py-12 px-4">
-      <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200 max-w-md w-full">
-        <h1 className="text-2xl font-bold text-center mb-6">EduPlatform Login</h1>
-        <div className="space-y-3">
-          <button onClick={() => handleLogin('SUPER_ADMIN', '/super-admin')} className="block w-full text-center py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors">Login as Super Admin</button>
-          <button onClick={() => handleLogin('ADMIN', '/admin')} className="block w-full text-center py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">Login as Admin</button>
-          <button onClick={() => handleLogin('TEACHER', '/teacher')} className="block w-full text-center py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">Login as Teacher</button>
-          <button onClick={() => handleLogin('STUDENT', '/student')} className="block w-full text-center py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors">Login as Student</button>
-          <button onClick={() => handleLogin('PARENT', '/parent')} className="block w-full text-center py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">Login as Parent</button>
-          
-          <div className="pt-4 pb-2">
-            <div className="border-t border-slate-200"></div>
-            <p className="text-center text-xs text-slate-500 mt-3 uppercase tracking-wider font-semibold">Staff & Facilities</p>
-          </div>
-          
-          <button onClick={() => handleLogin('ACCOUNTANT', '/accountant')} className="block w-full text-center py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors">Login as Accountant</button>
-          <button onClick={() => handleLogin('HR', '/hr')} className="block w-full text-center py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors">Login as HR</button>
-          <button onClick={() => handleLogin('WARDEN', '/hostel')} className="block w-full text-center py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors">Login as Warden</button>
-          <button onClick={() => handleLogin('TRANSPORT', '/transport')} className="block w-full text-center py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors">Login as Transport Officer</button>
-          <button onClick={() => handleLogin('LIBRARIAN', '/librarian')} className="block w-full text-center py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition-colors">Login as Librarian</button>
-        </div>
-
-        <div className="mt-6 pt-4 border-t border-slate-200 text-center">
-          <button
-            type="button"
-            onClick={() => {
-              try {
-                Object.keys(window.localStorage)
-                  .filter((k) => k.startsWith('edu-'))
-                  .forEach((k) => window.localStorage.removeItem(k));
-              } catch (err) {
-                console.warn('Failed to reset portal storage', err);
-              }
-              window.location.reload();
-            }}
-            className="text-xs text-slate-500 hover:text-slate-700 underline underline-offset-2"
-          >
-            Reset portal (clear local data)
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
+import Home from './pages/Home';
+import AdmissionApply from './pages/Admission/Apply';
+import AdminAdmissions from './pages/Admin/Admissions';
 
 export default function App() {
+  const logoUrl = useSettingsStore((s) => s.globalSettings.logoUrl);
+
+  useEffect(() => {
+    if (logoUrl) {
+      document.documentElement.style.setProperty('--school-logo-url', `url(${logoUrl})`);
+    } else {
+      document.documentElement.style.setProperty('--school-logo-url', 'none');
+    }
+  }, [logoUrl]);
+
   return (
     <Routes>
-      <Route path="/" element={<Login />} />
-      
+      <Route path="/" element={<Home />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
+
+      {/* Public Admission Application */}
+      <Route path="/admissions/apply" element={<AdmissionApply />} />
+
       {/* Super Admin Routes */}
       <Route element={<DashboardLayout />}>
         <Route path="/super-admin" element={<SuperAdminDashboard />} />
@@ -145,6 +104,7 @@ export default function App() {
         <Route path="/super-admin/subscriptions" element={<SubscriptionPlans />} />
         <Route path="/super-admin/payments" element={<PaymentsManagement />} />
         <Route path="/super-admin/settings" element={<GlobalSettings />} />
+        <Route path="/super-admin/registration-fields" element={<RegistrationFields />} />
       </Route>
 
       {/* Admin Routes */}
@@ -165,6 +125,7 @@ export default function App() {
         <Route path="/admin/expenses" element={<AccountantExpenses />} />
         <Route path="/admin/payroll" element={<AccountantPayroll />} />
         <Route path="/admin/notices" element={<AdminNotices />} />
+        <Route path="/admin/admissions" element={<AdminAdmissions />} />
       </Route>
 
       {/* Teacher Routes */}

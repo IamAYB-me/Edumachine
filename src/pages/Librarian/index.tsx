@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { BookOpen, Users, UserCheck, AlertCircle, Search, Filter } from 'lucide-react';
 import { KPICard } from '@/components/ui/KPICard';
 import { useNavigate } from 'react-router-dom';
@@ -58,11 +58,7 @@ export default function LibrarianDashboard() {
       return;
     }
 
-    showToast({
-      title: 'Reminder queue ready',
-      description: 'Overdue notices can now be sent directly from the circulation records.',
-      variant: 'info',
-    });
+    navigate('/librarian/issue-return');
   };
 
   return (
@@ -78,7 +74,7 @@ export default function LibrarianDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard 
           title="Total Books" 
-          value="12,450" 
+          value={String(circulationRecords.length)} 
           icon={BookOpen} 
           iconBgClass="bg-blue-50"
           iconColorClass="text-blue-600"
@@ -86,7 +82,7 @@ export default function LibrarianDashboard() {
         />
         <KPICard 
           title="Books Issued" 
-          value="845" 
+          value={String(circulationRecords.filter(r => r.isIssued).length)} 
           icon={UserCheck} 
           iconBgClass="bg-emerald-50"
           iconColorClass="text-emerald-600"
@@ -94,7 +90,7 @@ export default function LibrarianDashboard() {
         />
         <KPICard 
           title="Overdue Books" 
-          value="42" 
+          value={String(circulationRecords.filter(r => r.overdue).length)} 
           icon={AlertCircle} 
           iconBgClass="bg-rose-50"
           iconColorClass="text-rose-600"
@@ -102,7 +98,7 @@ export default function LibrarianDashboard() {
         />
         <KPICard 
           title="Active Members" 
-          value="1,850" 
+          value={String(new Set(circulationRecords.map(r => r.member)).size)} 
           icon={Users} 
           iconBgClass="bg-indigo-50"
           iconColorClass="text-indigo-600"

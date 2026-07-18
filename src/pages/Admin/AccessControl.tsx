@@ -260,7 +260,7 @@ export default function AdminAccessControl() {
 
       {isModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}>
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-4xl overflow-hidden" onClick={(event) => event.stopPropagation()}>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-4xl flex flex-col overflow-hidden" onClick={(event) => event.stopPropagation()}>
             <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
               <h2 className="text-lg font-bold text-slate-900 dark:text-white">
                 {editingAccess ? 'Update Delegated Access' : 'Assign Portal Privileges'}

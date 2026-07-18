@@ -17,7 +17,6 @@ const commonBuilderSections: AdmissionBuilderSection[] = [
     title: 'Student Identification',
     description: 'System and record identifiers.',
     fields: [
-      { key: 'studentId', label: 'Student ID (Auto-generated)' },
       { key: 'admissionNumber', label: 'Admission Number' },
       { key: 'regNo', label: 'Registration Number' },
       { key: 'qrCode', label: 'QR Code' },

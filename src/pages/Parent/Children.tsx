@@ -14,7 +14,7 @@ export default function MyChildren() {
   const [modalMode, setModalMode] = useState<'profile' | 'records' | null>(null);
   
   // Mock data for children linked to this parent (Sarah Johnson)
-  const myChildren = students.slice(0, 2); 
+  const myChildren = students;
   const selectedChild = useMemo(
     () => myChildren.find((child) => child.id === selectedChildId) ?? null,
     [myChildren, selectedChildId]
@@ -163,7 +163,7 @@ export default function MyChildren() {
                 <div>
                   <h3 className="text-lg font-bold text-slate-900 dark:text-white">{child.name}</h3>
                   <span className="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                    ID: {child.studentId}
+                    Reg: {child.regNo}
                   </span>
                 </div>
               </div>

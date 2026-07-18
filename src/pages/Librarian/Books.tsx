@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Search, Plus, Edit, Trash2, Book, Bookmark, Filter, X } from 'lucide-react';
 import { cn } from '@/utils';
 import { useToastStore } from '@/store/useToastStore';

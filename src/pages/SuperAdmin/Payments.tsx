@@ -1,5 +1,5 @@
 import React from 'react';
-import { DollarSign, ArrowUpRight, ArrowDownRight, CreditCard, Download, Filter } from 'lucide-react';
+import { DollarSign, ArrowUpRight, CreditCard, Download, Filter } from 'lucide-react';
 import { KPICard } from '@/components/ui/KPICard';
 import { cn } from '@/utils';
 import { useCurrency } from '@/hooks/useCurrency';

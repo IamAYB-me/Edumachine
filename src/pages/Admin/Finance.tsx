@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { DollarSign, FileText, CreditCard, TrendingUp, PieChart as PieChartIcon, ArrowUpRight, ArrowDownRight, Wallet, Download, Plus, Search, Filter, Users, X, Edit2, Trash2, Printer, Paperclip, Mail, Phone, MapPin } from 'lucide-react';
+import { DollarSign, FileText, CreditCard, TrendingUp, ArrowUpRight, Wallet, Download, Plus, Search, Filter, Users, X, Edit2, Printer, Paperclip, Mail, Phone, MapPin } from 'lucide-react';
 import { KPICard } from '@/components/ui/KPICard';
 import { FeeStructureManager } from '@/components/ui/FeeStructureManager';
 import { cn } from '@/utils';
@@ -13,7 +13,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { resolveSchoolProfile } from '@/utils/schoolProfile';
 
 export default function AdminFinanceDashboard() {
-  const { format } = useCurrency();
+  const { format, currency } = useCurrency();
   const navigate = useNavigate();
   const { feeRecords, feeStructures, expenses, addFeeRecord, updateFeeRecord, addExpense, students, schools } = useDataStore();
   const { user } = useAuthStore();
@@ -270,7 +270,7 @@ export default function AdminFinanceDashboard() {
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Amount</label>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">$</span>
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">{({ USD: '$', EUR: '€', GBP: '£', NGN: '₦' } as Record<string, string>)[currency] || currency}</span>
                     <input 
                       type="number" 
                       required 
@@ -325,11 +325,11 @@ export default function AdminFinanceDashboard() {
 
       {showAddTx && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg overflow-hidden">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg flex flex-col overflow-hidden">
             <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">Add Expense Transaction</h2>
               <button onClick={() => setShowAddTx(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
-                <Plus className="w-5 h-5 text-slate-500 rotate-45" />
+                <X className="w-5 h-5 text-slate-500" />
               </button>
             </div>
             <form onSubmit={handleExpenseSubmit} className="p-8 space-y-4">
@@ -579,7 +579,7 @@ export default function AdminFinanceDashboard() {
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input type="text" placeholder="Search transactions..." className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
               </div>
-              <button className="p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
+              <button onClick={() => showToast({ title: 'Transaction filter', description: 'Filter panel for transactions is being prepared.', variant: 'info' })} className="p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
                 <Filter className="w-4 h-4 text-slate-500" />
               </button>
             </div>

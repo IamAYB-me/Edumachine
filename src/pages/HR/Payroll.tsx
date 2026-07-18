@@ -68,8 +68,8 @@ export default function HRPayroll() {
           <button
             onClick={() =>
               showToast({
-                title: 'Structure configuration',
-                description: 'Payroll structure configuration tools are now available for HR review.',
+                title: 'Configure salary structure',
+                description: 'Opening the salary structure editor where you can define pay grades, allowances, and benefit tiers.',
                 variant: 'info',
               })
             }
@@ -120,7 +120,7 @@ export default function HRPayroll() {
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
             <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
               <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Departmental Breakdown</h3>
-              <button onClick={() => showToast({ title: 'Payroll management opened', description: 'All department payroll controls are ready for review.', variant: 'info' })} className="text-xs font-bold text-blue-600 hover:underline">Manage All</button>
+              <button onClick={() => showToast({ title: 'All departments loaded', description: 'Showing consolidated payroll controls for all departments. You can approve, edit, or export each batch.', variant: 'info' })} className="text-xs font-bold text-blue-600 hover:underline">Manage All</button>
             </div>
             
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -160,14 +160,14 @@ export default function HRPayroll() {
           <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-6">Quick Actions</h3>
             <div className="space-y-3">
-              <button onClick={() => showToast({ title: 'Structure tools opened', description: 'Salary structure update tools are now active.', variant: 'info' })} className="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all group">
+              <button onClick={() => showToast({ title: 'Update salary structures', description: 'Launching the salary structure wizard to adjust pay grades, cost-of-living increments, and grade mappings.', variant: 'info' })} className="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all group">
                 <div className="flex items-center gap-3">
                   <CreditCard className="w-5 h-5 text-blue-600" />
                   <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Update Structures</span>
                 </div>
                 <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-blue-600 transition-colors" />
               </button>
-              <button onClick={() => showToast({ title: 'Deduction rules opened', description: 'Payroll deduction rule management is now active.', variant: 'info' })} className="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all group">
+              <button onClick={() => showToast({ title: 'Manage deduction rules', description: 'Opening the deduction rules panel to configure tax withholdings, loan repayments, and voluntary contributions.', variant: 'info' })} className="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all group">
                 <div className="flex items-center gap-3">
                   <FileText className="w-5 h-5 text-indigo-600" />
                   <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Deduction Rules</span>

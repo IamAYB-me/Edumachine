@@ -1,9 +1,8 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   Users, GraduationCap, Bell, UserPlus, BookOpen, 
   Award, CheckCircle, Briefcase, Clock, Calendar, 
-  ShieldCheck, BedDouble, Bus, Library, AlertTriangle, 
-  TrendingUp, DollarSign 
+  ShieldCheck, BedDouble, Bus, Library,
 } from 'lucide-react';
 import { KPICard } from '@/components/ui/KPICard';
 import { cn } from '@/utils';
@@ -36,6 +35,7 @@ const classPerformance = [
 ];
 
 export default function AdminDashboard() {
+  const navigate = useNavigate();
   const { staff, schools } = useDataStore();
   const user = useAuthStore((state) => state.user);
   const { format } = useCurrency();
@@ -320,7 +320,7 @@ export default function AdminDashboard() {
         <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white uppercase tracking-tighter">{labels.topStructureLabel}</h3>
-            <button className="text-xs text-blue-600 font-bold hover:text-blue-700 uppercase tracking-widest">View Report</button>
+            <button onClick={() => navigate('/admin/results')} className="text-xs text-blue-600 font-bold hover:text-blue-700 uppercase tracking-widest">View Report</button>
           </div>
           <div className="space-y-4">
             {topPerformers.map((cls, i) => (

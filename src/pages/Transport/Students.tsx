@@ -29,7 +29,7 @@ export default function TransportStudents() {
   const filteredStudents = transportStudents.filter((student) => {
     const matchesSearch =
       student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.studentId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      student.regNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
       student.route.toLowerCase().includes(searchTerm.toLowerCase()) ||
       student.stop.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRoute = routeFilter === 'All Routes' || student.route === routeFilter;
@@ -76,7 +76,7 @@ export default function TransportStudents() {
       ...filteredStudents.map((student) =>
         [
           `Name: ${student.name}`,
-          `Student ID: ${student.studentId}`,
+          `Reg No: ${student.regNo}`,
           `Route: ${student.route}`,
           `Bus Stop: ${student.stop}`,
           `Pickup Time: ${student.pickupTime}`,
@@ -94,11 +94,21 @@ export default function TransportStudents() {
   };
 
   const handleContactAction = (studentName: string, method: 'email' | 'phone') => {
-    showToast({
-      title: `${method === 'email' ? 'Email' : 'Call'} ready`,
-      description: `${studentName}'s transport contact details are ready for ${method === 'email' ? 'a pickup update email' : 'a guardian follow-up call'}.`,
-      variant: 'info',
-    });
+    if (method === 'email') {
+      showToast({
+        title: 'Opening email client...',
+        description: 'Launching default email application for parent contact.',
+        variant: 'info',
+      });
+      window.open('mailto:parent@example.com');
+    } else {
+      showToast({
+        title: 'Opening phone dialer...',
+        description: 'Launching dialer for parent phone number.',
+        variant: 'info',
+      });
+      window.open('tel:0000000000');
+    }
   };
 
   return (
@@ -197,7 +207,7 @@ export default function TransportStudents() {
                       />
                       <div>
                         <p className="font-bold text-slate-900 dark:text-white">{student.name}</p>
-                        <p className="text-[10px] font-mono font-bold text-slate-400">{student.studentId}</p>
+                        <p className="text-[10px] font-mono font-bold text-slate-400">{student.regNo}</p>
                       </div>
                     </div>
                   </td>

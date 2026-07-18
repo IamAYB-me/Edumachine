@@ -254,8 +254,8 @@ export default function TransportRoutes() {
             <button
               onClick={() =>
                 showToast({
-                  title: 'Live map ready',
-                  description: 'Current traffic and route conditions are summarized in the transport dashboard cards.',
+                  title: 'Live route map',
+                  description: 'Opening real-time vehicle tracking map for route monitoring.',
                   variant: 'info',
                 })
               }

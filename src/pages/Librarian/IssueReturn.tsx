@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Search, Filter, Plus, BookOpen, Clock, CheckCircle, AlertCircle, ChevronRight, RotateCcw, Send, X } from 'lucide-react';
 import { cn } from '@/utils';
 import { KPICard } from '@/components/ui/KPICard';
@@ -145,28 +145,28 @@ export default function IssueReturn() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard 
           title="Books Issued" 
-          value="482" 
+          value={String(transactions.filter(t => t.status === 'Issued').length)} 
           icon={BookOpen} 
           iconBgClass="bg-blue-50 dark:bg-blue-900/20"
           iconColorClass="text-blue-600 dark:text-blue-400"
         />
         <KPICard 
           title="Returned Today" 
-          value="24" 
+          value={String(transactions.filter(t => t.status === 'Completed').length)} 
           icon={CheckCircle} 
           iconBgClass="bg-emerald-50 dark:bg-emerald-900/20"
           iconColorClass="text-emerald-600 dark:text-emerald-400"
         />
         <KPICard 
           title="Pending Returns" 
-          value="15" 
+          value={String(transactions.filter(t => t.status === 'Issued').length)} 
           icon={Clock} 
           iconBgClass="bg-amber-50 dark:bg-amber-900/20"
           iconColorClass="text-amber-600 dark:text-amber-400"
         />
         <KPICard 
           title="Overdue Books" 
-          value="8" 
+          value={String(transactions.filter(t => t.status === 'Overdue').length)} 
           icon={AlertCircle} 
           iconBgClass="bg-rose-50 dark:bg-rose-900/20"
           iconColorClass="text-rose-600 dark:text-rose-400"

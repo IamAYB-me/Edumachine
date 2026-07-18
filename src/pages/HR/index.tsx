@@ -1,7 +1,7 @@
 import React from 'react';
-import { Users, UserCheck, UserMinus, FileText, Calendar, TrendingUp } from 'lucide-react';
+import { Users, UserCheck, UserMinus, FileText, Calendar } from 'lucide-react';
 import { KPICard } from '@/components/ui/KPICard';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
+import { CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 
 const attendanceData = [
   { name: 'Present', value: 77.8 },

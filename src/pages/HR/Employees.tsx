@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { Search, Filter, Plus, Mail, Briefcase, Calendar, Edit, Trash2, X, Users, UserCheck, UserMinus, Star, CreditCard } from 'lucide-react';
+import { Search, Filter, Plus, Mail, Briefcase, Edit, Trash2, X, Users, UserCheck, UserMinus, Star, CreditCard } from 'lucide-react';
 import { cn } from '@/utils';
 import { useDataStore, Staff } from '@/store/useDataStore';
 import ExcelImport from '@/components/ui/ExcelImport';
 import { KPICard } from '@/components/ui/KPICard';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { useToastStore } from '@/store/useToastStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { resolveSchoolProfile } from '@/utils/schoolProfile';
@@ -432,7 +432,7 @@ export default function HREmployees() {
       {/* CRUD Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-md flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
               <h2 className="text-lg font-bold text-slate-900 dark:text-white">
                 {editingStaff ? 'Edit Employee' : 'Add New Employee'}

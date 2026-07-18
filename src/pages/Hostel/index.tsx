@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, BedDouble, Key, Settings, AlertTriangle, Building, FileText, DollarSign } from 'lucide-react';
+import { Users, BedDouble, Key, AlertTriangle, Building, DollarSign } from 'lucide-react';
 import { KPICard } from '@/components/ui/KPICard';
 import { cn } from '@/utils';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
@@ -200,13 +200,7 @@ export default function HostelDashboard() {
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-semibold text-slate-900">Hostel Fees Overview</h3>
             <button
-              onClick={() =>
-                showToast({
-                  title: 'Fees overview ready',
-                  description: 'Current hostel collections and pending balances are displayed in the selected currency.',
-                  variant: 'info',
-                })
-              }
+              onClick={() => navigate('/accountant/fees')}
               className="text-sm text-blue-600 font-medium"
             >
               View Details

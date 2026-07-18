@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { 
   DollarSign, CreditCard, Receipt, Clock, Download, 
-  Plus, CheckCircle, AlertCircle, ShieldCheck, Loader2,
-  ChevronRight, Landmark, Wallet, X
+  CheckCircle, AlertCircle, ShieldCheck, Loader2,
+  Landmark, Wallet, X
 } from 'lucide-react';
 import { KPICard } from '@/components/ui/KPICard';
 import { cn } from '@/utils';
@@ -10,7 +10,7 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { useDataStore } from '@/store/useDataStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useToastStore } from '@/store/useToastStore';
-import { downloadFromUrl, openPaymentReceiptWindow, readFileAsDataUrl } from '@/utils/fileHelpers';
+import { downloadFromUrl, openPaymentReceiptWindow, readFileAsDataUrl, downloadTextFile } from '@/utils/fileHelpers';
 
 export default function StudentFees() {
   const { format } = useCurrency();
@@ -22,6 +22,7 @@ export default function StudentFees() {
   const [selectedFee, setSelectedFee] = useState<any>(null);
   const [paymentStep, setPaymentStep] = useState<'select' | 'processing' | 'success'>('select');
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
+  const [transactionId] = useState(() => `EDU-${Math.random().toString(36).substring(2, 11).toUpperCase()}`);
   const [paymentProof, setPaymentProof] = useState<{ name: string; url: string } | null>(null);
 
   // Filter records for the current student
@@ -87,6 +88,7 @@ export default function StudentFees() {
       paymentMethod: selectedMethod === 'bank' ? 'Direct Bank Transfer' : selectedMethod === 'card' ? 'Debit / Credit Card' : 'Recorded Payment',
       schoolName: user?.schoolName || schools[0]?.name || 'EduPlatform',
       schoolCode: schools[0]?.code || 'EDU-001',
+      schoolLogoUrl: schools[0]?.logoUrl,
       note: 'Retain this receipt for future reference and present it to the finance office whenever payment confirmation is requested.',
     });
   };
@@ -115,12 +117,12 @@ export default function StudentFees() {
       {/* Payment Gateway Modal */}
       {showPayModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg max-h-[90vh] overflow-y-auto transition-all transform scale-100">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg max-h-[90vh] flex flex-col transition-all transform scale-100">
             
-            {/* Modal Header */}
-            <div className="px-10 py-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
-              <div>
-                <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+            {/* Modal Header - sticky */}
+            <div className="shrink-0 px-6 sm:px-10 py-6 sm:py-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
+              <div className="min-w-0">
+                <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                   {paymentStep === 'success' ? 'Payment Successful' : 'Secure Checkout'}
                 </h2>
                 <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Transaction Secured by EduPay</p>
@@ -129,14 +131,13 @@ export default function StudentFees() {
                 onClick={() => {
                   if (paymentStep !== 'processing') setShowPayModal(false);
                 }} 
-                className="inline-flex items-center gap-2 px-4 py-3 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-2xl transition-all text-slate-500 font-bold text-xs uppercase tracking-widest"
+                className="shrink-0 p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-all text-slate-500"
               >
                 <X className="w-5 h-5" />
-                Close
               </button>
             </div>
 
-            <div className="p-10">
+            <div className="flex-1 min-h-0 overflow-y-auto p-6 sm:p-10">
               {paymentStep === 'select' && (
                 <div className="space-y-8">
                   <div className="flex justify-between items-center p-6 bg-blue-50 dark:bg-blue-900/10 rounded-3xl border border-blue-100 dark:border-blue-900/20">
@@ -244,7 +245,7 @@ export default function StudentFees() {
                     </div>
                     <div>
                       <h3 className="text-2xl font-black text-slate-900 dark:text-white">Payment Confirmed!</h3>
-                      <p className="text-sm text-slate-500 mt-1">Transaction ID: EDU-{Math.random().toString(36).substr(2, 9).toUpperCase()}</p>
+                       <p className="text-sm text-slate-500 mt-1">Transaction ID: {transactionId}</p>
                     </div>
                   </div>
 
@@ -287,7 +288,29 @@ export default function StudentFees() {
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white uppercase tracking-tight">My Financial Portal</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 font-medium">Manage your school fees, payments, and receipts.</p>
         </div>
-        <button className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-2xl text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-900/20">
+        <button onClick={() => {
+          const lines = [
+            'STATEMENT OF ACCOUNT',
+            '====================',
+            `Student: ${user?.name || 'N/A'}`,
+            `Date: ${new Date().toLocaleDateString()}`,
+            '',
+            '--- Fee Summary ---',
+            `Total Fees: ${format(stats.total)}`,
+            `Total Paid: ${format(stats.paid)}`,
+            `Outstanding: ${format(stats.pending)}`,
+            '',
+            '--- Pending Fees ---',
+            ...pendingFees.map(f => `- ${f.type}: ${format(f.amount)} (Due: ${f.date})`),
+            '',
+            '--- Payment History ---',
+            ...feeHistory.map(f => `- ${f.type}: ${format(f.amount)} on ${f.date}`),
+            '',
+            'Generated by EduPlatform',
+          ];
+          downloadTextFile('statement-of-account.txt', lines.join('\n'));
+          showToast({ title: 'Statement downloaded', description: 'Your statement of account has been generated.', variant: 'success' });
+        }} className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-2xl text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-900/20">
           <Download className="w-4 h-4" />
           Statement of Account
         </button>
@@ -381,7 +404,12 @@ export default function StudentFees() {
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
             <div className="p-6 bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
               <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Payment History</h3>
-              <button className="text-[10px] font-bold text-blue-600 uppercase tracking-widest hover:underline">View Full Ledger</button>
+              <button onClick={() => {
+                const header = 'Transaction ID,Description,Date,Status,Amount';
+                const rows = feeHistory.map(txn => `TXN-${txn.id},${txn.type},${txn.date},${txn.status},${format(txn.amount)}`);
+                downloadTextFile('fee-ledger.csv', `${header}\n${rows.join('\n')}`, 'text/csv;charset=utf-8;');
+                showToast({ title: 'Ledger downloaded', description: 'Complete financial ledger has been generated.', variant: 'success' });
+              }} className="text-[10px] font-bold text-blue-600 uppercase tracking-widest hover:underline">View Full Ledger</button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">

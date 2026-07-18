@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Search, Filter, Users, Home, TrendingUp, UserCheck, ShieldAlert, ChevronRight, Mail } from 'lucide-react';
+import { Search, Filter, Users, Home, UserCheck, ShieldAlert, ChevronRight, Mail } from 'lucide-react';
 import { cn } from '@/utils';
 import { KPICard } from '@/components/ui/KPICard';
 import { useDataStore } from '@/store/useDataStore';
@@ -32,7 +32,7 @@ export default function WardenStudents() {
   const filteredStudents = hostelStudents.filter((student) => {
     const matchesSearch =
       student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.studentId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      student.regNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
       student.class.toLowerCase().includes(searchTerm.toLowerCase()) ||
       student.room.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesBlock = selectedBlock === 'All Blocks' || student.block === selectedBlock;
@@ -73,8 +73,8 @@ export default function WardenStudents() {
 
   const handleViewStudent = (studentName: string, room: string, feesStatus: string) => {
     showToast({
-      title: `${studentName} selected`,
-      description: `${room} is currently marked ${feesStatus.toLowerCase()} for hostel fee clearance.`,
+      title: 'Student profile',
+      description: `Viewing detailed profile for ${studentName}.`,
       variant: 'info',
     });
   };
@@ -175,7 +175,7 @@ export default function WardenStudents() {
                       />
                       <div>
                         <p className="font-bold text-slate-900 dark:text-white">{student.name}</p>
-                        <p className="text-[10px] font-mono font-bold text-slate-400">{student.studentId}</p>
+                        <p className="text-[10px] font-mono font-bold text-slate-400">{student.regNo}</p>
                       </div>
                     </div>
                   </td>

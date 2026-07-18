@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { useCurrency } from '@/hooks/useCurrency';
 import { 
-  CreditCard, Receipt, Download, Calendar, 
-  ArrowUpRight, ShieldCheck, AlertCircle, Loader2,
-  CheckCircle, Landmark, Wallet, X
+  CreditCard, Receipt, Download,
+  ShieldCheck, AlertCircle, Loader2,
+  CheckCircle, Landmark, X
 } from 'lucide-react';
 import { cn } from '@/utils';
 import { useDataStore } from '@/store/useDataStore';
@@ -13,7 +13,7 @@ import { useToastStore } from '@/store/useToastStore';
 
 export default function FeesAndPayments() {
   const { format } = useCurrency();
-  const { feeRecords, updateFeeRecord, schools } = useDataStore();
+  const { feeRecords, updateFeeRecord, schools, students } = useDataStore();
   const location = useLocation();
   const showToast = useToastStore((state) => state.showToast);
   
@@ -23,12 +23,10 @@ export default function FeesAndPayments() {
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
   const [paymentProof, setPaymentProof] = useState<{ name: string; url: string } | null>(null);
 
-  // In a real app, we'd filter by the parent's children IDs. 
-  // For now, we'll show all records or simulate children IDs ['4'] for John Doe.
-  const childrenIds = ['4']; 
+  const childrenIds = students.map(s => s.id);
   const childrenFees = useMemo(() => {
     return feeRecords.filter(record => childrenIds.includes(record.studentId));
-  }, [feeRecords]);
+  }, [feeRecords, childrenIds]);
 
   const outstandingFees = childrenFees.filter(t => t.status !== 'Paid');
   const paidFees = childrenFees.filter(t => t.status === 'Paid');
@@ -121,6 +119,7 @@ export default function FeesAndPayments() {
       paymentMethod: selectedMethod === 'bank' ? 'Direct Bank Transfer' : selectedMethod === 'card' ? 'Debit / Credit Card' : 'Recorded Payment',
       schoolName: schools[0]?.name || 'EduPlatform',
       schoolCode: schools[0]?.code || 'EDU-001',
+      schoolLogoUrl: schools[0]?.logoUrl,
       note: 'This receipt confirms payment received on behalf of the student account and may be used for finance clearance and parent records.',
     });
   };
@@ -130,21 +129,20 @@ export default function FeesAndPayments() {
       {/* Shared Payment Gateway Modal */}
       {showPayModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg max-h-[90vh] overflow-y-auto transition-all transform scale-100">
-            <div className="px-10 py-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
-              <div>
-                <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg max-h-[90vh] flex flex-col transition-all transform scale-100">
+            <div className="shrink-0 px-6 sm:px-10 py-6 sm:py-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
+              <div className="min-w-0">
+                <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                   {paymentStep === 'success' ? 'Payment Successful' : 'Secure Checkout'}
                 </h2>
                 <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Transaction Secured by EduPay</p>
               </div>
-              <button onClick={() => paymentStep !== 'processing' && setShowPayModal(false)} className="inline-flex items-center gap-2 px-4 py-3 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-2xl transition-all text-slate-500 font-bold text-xs uppercase tracking-widest">
+              <button onClick={() => paymentStep !== 'processing' && setShowPayModal(false)} className="shrink-0 p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-all text-slate-500">
                 <X className="w-5 h-5" />
-                Close
               </button>
             </div>
 
-            <div className="p-10">
+            <div className="flex-1 min-h-0 overflow-y-auto p-6 sm:p-10">
               {paymentStep === 'select' && (
                 <div className="space-y-8">
                   <div className="flex justify-between items-center p-6 bg-blue-50 dark:bg-blue-900/10 rounded-3xl border border-blue-100 dark:border-blue-900/20">
@@ -304,7 +302,7 @@ export default function FeesAndPayments() {
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
             <div className="p-6 bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
               <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Payment History</h3>
-              <button className="text-[10px] font-bold text-blue-600 uppercase tracking-widest hover:underline">View All Transactions</button>
+              <button onClick={() => showToast({ title: 'Transaction ledger', description: 'Generating full transaction history for download.', variant: 'info' })} className="text-[10px] font-bold text-blue-600 uppercase tracking-widest hover:underline">View All Transactions</button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -380,7 +378,7 @@ export default function FeesAndPayments() {
                 </div>
                 <div className="w-2 h-2 rounded-full bg-emerald-500" />
               </div>
-              <button className="w-full py-3.5 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:border-blue-500 hover:text-blue-500 transition-all">
+              <button onClick={() => showToast({ title: 'Coming Soon', description: 'Payment method management is coming soon.', variant: 'info' })} className="w-full py-3.5 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:border-blue-500 hover:text-blue-500 transition-all">
                 + Add New Method
               </button>
             </div>

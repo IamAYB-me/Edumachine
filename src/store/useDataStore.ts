@@ -23,7 +23,6 @@ export const buildDefaultAdmissionFormConfig = (portalLevel: PortalLevel): Admis
 export interface Student {
   id: string;
   name: string;
-  studentId?: string;
   regNo: string;
   admissionNumber?: string;
   nin?: string;
@@ -334,12 +333,16 @@ export interface Subject {
   code: string;
   type: 'Core' | 'Elective';
   creditHours: number;
+  term?: string;
+  session?: string;
+  assignedClasses?: string[];
 }
 
 export interface FeeRecord {
   id: string;
   studentId: string;
   studentName: string;
+  regNo?: string;
   amount: number;
   status: 'Paid' | 'Pending' | 'Partial';
   date: string;
@@ -405,11 +408,17 @@ export interface ExamResult {
   id: string;
   examId: string;
   examTitle: string;
+  subject: string;
+  type: 'Test' | 'Exam' | 'Assignment' | 'Quiz';
   studentId: string;
   studentName: string;
+  regNo?: string;
   score: number;
   totalMarks: number;
+  term?: string;
+  session?: string;
   date: string;
+  recordedBy?: string;
 }
 
 export interface ExamTimetableEntry {
@@ -425,13 +434,115 @@ export interface ExamTimetableEntry {
 
 export interface AttendanceRecord {
   id: string;
-  targetId: string; // Student ID or Staff ID
+  targetId: string;
   targetName: string;
   type: 'Student' | 'Staff';
   status: 'Present' | 'Absent' | 'Late' | 'Excused';
   date: string;
   classId?: string;
-  markedBy: string;
+  markedBy?: string;
+}
+
+export interface AdmissionApplication {
+  id: string;
+  schoolName: string;
+
+  // Student Personal Information
+  applicationFormNumber?: string;
+  passportUrl?: string;
+  surname: string;
+  firstName: string;
+  middleName?: string;
+  dateOfBirth: string;
+  placeOfBirth?: string;
+  gender: string;
+  lga?: string;
+  stateOfOrigin?: string;
+  nationality?: string;
+  residentialAddress?: string;
+  phone: string;
+  email: string;
+  maritalStatus?: string;
+  courseOfStudy?: string;
+
+  // Course Choices
+  firstChoiceCourse?: string;
+  secondChoiceCourse?: string;
+  thirdChoiceCourse?: string;
+
+  // Class Applying For
+  classApplyingFor: string;
+
+  // Sponsor Information
+  sponsorFullName?: string;
+  sponsorAddress?: string;
+  sponsorPhone?: string;
+  sponsorSignatureUrl?: string;
+  sponsorDate?: string;
+
+  // Next of Kin
+  nextOfKinName?: string;
+  nextOfKinAddress?: string;
+  nextOfKinPhone?: string;
+  nextOfKinRelationship?: string;
+
+  // Academic History - First Sitting
+  firstSittingRegNumber?: string;
+  firstSittingExamBody?: string;
+  firstSittingExamYear?: string;
+  firstSittingSubjects?: { subject: string; grade: string }[];
+
+  // Academic History - Second Sitting
+  secondSittingRegNumber?: string;
+  secondSittingExamBody?: string;
+  secondSittingExamYear?: string;
+  secondSittingSubjects?: { subject: string; grade: string }[];
+
+  // Legacy fields
+  previousSchool?: string;
+  parentName?: string;
+  parentPhone?: string;
+  parentEmail?: string;
+  parentOccupation?: string;
+  documents?: string[];
+
+  // Payment
+  admissionFee: number;
+  paymentStatus: 'Unpaid' | 'Paid' | 'Pending';
+  paymentReference?: string;
+
+  // Application Status
+  applicationStatus: 'Pending' | 'Under Review' | 'Approved' | 'Rejected' | 'Admitted';
+  submittedAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  notes?: string;
+}
+
+export type RegistrationFieldSection = 'Personal' | 'Contact' | 'Parent/Guardian' | 'Medical' | 'Academic' | 'Admission' | 'Documents' | 'Financial' | 'Identity';
+export type RegistrationFieldType = 'text' | 'number' | 'date' | 'select' | 'textarea' | 'file';
+
+export interface RegistrationFieldConfig {
+  id: string;
+  key: string;
+  label: string;
+  section: RegistrationFieldSection;
+  type: RegistrationFieldType;
+  required: boolean;
+  enabled: boolean;
+  options?: string[];
+  acceptTypes?: string;
+  placeholder?: string;
+  order: number;
+}
+
+export interface SchoolRegistrationConfig {
+  id: string;
+  schoolId: string;
+  schoolName: string;
+  portalLevel: PortalLevel;
+  fields: RegistrationFieldConfig[];
+  updatedAt: string;
 }
 
 export interface StudentMutationResult {
@@ -447,7 +558,6 @@ const getDuplicateStudentError = (
   candidate: Partial<Student>,
   excludedId?: string,
 ): string | undefined => {
-  const comparableStudentId = normalizeStudentIdentityValue(candidate.studentId);
   const comparableRegNo = normalizeStudentIdentityValue(candidate.regNo);
   const comparableAdmissionNumber = normalizeStudentIdentityValue(candidate.admissionNumber);
   const comparableEmail = normalizeStudentIdentityValue(candidate.email);
@@ -456,7 +566,6 @@ const getDuplicateStudentError = (
     if (student.id === excludedId) return false;
 
     return (
-      (comparableStudentId && normalizeStudentIdentityValue(student.studentId) === comparableStudentId) ||
       (comparableRegNo && normalizeStudentIdentityValue(student.regNo) === comparableRegNo) ||
       (comparableAdmissionNumber && normalizeStudentIdentityValue(student.admissionNumber) === comparableAdmissionNumber) ||
       (comparableEmail && normalizeStudentIdentityValue(student.email) === comparableEmail)
@@ -464,10 +573,6 @@ const getDuplicateStudentError = (
   });
 
   if (!duplicate) return undefined;
-
-  if (comparableStudentId && normalizeStudentIdentityValue(duplicate.studentId) === comparableStudentId) {
-    return `Student ID already exists for ${duplicate.name}.`;
-  }
 
   if (comparableRegNo && normalizeStudentIdentityValue(duplicate.regNo) === comparableRegNo) {
     return `Registration number already exists for ${duplicate.name}.`;
@@ -503,6 +608,8 @@ interface DataState {
   attendance: AttendanceRecord[];
   expenses: Expense[];
   payroll: Payroll[];
+  registrationConfigs: SchoolRegistrationConfig[];
+  admissionApplications: AdmissionApplication[];
   _hasHydrated: boolean;
   setHasHydrated: (value: boolean) => void;
 
@@ -557,11 +664,16 @@ interface DataState {
   updateSubject: (id: string, subject: Partial<Subject>) => void;
   deleteSubject: (id: string) => void;
 
+  // Plan Actions
+  updatePlan: (id: string, plan: Partial<SubscriptionPlan>) => void;
+
   // Exam Actions
   addExam: (exam: Omit<Exam, 'id'>) => void;
   updateExam: (id: string, exam: Partial<Exam>) => void;
   deleteExam: (id: string) => void;
   addExamResult: (result: Omit<ExamResult, 'id'>) => void;
+  updateExamResult: (id: string, result: Partial<ExamResult>) => void;
+  deleteExamResult: (id: string) => void;
   setExamTimetable: (timetable: ExamTimetableEntry[]) => void;
   addExamTimetableEntry: (entry: Omit<ExamTimetableEntry, 'id'>) => void;
 
@@ -576,182 +688,44 @@ interface DataState {
   // Payroll Actions
   addPayroll: (payroll: Omit<Payroll, 'id'>) => void;
   updatePayroll: (id: string, payroll: Partial<Payroll>) => void;
+
+  // Registration Config Actions
+  addRegistrationConfig: (config: Omit<SchoolRegistrationConfig, 'id'>) => void;
+  updateRegistrationConfig: (id: string, config: Partial<SchoolRegistrationConfig>) => void;
+  deleteRegistrationConfig: (id: string) => void;
+
+  // Admission Actions
+  addAdmissionApplication: (app: Omit<AdmissionApplication, 'id'>) => void;
+  updateAdmissionApplication: (id: string, app: Partial<AdmissionApplication>) => void;
+  deleteAdmissionApplication: (id: string) => void;
 }
 
 export const useDataStore = create<DataState>()(
   persist(
     (set) => ({
-      students: [
-        { id: '4', name: 'John Doe', studentId: 'STD001', regNo: 'STD001', class: 'Grade 10 - A', parentName: 'Mr. Doe', status: 'Active', email: 'john@example.com' },
-        { id: '2', name: 'Jane Smith', studentId: 'STD002', regNo: 'STD002', class: 'Grade 11 - B', parentName: 'Mrs. Smith', status: 'Active', email: 'jane@example.com' },
-      ],
-      parents: [
-        { id: '1', name: 'Mr. Doe', email: 'mrdoe@example.com', phone: '1234567890', children: ['4'], occupation: 'Engineer' },
-      ],
-      staff: [
-        { id: '1', name: 'Dr. Emily Carter', role: 'Senior Lecturer', category: 'Academic', email: 'emily@example.com', phone: '0987654321', status: 'Active', joinDate: '2023-01-01' },
-        { id: '2', name: 'James Wilson', role: 'Administrator', category: 'Non-Academic', email: 'james@example.com', phone: '0987654322', status: 'Active', joinDate: '2023-02-15' },
-        { id: '3', name: 'Sarah Jenkins', role: 'Librarian', category: 'Non-Academic', email: 'sarah@example.com', phone: '0987654323', status: 'Active', joinDate: '2023-03-10' },
-      ],
-      feeRecords: [
-        { id: '1', studentId: '4', studentName: 'John Doe', amount: 1200, status: 'Paid', date: '2024-03-01', type: 'Tuition Fee - Semester 2' },
-        { id: '2', studentId: '4', studentName: 'John Doe', amount: 25, status: 'Paid', date: '2024-02-15', type: 'Library Membership Fee' },
-        { id: '3', studentId: '4', studentName: 'John Doe', amount: 45, status: 'Paid', date: '2024-01-10', type: 'Laboratory Fee - Physics' },
-        { id: '4', studentId: '4', studentName: 'John Doe', amount: 120, status: 'Pending', date: '2024-05-30', type: 'Tuition Fee - Semester 1' },
-      ],
-      feeStructures: [
-        { id: 'FS-101', className: 'Grade 10 - A', category: 'Tuition Fee', amount: 1200, term: 'First Term', description: 'Core academic tuition for Grade 10.', status: 'Active' },
-        { id: 'FS-102', className: 'Grade 10 - A', category: 'Examination Fee', amount: 150, term: 'First Term', description: 'Covers test and examination administration.', status: 'Active' },
-        { id: 'FS-103', className: 'Grade 10 - A', category: 'ICT / Laboratory Fee', amount: 220, term: 'First Term', description: 'Supports lab and digital learning resources.', status: 'Active' },
-        { id: 'FS-201', className: 'Grade 11 - B', category: 'Tuition Fee', amount: 1450, term: 'First Term', description: 'Core academic tuition for Grade 11.', status: 'Active' },
-        { id: 'FS-202', className: 'Grade 11 - B', category: 'Examination Fee', amount: 180, term: 'First Term', description: 'Senior class exam administration charge.', status: 'Active' },
-        { id: 'FS-203', className: 'Grade 11 - B', category: 'Sports / Activity Fee', amount: 120, term: 'First Term', description: 'Co-curricular and sports contribution.', status: 'Active' },
-      ],
-      schools: [
-        {
-          id: '1',
-          name: 'Greenfield International School',
-          code: 'GIS001',
-          adminName: 'Admin User',
-          email: 'admin@greenfield.com',
-          phone: '+1 (555) 100-1001',
-          address: '12 Knowledge Avenue, Education City',
-          teacherSignatoryName: 'Mrs. Janet Cole',
-          hodSignatoryName: 'Dr. Michael Grant',
-          principalSignatoryName: 'Mrs. Sarah Bennett',
-          integrations: {
-            paymentGateway: { enabled: true, provider: 'Paystack', publicKey: 'pk_live_gis_001', secretKey: 'sk_live_gis_001', merchantId: 'GIS-PAY-01', callbackUrl: 'https://greenfield.edu/payments/callback' },
-            smsApi: { enabled: true, provider: 'Termii', senderId: 'GISCHOOL', apiKey: 'termii_gis_001', apiUrl: 'https://api.termii.com/api/sms/send' },
-            emailApi: { enabled: true, provider: 'SendGrid', fromEmail: 'no-reply@greenfield.edu', apiKey: 'sg_gis_001', domain: 'greenfield.edu' },
-            otherApi: { enabled: false, label: 'Biometric API', apiKey: '', apiUrl: '', notes: '' },
-          },
-          portalLevel: 'Secondary',
-          status: 'Active',
-          subscriptionPlan: 'Professional',
-          expiryDate: '2025-12-31',
-          admissionFormConfig: buildDefaultAdmissionFormConfig('Secondary'),
-        },
-        {
-          id: '2',
-          name: 'Bright Future Academy',
-          code: 'BFA002',
-          adminName: 'School Admin',
-          email: 'admin@bfa.edu',
-          phone: '+1 (555) 100-1002',
-          address: '45 Horizon Road, New Town',
-          teacherSignatoryName: 'Mr. Daniel Hope',
-          hodSignatoryName: 'Mrs. Clara James',
-          principalSignatoryName: 'Dr. Faith Morgan',
-          integrations: {
-            paymentGateway: { enabled: true, provider: 'Flutterwave', publicKey: 'pk_live_bfa_002', secretKey: 'sk_live_bfa_002', merchantId: 'BFA-PAY-02', callbackUrl: 'https://bfa.edu/payments/callback' },
-            smsApi: { enabled: true, provider: 'Twilio', senderId: 'BFACADEMY', apiKey: 'twilio_bfa_002', apiUrl: 'https://api.twilio.com/2010-04-01' },
-            emailApi: { enabled: true, provider: 'Mailgun', fromEmail: 'hello@brightfuture.edu', apiKey: 'mg_bfa_002', domain: 'brightfuture.edu' },
-            otherApi: { enabled: false, label: 'Learning API', apiKey: '', apiUrl: '', notes: '' },
-          },
-          portalLevel: 'Primary',
-          status: 'Active',
-          subscriptionPlan: 'Standard',
-          expiryDate: '2025-06-30',
-          admissionFormConfig: buildDefaultAdmissionFormConfig('Primary'),
-        },
-        {
-          id: '3',
-          name: 'Greenfield University',
-          code: 'GFU003',
-          adminName: 'University Admin',
-          email: 'admin@greenfielduniversity.edu',
-          phone: '+1 (555) 100-1003',
-          address: '101 University Drive, Greenfield',
-          teacherSignatoryName: 'Prof. Grace Hill',
-          hodSignatoryName: 'Dr. Andrew Stone',
-          principalSignatoryName: 'Prof. Rebecca Young',
-          integrations: {
-            paymentGateway: { enabled: true, provider: 'Monnify', publicKey: 'pk_live_gfu_003', secretKey: 'sk_live_gfu_003', merchantId: 'GFU-PAY-03', callbackUrl: 'https://greenfielduniversity.edu/payments/callback' },
-            smsApi: { enabled: true, provider: 'BulkSMS', senderId: 'GREENFIELDU', apiKey: 'bulk_gfu_003', apiUrl: 'https://api.bulksms.com/v1/messages' },
-            emailApi: { enabled: true, provider: 'SMTP Relay', fromEmail: 'registry@greenfielduniversity.edu', apiKey: 'smtp_gfu_003', domain: 'greenfielduniversity.edu' },
-            otherApi: { enabled: true, label: 'LMS API', apiKey: 'lms_gfu_003', apiUrl: 'https://api.greenfielduniversity.edu/lms', notes: 'Used for transcript and course sync.' },
-          },
-          portalLevel: 'University',
-          status: 'Active',
-          subscriptionPlan: 'Enterprise',
-          expiryDate: '2026-08-31',
-          admissionFormConfig: buildDefaultAdmissionFormConfig('University'),
-        },
-      ],
-      delegatedAccess: [
-        {
-          id: 'DA-001',
-          userName: 'James Wilson',
-          userEmail: 'james@example.com',
-          userRole: 'Administrator',
-          department: 'Admin Office',
-          privileges: ['manage_students', 'manage_parents', 'manage_notices'],
-          status: 'Active',
-          note: 'Supports front-desk registration and announcements.',
-          assignedBy: 'Admin',
-          updatedAt: '2026-07-08',
-        },
-        {
-          id: 'DA-002',
-          userName: 'Sarah Jenkins',
-          userEmail: 'sarah@example.com',
-          userRole: 'Librarian',
-          department: 'Library',
-          privileges: ['manage_library', 'manage_results'],
-          status: 'Active',
-          note: 'Can verify library clearance and result support.',
-          assignedBy: 'Admin',
-          updatedAt: '2026-07-08',
-        },
-      ],
+      students: [],
+      parents: [],
+      staff: [],
+      feeRecords: [],
+      feeStructures: [],
+      schools: [],
+      delegatedAccess: [],
       plans: [
         { id: '1', name: 'Basic', price: 49, studentsLimit: 100, features: ['Core Dashboard', 'Attendance', 'Basic Reports'] },
         { id: '2', name: 'Standard', price: 99, studentsLimit: 500, features: ['Everything in Basic', 'Fee Management', 'SMS Alerts'] },
         { id: '3', name: 'Professional', price: 199, studentsLimit: 2000, features: ['Everything in Standard', 'Hostel & Transport', 'Advanced Analytics'] },
         { id: '4', name: 'Enterprise', price: 399, studentsLimit: 10000, features: ['Everything in Professional', 'Multi-Campus', 'Priority Support'] },
       ],
-      teachers: [
-        { id: '1', name: 'Dr. Emily Carter', employeeId: 'TCH001', subject: 'Mathematics', email: 'emily@school.com', phone: '1234567890', status: 'Active' },
-        { id: '2', name: 'Prof. Alan Turing', employeeId: 'TCH002', subject: 'Computer Science', email: 'alan@school.com', phone: '0987654321', status: 'Active' },
-      ],
-      classes: [
-        { id: '1', name: 'Grade 10 - A', teacherId: '1', teacherName: 'Dr. Emily Carter', studentsCount: 32, room: 'Room 101' },
-        { id: '2', name: 'Grade 11 - B', teacherId: '2', teacherName: 'Prof. Alan Turing', studentsCount: 28, room: 'Lab 1' },
-      ],
-      faculties: [
-        { id: '1', name: 'Faculty of Science', headName: 'Dr. Emily Carter', code: 'FSC' },
-        { id: '2', name: 'Faculty of Arts', headName: 'Prof. John Keats', code: 'FAR' },
-      ],
-      subjects: [
-        { id: '1', name: 'Mathematics', code: 'MTH101', type: 'Core', creditHours: 4 },
-        { id: '2', name: 'Physics', code: 'PHY101', type: 'Core', creditHours: 3 },
-        { id: '3', name: 'Computer Science', code: 'CSC101', type: 'Elective', creditHours: 3 },
-      ],
-      exams: [
-        { 
-          id: '1', title: 'Mid-Term Mathematics Exam', subject: 'Mathematics', duration: 60, totalMarks: 100, status: 'Published',
-          questions: [
-            { id: 'q1', text: 'What is 2 + 2?', options: ['3', '4', '5', '6'], correctOption: 1 },
-            { id: 'q2', text: 'Solve for x: 2x = 10', options: ['2', '5', '10', '20'], correctOption: 1 },
-          ]
-        },
-      ],
+      teachers: [],
+      classes: [],
+      faculties: [],
+      subjects: [],
+      exams: [],
       examResults: [],
-      examTimetable: [
-        { id: '1', subject: 'Mathematics', hall: 'Main Hall', day: 'Monday', session: 'Morning', invigilator: 'Dr. Emily Carter', duration: '2 Hours', class: 'Grade 10 - A' },
-        { id: '2', subject: 'Physics', hall: 'Lab A', day: 'Tuesday', session: 'Afternoon', invigilator: 'Prof. John Smith', duration: '1.5 Hours', class: 'Grade 10 - A' },
-        { id: '3', subject: 'English', hall: 'Room 102', day: 'Wednesday', session: 'Morning', invigilator: 'Mrs. Sarah Wilson', duration: '2 Hours', class: 'Grade 11 - B' },
-      ],
+      examTimetable: [],
       attendance: [],
-      expenses: [
-        { id: 'EXP-101', title: 'Monthly Electricity Bill', category: 'Utilities', amount: 850, date: '2026-07-02', status: 'Paid', method: 'Online Banking' },
-        { id: 'EXP-102', title: 'New Lab Equipment', category: 'Academic', amount: 3400, date: '2026-07-04', status: 'Pending', method: '-' },
-        { id: 'EXP-103', title: 'Office Stationery', category: 'Administrative', amount: 120, date: '2026-07-05', status: 'Paid', method: 'Petty Cash' },
-      ],
-      payroll: [
-        { id: 'PAY-701', staffId: '1', staffName: 'Dr. Emily Carter', role: 'Senior Lecturer', category: 'Academic', basic: 3500, bonus: 200, tax: 350, net: 3350, status: 'Paid', month: 'July 2026' },
-        { id: 'PAY-702', staffId: '2', staffName: 'James Wilson', role: 'Administrator', category: 'Non-Academic', basic: 2800, bonus: 0, tax: 280, net: 2520, status: 'Pending', month: 'July 2026' },
-      ],
+      expenses: [],
+      payroll: [],
 
       addStudent: (student) => {
         let result: StudentMutationResult = { success: false, error: 'Unable to create student record.' };
@@ -825,7 +799,7 @@ export const useDataStore = create<DataState>()(
       },
 
       addParent: (parent) => set((state) => ({ 
-        parents: [...state.parents, { ...parent, id: Math.random().toString(36).substr(2, 9) }] 
+        parents: [...state.parents, { ...parent, id: Math.random().toString(36).substring(2, 11) }] 
       })),
       updateParent: (id, updatedParent) => set((state) => ({
         parents: state.parents.map((p) => (p.id === id ? { ...p, ...updatedParent } : p))
@@ -835,7 +809,7 @@ export const useDataStore = create<DataState>()(
       })),
 
       addStaff: (staff) => set((state) => ({ 
-        staff: [...state.staff, { ...staff, id: Math.random().toString(36).substr(2, 9) }] 
+        staff: [...state.staff, { ...staff, id: Math.random().toString(36).substring(2, 11) }] 
       })),
       updateStaff: (id, updatedStaff) => set((state) => ({
         staff: state.staff.map((s) => (s.id === id ? { ...s, ...updatedStaff } : s))
@@ -845,7 +819,7 @@ export const useDataStore = create<DataState>()(
       })),
 
       addFeeRecord: (record) => set((state) => ({ 
-        feeRecords: [...state.feeRecords, { ...record, id: Math.random().toString(36).substr(2, 9) }] 
+        feeRecords: [...state.feeRecords, { ...record, id: Math.random().toString(36).substring(2, 11) }] 
       })),
       updateFeeRecord: (id, updatedRecord) => set((state) => ({
         feeRecords: state.feeRecords.map((r) => (r.id === id ? { ...r, ...updatedRecord } : r))
@@ -864,7 +838,7 @@ export const useDataStore = create<DataState>()(
       })),
 
       addSchool: (school) => set((state) => ({ 
-        schools: [...state.schools, { ...school, id: Math.random().toString(36).substr(2, 9) }] 
+        schools: [...state.schools, { ...school, id: Math.random().toString(36).substring(2, 11) }] 
       })),
       updateSchool: (id, updatedSchool) => set((state) => ({
         schools: state.schools.map((s) => (s.id === id ? { ...s, ...updatedSchool } : s))
@@ -894,7 +868,7 @@ export const useDataStore = create<DataState>()(
       })),
 
       addTeacher: (teacher) => set((state) => ({ 
-        teachers: [...state.teachers, { ...teacher, id: Math.random().toString(36).substr(2, 9) }] 
+        teachers: [...state.teachers, { ...teacher, id: Math.random().toString(36).substring(2, 11) }] 
       })),
       updateTeacher: (id, updatedTeacher) => set((state) => ({
         teachers: state.teachers.map((t) => (t.id === id ? { ...t, ...updatedTeacher } : t))
@@ -904,7 +878,7 @@ export const useDataStore = create<DataState>()(
       })),
 
       addClass: (cls) => set((state) => ({ 
-        classes: [...state.classes, { ...cls, id: Math.random().toString(36).substr(2, 9) }] 
+        classes: [...state.classes, { ...cls, id: Math.random().toString(36).substring(2, 11) }] 
       })),
       updateClass: (id, updatedCls) => set((state) => ({
         classes: state.classes.map((c) => (c.id === id ? { ...c, ...updatedCls } : c))
@@ -914,7 +888,7 @@ export const useDataStore = create<DataState>()(
       })),
 
       addFaculty: (faculty) => set((state) => ({ 
-        faculties: [...state.faculties, { ...faculty, id: Math.random().toString(36).substr(2, 9) }] 
+        faculties: [...state.faculties, { ...faculty, id: Math.random().toString(36).substring(2, 11) }] 
       })),
       updateFaculty: (id, updatedFaculty) => set((state) => ({
         faculties: state.faculties.map((f) => (f.id === id ? { ...f, ...updatedFaculty } : f))
@@ -924,7 +898,7 @@ export const useDataStore = create<DataState>()(
       })),
 
       addSubject: (subject) => set((state) => ({ 
-        subjects: [...state.subjects, { ...subject, id: Math.random().toString(36).substr(2, 9) }] 
+        subjects: [...state.subjects, { ...subject, id: Math.random().toString(36).substring(2, 11) }] 
       })),
       updateSubject: (id, updatedSubject) => set((state) => ({
         subjects: state.subjects.map((s) => (s.id === id ? { ...s, ...updatedSubject } : s))
@@ -933,8 +907,12 @@ export const useDataStore = create<DataState>()(
         subjects: state.subjects.filter((s) => s.id !== id)
       })),
 
+      updatePlan: (id, updatedPlan) => set((state) => ({
+        plans: state.plans.map((p) => (p.id === id ? { ...p, ...updatedPlan } : p))
+      })),
+
       addExam: (exam) => set((state) => ({ 
-        exams: [...state.exams, { ...exam, id: Math.random().toString(36).substr(2, 9) }] 
+        exams: [...state.exams, { ...exam, id: Math.random().toString(36).substring(2, 11) }] 
       })),
       updateExam: (id, updatedExam) => set((state) => ({
         exams: state.exams.map((e) => (e.id === id ? { ...e, ...updatedExam } : e))
@@ -943,15 +921,21 @@ export const useDataStore = create<DataState>()(
         exams: state.exams.filter((e) => e.id !== id)
       })),
       addExamResult: (result) => set((state) => ({
-        examResults: [...state.examResults, { ...result, id: Math.random().toString(36).substr(2, 9) }]
+        examResults: [...state.examResults, { ...result, id: Math.random().toString(36).substring(2, 11) }]
+      })),
+      updateExamResult: (id, updated) => set((state) => ({
+        examResults: state.examResults.map((r) => (r.id === id ? { ...r, ...updated } : r))
+      })),
+      deleteExamResult: (id) => set((state) => ({
+        examResults: state.examResults.filter((r) => r.id !== id)
       })),
       setExamTimetable: (timetable) => set({ examTimetable: timetable }),
       addExamTimetableEntry: (entry) => set((state) => ({
-        examTimetable: [...state.examTimetable, { ...entry, id: Math.random().toString(36).substr(2, 9) }]
+        examTimetable: [...state.examTimetable, { ...entry, id: Math.random().toString(36).substring(2, 11) }]
       })),
 
       markAttendance: (records) => set((state) => {
-        const newRecords = records.map(r => ({ ...r, id: Math.random().toString(36).substr(2, 9) }));
+        const newRecords = records.map(r => ({ ...r, id: Math.random().toString(36).substring(2, 11) }));
         // Replace existing records for same date/target/class
         const filteredAttendance = state.attendance.filter(existing => 
           !records.some(r => r.date === existing.date && r.targetId === existing.targetId && r.classId === existing.classId)
@@ -974,6 +958,28 @@ export const useDataStore = create<DataState>()(
       })),
       updatePayroll: (id, updatedPayroll) => set((state) => ({
         payroll: state.payroll.map((p) => (p.id === id ? { ...p, ...updatedPayroll } : p))
+      })),
+
+      registrationConfigs: [],
+      addRegistrationConfig: (config) => set((state) => ({
+        registrationConfigs: [...state.registrationConfigs, { ...config, id: `RC-${Math.floor(Math.random() * 100000)}` }]
+      })),
+      updateRegistrationConfig: (id, updated) => set((state) => ({
+        registrationConfigs: state.registrationConfigs.map((c) => (c.id === id ? { ...c, ...updated } : c))
+      })),
+      deleteRegistrationConfig: (id) => set((state) => ({
+        registrationConfigs: state.registrationConfigs.filter((c) => c.id !== id)
+      })),
+
+      admissionApplications: [],
+      addAdmissionApplication: (app) => set((state) => ({
+        admissionApplications: [...state.admissionApplications, { ...app, id: `ADM-${Math.floor(Math.random() * 100000)}` }],
+      })),
+      updateAdmissionApplication: (id, updated) => set((state) => ({
+        admissionApplications: state.admissionApplications.map((a) => (a.id === id ? { ...a, ...updated } : a)),
+      })),
+      deleteAdmissionApplication: (id) => set((state) => ({
+        admissionApplications: state.admissionApplications.filter((a) => a.id !== id),
       })),
 
       _hasHydrated: false,

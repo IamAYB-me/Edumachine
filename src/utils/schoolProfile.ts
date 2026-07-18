@@ -8,6 +8,10 @@ type PortalLevelLabels = {
   structurePlural: string;
   curriculumLabel: string;
   studyLabel: string;
+  subjectSingular: string;
+  subjectPlural: string;
+  creditLabel: string;
+  termOptions: string[];
   resultsLabel: string;
   assessmentLabel: string;
   termLabel: string;
@@ -32,6 +36,10 @@ const portalLevelLabels: Record<PortalLevel, PortalLevelLabels> = {
     structurePlural: 'Classes',
     curriculumLabel: 'Subjects',
     studyLabel: 'My Subjects',
+    subjectSingular: 'Subject',
+    subjectPlural: 'Subjects',
+    creditLabel: '',
+    termOptions: ['First Term', 'Second Term', 'Third Term'],
     resultsLabel: 'Report Cards',
     assessmentLabel: 'Tests & Exams',
     termLabel: 'Term',
@@ -66,6 +74,10 @@ const portalLevelLabels: Record<PortalLevel, PortalLevelLabels> = {
     structurePlural: 'Classes',
     curriculumLabel: 'Curriculum',
     studyLabel: 'My Subjects',
+    subjectSingular: 'Subject',
+    subjectPlural: 'Subjects',
+    creditLabel: '',
+    termOptions: ['First Term', 'Second Term', 'Third Term'],
     resultsLabel: 'Result Sheets',
     assessmentLabel: 'Assessments',
     termLabel: 'Term',
@@ -100,6 +112,10 @@ const portalLevelLabels: Record<PortalLevel, PortalLevelLabels> = {
     structurePlural: 'Departments',
     curriculumLabel: 'Programmes',
     studyLabel: 'My Courses',
+    subjectSingular: 'Course',
+    subjectPlural: 'Courses',
+    creditLabel: 'Credit Hours',
+    termOptions: ['First Semester', 'Second Semester'],
     resultsLabel: 'Academic Results',
     assessmentLabel: 'Assessments',
     termLabel: 'Semester',
@@ -134,6 +150,10 @@ const portalLevelLabels: Record<PortalLevel, PortalLevelLabels> = {
     structurePlural: 'Departments',
     curriculumLabel: 'Programmes',
     studyLabel: 'My Courses',
+    subjectSingular: 'Course',
+    subjectPlural: 'Courses',
+    creditLabel: 'Credit Units',
+    termOptions: ['First Semester', 'Second Semester'],
     resultsLabel: 'Results & Transcripts',
     assessmentLabel: 'Assessments',
     termLabel: 'Semester',

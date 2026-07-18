@@ -10,6 +10,7 @@ interface GlobalSettings {
   timezone: string;
   logoUrl?: string;
   faviconUrl?: string;
+  maintenanceMode: boolean;
   passwordPolicy: {
     minLength: number;
     requireCapital: boolean;
@@ -37,6 +38,9 @@ interface GlobalSettings {
     breakStart: string;
     breakDuration: number;
   };
+  admissionFee: number;
+  admissionFormPrefix: string;
+  admissionFormNextSequence: number;
 }
 
 interface SettingsState {
@@ -57,10 +61,11 @@ export const useSettingsStore = create<SettingsState>()(
       globalSettings: {
         appName: 'EduPlatform SaaS',
         appTagline: 'The Future of School Management',
-        supportEmail: 'support@eduplatform.com',
+        supportEmail: 'support@myskulbot.com',
         contactPhone: '+1 (555) 000-0000',
         language: 'English (US)',
         timezone: '(GMT+01:00) Lagos',
+        maintenanceMode: false,
         passwordPolicy: {
           minLength: 8,
           requireCapital: true,
@@ -88,6 +93,9 @@ export const useSettingsStore = create<SettingsState>()(
           breakStart: '11:00 AM',
           breakDuration: 30,
         },
+        admissionFee: 5000,
+        admissionFormPrefix: 'EMS',
+        admissionFormNextSequence: 1,
       },
       setTheme: (theme) => set({ theme }),
       toggleTheme: () => set((state) => ({ theme: state.theme === 'light' ? 'dark' : 'light' })),

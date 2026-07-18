@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Search, Filter, Plus, Users, UserCheck, ShieldAlert, ChevronRight, Mail, Download, Book, TrendingUp, X } from 'lucide-react';
 import { cn } from '@/utils';
 import { KPICard } from '@/components/ui/KPICard';
@@ -14,7 +14,7 @@ export default function LibraryMembers() {
   const [manualMembers, setManualMembers] = useState<
     Array<{
       name: string;
-      studentId: string;
+      regNo: string;
       memberType: 'Student' | 'Staff';
       booksIssued: number;
       joinDate: string;
@@ -23,7 +23,7 @@ export default function LibraryMembers() {
   >([]);
   const [formData, setFormData] = useState({
     name: '',
-    studentId: '',
+    regNo: '',
     memberType: 'Student' as 'Student' | 'Staff',
     booksIssued: 0,
     joinDate: new Date().toISOString().split('T')[0],
@@ -48,7 +48,7 @@ export default function LibraryMembers() {
   const filteredMembers = members.filter((member) => {
     const matchesSearch =
       member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      member.studentId.toLowerCase().includes(searchTerm.toLowerCase());
+      member.regNo.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = memberTypeFilter === 'All Members' || member.memberType === memberTypeFilter;
 
     return matchesSearch && matchesType;
@@ -87,7 +87,7 @@ export default function LibraryMembers() {
       ...filteredMembers.map((member) =>
         [
           `Name: ${member.name}`,
-          `Member ID: ${member.studentId}`,
+          `Reg No: ${member.regNo}`,
           `Type: ${member.memberType}`,
           `Books Issued: ${member.booksIssued}`,
           `Join Date: ${member.joinDate}`,
@@ -105,7 +105,7 @@ export default function LibraryMembers() {
   };
 
   const handleAddMember = () => {
-    if (!formData.name.trim() || !formData.studentId.trim()) {
+    if (!formData.name.trim() || !formData.regNo.trim()) {
       showToast({
         title: 'Member details required',
         description: 'Enter both member name and member ID before saving.',
@@ -118,7 +118,7 @@ export default function LibraryMembers() {
     setShowModal(false);
     setFormData({
       name: '',
-      studentId: '',
+      regNo: '',
       memberType: 'Student',
       booksIssued: 0,
       joinDate: new Date().toISOString().split('T')[0],
@@ -171,28 +171,28 @@ export default function LibraryMembers() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard 
           title="Total Members" 
-          value="842" 
+          value={String(members.length)} 
           icon={Users} 
           iconBgClass="bg-blue-50 dark:bg-blue-900/20"
           iconColorClass="text-blue-600 dark:text-blue-400"
         />
         <KPICard 
           title="Active Users" 
-          value="785" 
+          value={String(members.filter(m => m.status === 'Active').length)} 
           icon={UserCheck} 
           iconBgClass="bg-emerald-50 dark:bg-emerald-900/20"
           iconColorClass="text-emerald-600 dark:text-emerald-400"
         />
         <KPICard 
           title="Blocked" 
-          value="12" 
+          value={String(members.filter(m => m.status === 'Blocked').length)} 
           icon={ShieldAlert} 
           iconBgClass="bg-rose-50 dark:bg-rose-900/20"
           iconColorClass="text-rose-600 dark:text-rose-400"
         />
         <KPICard 
           title="New This Month" 
-          value="45" 
+          value={String(members.filter(m => m.joinDate.startsWith(new Date().toISOString().slice(0, 7))).length)} 
           icon={TrendingUp} 
           iconBgClass="bg-indigo-50 dark:bg-indigo-900/20"
           iconColorClass="text-indigo-600 dark:text-indigo-400"
@@ -246,7 +246,7 @@ export default function LibraryMembers() {
                       />
                       <div>
                         <p className="font-bold text-slate-900 dark:text-white">{member.name}</p>
-                        <p className="text-[10px] font-mono font-bold text-slate-400">{member.studentId}</p>
+                        <p className="text-[10px] font-mono font-bold text-slate-400">{member.regNo || '—'}</p>
                       </div>
                     </div>
                   </td>
@@ -324,10 +324,10 @@ export default function LibraryMembers() {
                   />
                 </label>
                 <label className="space-y-2 text-sm font-medium text-slate-700">
-                  <span>Member ID</span>
+                  <span>Reg No</span>
                   <input
-                    value={formData.studentId}
-                    onChange={(event) => setFormData((current) => ({ ...current, studentId: event.target.value }))}
+                    value={formData.regNo}
+                    onChange={(event) => setFormData((current) => ({ ...current, regNo: event.target.value }))}
                     className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition focus:border-blue-500"
                     placeholder="e.g. STU-101"
                   />

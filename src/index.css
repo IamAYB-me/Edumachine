@@ -11,4 +11,60 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  --school-logo-url: none;
+}
+
+@media print {
+  .no-print,
+  .no-print * {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  body {
+    background: white !important;
+    margin: 0;
+    padding: 0;
+    position: relative;
+  }
+
+  /* Watermark overlay on every printed page */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 280px;
+    height: 280px;
+    background-image: var(--school-logo-url);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    opacity: 0.06;
+    z-index: -1;
+    pointer-events: none;
+    page-break-after: avoid;
+  }
+
+  /* Fit small content to a single page */
+  .print-fit-page {
+    min-height: auto !important;
+    height: auto !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+}
+
+@media screen {
+  .print-only {
+    display: none !important;
+  }
 }

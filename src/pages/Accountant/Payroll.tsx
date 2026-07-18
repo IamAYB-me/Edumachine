@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Filter, Plus, Wallet, Download, Users, TrendingUp, Clock, CheckCircle, ArrowUpRight, X, Edit2 } from 'lucide-react';
+import { Search, Filter, Plus, Wallet, Download, Users, TrendingUp, Clock, ArrowUpRight, X, Edit2 } from 'lucide-react';
 import { cn } from '@/utils';
 import { KPICard } from '@/components/ui/KPICard';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -13,6 +13,7 @@ export default function AccountantPayroll() {
   const { payroll, addPayroll, updatePayroll, staff } = useDataStore();
   const showToast = useToastStore((state) => state.showToast);
   const [searchTerm, setSearchTerm] = useState('');
+  const [departmentFilter, setDepartmentFilter] = useState<'All' | 'Academic' | 'Non-Academic' | 'Admin'>('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPayroll, setEditingPayroll] = useState<Payroll | null>(null);
 
@@ -82,11 +83,13 @@ export default function AccountantPayroll() {
   };
 
   const filteredPayroll = useMemo(() => {
-    return payroll.filter(pay => 
-      pay.staffName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      pay.role.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [payroll, searchTerm]);
+    return payroll.filter(pay => {
+      const matchesSearch = pay.staffName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        pay.role.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesDept = departmentFilter === 'All' || pay.category === departmentFilter;
+      return matchesSearch && matchesDept;
+    });
+  }, [payroll, searchTerm, departmentFilter]);
 
   const handleBulkPayslipExport = () => {
     if (filteredPayroll.length === 0) {
@@ -191,9 +194,17 @@ export default function AccountantPayroll() {
                 />
               </div>
               <div className="flex gap-2">
-                <button className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition-all">
+                <button
+                  onClick={() => {
+                    setDepartmentFilter(current => {
+                      const order = ['All', 'Academic', 'Non-Academic', 'Admin'] as const;
+                      return order[(order.indexOf(current) + 1) % order.length];
+                    });
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition-all"
+                >
                   <Filter className="w-4 h-4" />
-                  All Departments
+                  {departmentFilter}
                 </button>
               </div>
             </div>

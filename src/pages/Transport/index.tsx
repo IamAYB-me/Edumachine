@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bus, Map, Users, AlertTriangle, Clock, MapPin, CheckCircle } from 'lucide-react';
+import { Bus, Map, Users, AlertTriangle, MapPin, CheckCircle } from 'lucide-react';
 import { KPICard } from '@/components/ui/KPICard';
 import { useNavigate } from 'react-router-dom';
 import { useToastStore } from '@/store/useToastStore';
@@ -24,11 +24,10 @@ export default function TransportDashboard() {
       return;
     }
 
-    showToast({
-      title: 'Maintenance alert center ready',
-      description: 'Current service alerts are visible on the dashboard for the transport officer.',
-      variant: 'info',
-    });
+    if (action === 'maintenance') {
+      navigate('/transport/vehicles');
+      return;
+    }
   };
 
   return (

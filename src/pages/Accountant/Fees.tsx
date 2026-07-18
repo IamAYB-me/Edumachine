@@ -44,6 +44,8 @@ export default function AccountantFees() {
   const schoolProfile = resolveSchoolProfile(user ?? null, schools);
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Paid' | 'Pending' | 'Partial'>('All');
+  const [quickInvoiceReg, setQuickInvoiceReg] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingFee, setEditingFee] = useState<FeeRecord | null>(null);
   const [formData, setFormData] = useState<Omit<FeeRecord, 'id'>>({
@@ -64,12 +66,15 @@ export default function AccountantFees() {
 
   const filteredFees = useMemo(() => {
     return feeRecords.filter(
-      (fee) =>
-        fee.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        fee.studentId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        fee.type.toLowerCase().includes(searchTerm.toLowerCase())
+      (fee) => {
+        const matchesSearch = fee.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          fee.studentId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          fee.type.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesStatus = statusFilter === 'All' || fee.status === statusFilter;
+        return matchesSearch && matchesStatus;
+      }
     );
-  }, [feeRecords, searchTerm]);
+  }, [feeRecords, searchTerm, statusFilter]);
 
   const stats = useMemo(() => {
     const totalPaid = feeRecords
@@ -200,10 +205,13 @@ export default function AccountantFees() {
   };
 
   const handleSendReminder = () => {
+    const student = students.find(s => s.regNo === quickInvoiceReg || s.id === quickInvoiceReg);
     showToast({
-      title: 'Reminder sent',
-      description: 'Outstanding fee reminder has been queued for the selected student.',
-      variant: 'success',
+      title: student ? 'Reminder sent' : 'Student not found',
+      description: student
+        ? `Outstanding fee reminder queued for ${student.name}.`
+        : `No student matched reg number "${quickInvoiceReg}".`,
+      variant: student ? 'success' : 'warning',
     });
   };
 
@@ -308,17 +316,16 @@ export default function AccountantFees() {
                 />
               </div>
               <button
-                onClick={() =>
-                  showToast({
-                    title: 'Status filter ready',
-                    description: 'You can now review paid, pending, or partial fee records from the table.',
-                    variant: 'info',
-                  })
-                }
+                onClick={() => {
+                  setStatusFilter(current => {
+                    const order = ['All', 'Paid', 'Pending', 'Partial'] as const;
+                    return order[(order.indexOf(current) + 1) % order.length];
+                  });
+                }}
                 className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 py-2.5 text-sm font-bold text-slate-600 shadow-sm transition-all hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
               >
                 <Filter className="h-4 w-4" />
-                Filter Status
+                {statusFilter}
               </button>
             </div>
 
@@ -340,7 +347,7 @@ export default function AccountantFees() {
                         <div>
                           <p className="font-bold text-slate-900 dark:text-white">{fee.studentName}</p>
                           <p className="text-[10px] font-bold uppercase tracking-tight text-slate-400">
-                            ID: {fee.studentId}
+                            Reg: {fee.regNo || fee.studentId}
                           </p>
                         </div>
                       </td>
@@ -455,7 +462,9 @@ export default function AccountantFees() {
             <div className="relative z-10 space-y-4">
               <input
                 type="text"
-                placeholder="Enter Student ID..."
+                placeholder="Enter Reg No..."
+                value={quickInvoiceReg}
+                onChange={(e) => setQuickInvoiceReg(e.target.value)}
                 className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-3.5 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
               />
               <button

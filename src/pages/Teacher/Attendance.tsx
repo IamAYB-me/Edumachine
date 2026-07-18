@@ -1,19 +1,19 @@
 import React, { useState } from 'react';
-import { useDataStore, Student, Class } from '@/store/useDataStore';
+import { useDataStore } from '@/store/useDataStore';
 import { useAuthStore } from '@/store/useAuthStore';
-import { Search, Calendar, CheckCircle, XCircle, Clock, AlertCircle, Save, Users, UserCheck, Filter } from 'lucide-react';
+import { Search, Calendar, CheckCircle, XCircle, AlertCircle, Clock, Save, Users, UserCheck } from 'lucide-react';
 import { cn } from '@/utils';
 import { KPICard } from '@/components/ui/KPICard';
 import { useToastStore } from '@/store/useToastStore';
 
 export default function MarkAttendance() {
-  const { classes, students, markAttendance, attendance } = useDataStore();
+  const { classes, students, markAttendance } = useDataStore();
   const { user } = useAuthStore();
   const showToast = useToastStore((state) => state.showToast);
   
   const [selectedClass, setSelectedClass] = useState<string>(classes[0]?.id || '');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [marks, setAnswers] = useState<Record<string, 'Present' | 'Absent' | 'Late' | 'Excused'>>({});
+  const [attendanceMap, setAttendanceMap] = useState<Record<string, 'Present' | 'Absent' | 'Late' | 'Excused'>>({});
   const [searchTerm, setSearchTerm] = useState('');
 
   const currentClass = classes.find(c => c.id === selectedClass);
@@ -25,21 +25,21 @@ export default function MarkAttendance() {
 
   const stats = {
     total: classStudents.length,
-    present: Object.values(marks).filter(v => v === 'Present').length,
-    absent: Object.values(marks).filter(v => v === 'Absent').length,
-    late: Object.values(marks).filter(v => v === 'Late').length
+    present: Object.values(attendanceMap).filter(v => v === 'Present').length,
+    absent: Object.values(attendanceMap).filter(v => v === 'Absent').length,
+    late: Object.values(attendanceMap).filter(v => v === 'Late').length
   };
 
   const handleBulkMark = (status: 'Present' | 'Absent' | 'Late' | 'Excused') => {
-    const newMarks = { ...marks };
+    const newMap = { ...attendanceMap };
     classStudents.forEach(s => {
-      newMarks[s.id] = status;
+      newMap[s.id] = status;
     });
-    setAnswers(newMarks);
+    setAttendanceMap(newMap);
   };
 
   const handleMark = (studentId: string, status: 'Present' | 'Absent' | 'Late' | 'Excused') => {
-    setAnswers({ ...marks, [studentId]: status });
+    setAttendanceMap({ ...attendanceMap, [studentId]: status });
   };
 
   const handleSave = () => {
@@ -56,7 +56,7 @@ export default function MarkAttendance() {
       targetId: s.id,
       targetName: s.name,
       type: 'Student' as const,
-      status: marks[s.id] || 'Present',
+      status: attendanceMap[s.id] || 'Present',
       date: date,
       classId: selectedClass,
       markedBy: user?.name || 'Teacher'
@@ -111,7 +111,7 @@ export default function MarkAttendance() {
         />
         <KPICard 
           title="Late / Excused" 
-          value={(stats.late + Object.values(marks).filter(v => v === 'Excused').length).toString()} 
+          value={(stats.late + Object.values(attendanceMap).filter(v => v === 'Excused').length).toString()} 
           icon={Clock} 
           iconBgClass="bg-amber-50 dark:bg-amber-900/20"
           iconColorClass="text-amber-600 dark:text-amber-400"
@@ -217,7 +217,7 @@ export default function MarkAttendance() {
                             onClick={() => handleMark(student.id, status.label as any)}
                             className={cn(
                               "p-2 rounded-lg transition-all border-2",
-                              (marks[student.id] || 'Present') === status.label 
+                              (attendanceMap[student.id] || 'Present') === status.label 
                                 ? `border-current ${status.bg} ${status.color} scale-110 shadow-sm`
                                 : "border-transparent text-slate-300 dark:text-slate-600 hover:text-slate-400"
                             )}

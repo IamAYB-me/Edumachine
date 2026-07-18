@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Outlet, Navigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
@@ -9,6 +9,7 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 export default function DashboardLayout() {
   const { user, isAuthenticated, _hasHydrated } = useAuthStore();
   const { theme, globalSettings } = useSettingsStore();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -29,6 +30,10 @@ export default function DashboardLayout() {
     link.href = globalSettings.faviconUrl;
   }, [globalSettings?.faviconUrl]);
 
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, []);
+
   if (!_hasHydrated) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-950">
@@ -41,18 +46,25 @@ export default function DashboardLayout() {
   }
 
   if (!isAuthenticated || !user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/login" replace />;
   }
 
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 overflow-hidden transition-colors duration-200">
-      <Sidebar role={user.role} />
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-slate-900/50 backdrop-blur-sm lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      <Sidebar role={user.role} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        <Header 
-          userName={user.name} 
-          userRole={user.roleLabel} 
-          schoolName={user.schoolName} 
+        <Header
+          userName={user.name}
+          userRole={user.roleLabel}
+          schoolName={user.schoolName}
           avatarUrl={user.avatarUrl}
+          onMenuToggle={() => setSidebarOpen((prev) => !prev)}
         />
         <main className="flex-1 overflow-y-auto p-6 md:p-8">
           <Outlet />

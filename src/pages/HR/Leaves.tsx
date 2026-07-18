@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Search, Filter, Plus, Calendar, CheckCircle, XCircle, Clock, FileText, User, ChevronRight } from 'lucide-react';
+import { Search, Filter, Plus, Calendar, CheckCircle, XCircle, Clock, FileText, User, ChevronRight, X } from 'lucide-react';
 import { cn } from '@/utils';
 import { KPICard } from '@/components/ui/KPICard';
 import { useToastStore } from '@/store/useToastStore';
@@ -86,7 +86,12 @@ export default function HRLeaves() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
           <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
             <form onSubmit={handleApplyLeave} className="space-y-4 p-8">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Apply Leave</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white">Apply Leave</h2>
+                <button type="button" onClick={() => setIsApplyModalOpen(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-500">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
               <input required value={formData.staff} onChange={(e) => setFormData({ ...formData, staff: e.target.value })} placeholder="Staff name" className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
               <input required value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })} placeholder="Role" className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
               <div className="grid grid-cols-2 gap-4">

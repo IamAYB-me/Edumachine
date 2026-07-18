@@ -1,13 +1,14 @@
 import React from 'react';
-import { Users, GraduationCap, DollarSign, Calendar, MessageSquare, CreditCard, Clock, FileText, BookOpen, CheckCircle, Bell, ShieldCheck } from 'lucide-react';
-import { KPICard } from '@/components/ui/KPICard';
+import { GraduationCap, DollarSign, Calendar, CreditCard, Clock, FileText, BookOpen, CheckCircle, Bell, ShieldCheck } from 'lucide-react';
 import { cn } from '@/utils';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useNavigate } from 'react-router-dom';
 import { useToastStore } from '@/store/useToastStore';
+import { useAuthStore } from '@/store/useAuthStore';
 
 export default function ParentDashboard() {
   const { format } = useCurrency();
+  const user = useAuthStore((state) => state.user);
   const isFinanciallyCleared = false; // Mock data logic
   const navigate = useNavigate();
   const showToast = useToastStore((state) => state.showToast);
@@ -29,6 +30,15 @@ export default function ParentDashboard() {
 
     if (action === 'messages') {
       navigate('/parent/messages');
+      return;
+    }
+
+    if (action === 'ptm') {
+      showToast({
+        title: 'PTM Scheduling',
+        description: 'PTM scheduling is coming soon. You\'ll be able to book a meeting with your child\'s teachers.',
+        variant: 'info',
+      });
       return;
     }
 
@@ -56,7 +66,7 @@ export default function ParentDashboard() {
     <div className="space-y-6">
       <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Welcome back, Mrs. Sarah Johnson! 👋</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Welcome back, {user?.name || 'Parent'}! 👋</h1>
           <p className="text-slate-500 text-sm mt-1">Here's what's happening with your children today.</p>
         </div>
 
@@ -151,7 +161,7 @@ export default function ParentDashboard() {
               { name: 'Report Card', icon: GraduationCap, color: 'text-blue-600', bg: 'bg-blue-50', action: 'report' },
               { name: 'Homework', icon: BookOpen, color: 'text-amber-600', bg: 'bg-amber-50', action: 'homework' },
               { name: 'School Bus', icon: Clock, color: 'text-orange-600', bg: 'bg-orange-50', action: 'attendance' },
-              { name: 'Book PTM', icon: Calendar, color: 'text-rose-600', bg: 'bg-rose-50', action: 'messages' },
+              { name: 'Book PTM', icon: Calendar, color: 'text-rose-600', bg: 'bg-rose-50', action: 'ptm' },
             ].map((action, i) => (
               <button key={i} onClick={() => handleQuickAccess(action.action)} className="flex flex-col items-center gap-2 group">
                 <div className={cn("p-4 rounded-xl transition-transform group-hover:scale-105", action.bg, action.color)}>

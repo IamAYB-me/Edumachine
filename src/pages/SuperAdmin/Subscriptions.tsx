@@ -1,12 +1,42 @@
-import React from 'react';
-import { Check, Zap, Shield, Rocket, Building2, Users } from 'lucide-react';
+import React, { useState } from 'react';
+import { Check, Zap, Shield, Rocket, Building2, Users, X } from 'lucide-react';
 import { cn } from '@/utils';
 import { useDataStore } from '@/store/useDataStore';
 import { useCurrency } from '@/hooks/useCurrency';
+import { useToastStore } from '@/store/useToastStore';
 
 export default function SubscriptionPlans() {
-  const { plans } = useDataStore();
+  const { plans, updatePlan } = useDataStore();
   const { format } = useCurrency();
+  const showToast = useToastStore((s) => s.showToast);
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editName, setEditName] = useState<string>('');
+  const [editPrice, setEditPrice] = useState<number>(0);
+  const [editStudentsLimit, setEditStudentsLimit] = useState<number>(0);
+  const [editFeatures, setEditFeatures] = useState<string>('');
+
+  const handleOpenEdit = (plan: typeof plans[number]) => {
+    setEditName(plan.name);
+    setEditPrice(plan.price);
+    setEditStudentsLimit(plan.studentsLimit);
+    setEditFeatures(plan.features.join('\n'));
+    setIsModalOpen(true);
+  };
+
+  const handleSave = () => {
+    const plan = plans.find((p) => p.name === editName);
+    if (!plan) return;
+
+    updatePlan(plan.id, {
+      price: editPrice,
+      studentsLimit: editStudentsLimit,
+      features: editFeatures.split('\n').map((f) => f.trim()).filter(Boolean),
+    });
+
+    showToast({ title: 'Plan Updated', description: `${editName} plan has been updated successfully.`, variant: 'success' });
+    setIsModalOpen(false);
+  };
 
   return (
     <div className="space-y-6">
@@ -68,12 +98,15 @@ export default function SubscriptionPlans() {
               ))}
             </div>
 
-            <button className={cn(
-              "w-full py-3 rounded-xl text-sm font-bold transition-all",
-              plan.name === 'Professional'
-                ? "bg-blue-600 text-white shadow-lg shadow-blue-900/20 hover:bg-blue-700"
-                : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
-            )}>
+            <button
+              onClick={() => handleOpenEdit(plan)}
+              className={cn(
+                "w-full py-3 rounded-xl text-sm font-bold transition-all",
+                plan.name === 'Professional'
+                  ? "bg-blue-600 text-white shadow-lg shadow-blue-900/20 hover:bg-blue-700"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+              )}
+            >
               Edit Plan
             </button>
           </div>
@@ -89,6 +122,69 @@ export default function SubscriptionPlans() {
           Contact Sales Team
         </button>
       </div>
+
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-lg flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Edit {editName} Plan</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Update pricing, limits, and features for this subscription tier.</p>
+              </div>
+              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors">
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5 overflow-y-auto">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-500 uppercase">Monthly Price</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={editPrice}
+                  onChange={(e) => setEditPrice(Number(e.target.value))}
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500 dark:text-white text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-500 uppercase">Students Limit</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={editStudentsLimit}
+                  onChange={(e) => setEditStudentsLimit(Number(e.target.value))}
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500 dark:text-white text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-500 uppercase">Features (one per line)</label>
+                <textarea
+                  rows={6}
+                  value={editFeatures}
+                  onChange={(e) => setEditFeatures(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500 dark:text-white text-sm resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex gap-3 justify-end flex-shrink-0">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="px-4 py-2.5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-900/20 transition-all"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

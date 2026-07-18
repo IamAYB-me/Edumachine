@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Filter, Plus, Building2, Edit, Trash2, X, Shield, Calendar, Settings2, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Search, Plus, Building2, Edit, Trash2, X, Calendar, Settings2, RefreshCw } from 'lucide-react';
 import { cn } from '@/utils';
 import { SchoolIntegrations, useDataStore, School, AdmissionFieldKey, buildDefaultAdmissionFormConfig } from '@/store/useDataStore';
 import { useToastStore } from '@/store/useToastStore';
@@ -380,7 +380,7 @@ const resetAdmissionBuilder = () => {
           onClick={() => setIsModalOpen(false)}
         >
           <div
-            className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-4xl overflow-hidden animate-in fade-in zoom-in duration-200"
+            className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-4xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">

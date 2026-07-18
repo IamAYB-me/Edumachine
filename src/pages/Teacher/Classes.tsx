@@ -1,23 +1,30 @@
 import React, { useState } from 'react';
-import { GraduationCap, Users, DoorOpen, Search, Filter, BookOpen, Clock, Calendar, ChevronRight, User } from 'lucide-react';
+import { GraduationCap, Users, DoorOpen, Search, Filter, BookOpen, Clock, Calendar, User, X } from 'lucide-react';
 import { cn } from '@/utils';
 import { useDataStore } from '@/store/useDataStore';
 import { KPICard } from '@/components/ui/KPICard';
 import { useToastStore } from '@/store/useToastStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useNavigate } from 'react-router-dom';
 import { getPortalLevelLabels, resolveSchoolProfile } from '@/utils/schoolProfile';
 
 export default function TeacherClasses() {
   const { classes, students, schools } = useDataStore();
   const user = useAuthStore((state) => state.user);
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState<'name' | 'students' | 'room'>('name');
   const [showTimetable, setShowTimetable] = useState(false);
   const showToast = useToastStore((state) => state.showToast);
   const schoolProfile = resolveSchoolProfile(user, schools);
   const labels = getPortalLevelLabels(schoolProfile.portalLevel);
 
   // Filter classes for the logged-in teacher (simulated as 'Teacher 1')
-  const teacherClasses = classes.filter(cls => cls.teacherName.includes('Teacher') || cls.id === '1');
+  const teacherClasses = [...classes.filter(cls => cls.teacherName.includes('Teacher') || cls.id === '1')].sort((a, b) => {
+    if (sortBy === 'name') return a.name.localeCompare(b.name);
+    if (sortBy === 'students') return b.studentsCount - a.studentsCount;
+    return a.room.localeCompare(b.room);
+  });
 
   const stats = {
     totalClasses: teacherClasses.length,
@@ -38,17 +45,18 @@ export default function TeacherClasses() {
     <div className="space-y-6">
       {showTimetable && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-4xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+          <div className="w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-8 py-6 dark:border-slate-800 dark:bg-slate-800/50">
               <div>
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white">Weekly Timetable</h2>
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Your teaching schedule for the current academic week.</p>
               </div>
-              <button onClick={() => setShowTimetable(false)} className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
-                Close
+              <button onClick={() => setShowTimetable(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-500">
+                <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="grid grid-cols-1 gap-4 p-8 md:grid-cols-2 xl:grid-cols-5">
+            <div className="flex-1 min-h-0 overflow-y-auto p-8">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
               {weeklySlots.map((slot) => (
                 <div key={slot.day} className="rounded-3xl border border-slate-200 p-5 dark:border-slate-800">
                   <p className="text-xs font-black uppercase tracking-widest text-blue-600 dark:text-blue-400">{slot.day}</p>
@@ -68,6 +76,7 @@ export default function TeacherClasses() {
                   </div>
                 </div>
               ))}
+              </div>
             </div>
           </div>
         </div>
@@ -130,9 +139,15 @@ export default function TeacherClasses() {
             />
           </div>
           <div className="flex items-center gap-2">
-            <button className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+            <button
+              onClick={() => {
+                const options: Array<'name' | 'students' | 'room'> = ['name', 'students', 'room'];
+                setSortBy(options[(options.indexOf(sortBy) + 1) % options.length]);
+              }}
+              className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+            >
               <Filter className="w-4 h-4" />
-              Sort By
+              Sort By: {sortBy.charAt(0).toUpperCase() + sortBy.slice(1)}
             </button>
           </div>
         </div>
@@ -171,10 +186,10 @@ export default function TeacherClasses() {
               </div>
 
               <div className="mt-5 grid grid-cols-2 gap-3">
-                <button onClick={() => showToast({ title: `${labels.structureSingular} list opened`, description: `${cls.studentsCount} ${labels.learnerPlural.toLowerCase()} are assigned to ${cls.name}.`, variant: 'info' })} className="py-2 bg-slate-900 dark:bg-slate-700 text-white rounded-xl text-[10px] font-bold hover:bg-slate-800 dark:hover:bg-slate-600 transition-colors shadow-md">
+                <button onClick={() => navigate('/teacher/attendance')} className="py-2 bg-slate-900 dark:bg-slate-700 text-white rounded-xl text-[10px] font-bold hover:bg-slate-800 dark:hover:bg-slate-600 transition-colors shadow-md">
                   View {labels.learnerPlural}
                 </button>
-                <button onClick={() => showToast({ title: 'Attendance page ready', description: `Use Attendance to mark presence for ${cls.name}.`, variant: 'info' })} className="py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 rounded-xl text-[10px] font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                <button onClick={() => navigate('/teacher/attendance')} className="py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 rounded-xl text-[10px] font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                   Take Attendance
                 </button>
               </div>

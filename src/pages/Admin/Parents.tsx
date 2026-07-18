@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { Search, Filter, Plus, Mail, Phone, Edit, Trash2, X, Users, UserCheck, Heart, ShieldCheck, Briefcase } from 'lucide-react';
+import { Search, Filter, Plus, Mail, Edit, Trash2, X, Users, UserCheck, Heart, ShieldCheck, Briefcase } from 'lucide-react';
 import { cn } from '@/utils';
 import { useDataStore, Parent } from '@/store/useDataStore';
 import { KPICard } from '@/components/ui/KPICard';
 import ExcelImport from '@/components/ui/ExcelImport';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { useToastStore } from '@/store/useToastStore';
 
 export default function AdminParents() {
   const [searchTerm, setSearchTerm] = useState('');
   const { parents, addParent, updateParent, deleteParent, students } = useDataStore();
+  const showToast = useToastStore((state) => state.showToast);
   
   const stats = {
     total: parents.length,
@@ -319,7 +321,7 @@ export default function AdminParents() {
               Communication
             </h4>
             <p className="text-xs text-blue-100 mb-4 opacity-80">Send a bulk broadcast to all registered parents via email or SMS.</p>
-            <button className="w-full py-2.5 bg-white text-blue-600 rounded-xl text-xs font-bold hover:bg-blue-50 transition-colors shadow-md">
+            <button onClick={() => showToast({ title: 'Message composer', description: 'Opening broadcast message composer for all parents.', variant: 'info' })} className="w-full py-2.5 bg-white text-blue-600 rounded-xl text-xs font-bold hover:bg-blue-50 transition-colors shadow-md">
               Broadcast Message
             </button>
           </div>
@@ -329,7 +331,7 @@ export default function AdminParents() {
       {/* CRUD Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-md flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
               <h2 className="text-lg font-bold text-slate-900 dark:text-white">
                 {editingParent ? 'Edit Parent' : 'Add New Parent'}

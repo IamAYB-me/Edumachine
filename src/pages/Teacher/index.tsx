@@ -1,8 +1,9 @@
 import React from 'react';
-import { BookOpen, Users, UserCheck, FileText, CheckSquare, Upload, Calendar, Bell, Clock, Award, TrendingUp, ChevronRight, GraduationCap } from 'lucide-react';
+import { BookOpen, Users, UserCheck, FileText, Upload, Clock, Award, ChevronRight, GraduationCap, PenTool } from 'lucide-react';
 import { KPICard } from '@/components/ui/KPICard';
 import { cn } from '@/utils';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { useNavigate } from 'react-router-dom';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const performanceData = [
   { name: 'Grade 10A', score: 82, average: 75 },
@@ -14,15 +15,20 @@ const performanceData = [
 ];
 
 export default function TeacherDashboard() {
+  const navigate = useNavigate();
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Teacher Dashboard 👋</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Teacher Dashboard</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Manage your classes, students, and academic records.</p>
         </div>
         <div className="flex gap-3">
-          <button className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm">
+          <button onClick={() => navigate('/teacher/exams?tab=scores')} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-bold transition-colors shadow-sm">
+            <PenTool className="w-4 h-4" />
+            Record Results
+          </button>
+          <button onClick={() => navigate('/teacher/classes')} className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm">
             View Schedule
           </button>
         </div>
@@ -97,7 +103,7 @@ export default function TeacherDashboard() {
               </div>
             ))}
           </div>
-          <button className="w-full mt-6 py-2.5 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs font-bold rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors border border-slate-200 dark:border-slate-700">
+          <button onClick={() => navigate('/teacher/classes')} className="w-full mt-6 py-2.5 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs font-bold rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors border border-slate-200 dark:border-slate-700">
             View Full Timetable
           </button>
         </div>
@@ -163,7 +169,7 @@ export default function TeacherDashboard() {
         <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white">To-Do List</h3>
-            <button className="text-xs font-bold text-blue-600 hover:text-blue-700">Add Task</button>
+            <button onClick={() => navigate('/teacher/assignments')} className="text-xs font-bold text-blue-600 hover:text-blue-700">Add Task</button>
           </div>
           <div className="space-y-3 flex-1">
             {[
@@ -188,7 +194,7 @@ export default function TeacherDashboard() {
           <div className="mt-6 p-4 bg-gradient-to-br from-indigo-600 to-blue-700 rounded-xl text-white shadow-lg shadow-indigo-900/20">
             <h4 className="font-bold text-sm mb-1">Ready for CBT?</h4>
             <p className="text-[10px] text-indigo-100 mb-4 opacity-80">You have a scheduled exam for Grade 12-Science tomorrow.</p>
-            <button className="w-full py-2 bg-white text-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-50 transition-colors">
+            <button onClick={() => navigate('/teacher/exams')} className="w-full py-2 bg-white text-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-50 transition-colors">
               Manage Exams
             </button>
           </div>

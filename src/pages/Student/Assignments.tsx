@@ -32,6 +32,14 @@ export default function StudentAssignments() {
 
   const selectedAssignment = assignments.find((assignment) => assignment.id === selectedAssignmentId) ?? null;
 
+  const totalAssignments = assignments.length;
+  const gradedAssignments = assignments.filter((a) => a.status === 'Graded');
+  const avgGrade = gradedAssignments.length > 0
+    ? Math.round(gradedAssignments.reduce((sum, a) => sum + Number(a.grade?.split('/')[0] || 0), 0) / gradedAssignments.length)
+    : 0;
+  const pendingCount = assignments.filter((a) => a.status === 'Pending' || a.status === 'Active').length;
+  const gradedCount = gradedAssignments.length;
+
   const handleOpenSubmit = (assignmentId: string) => {
     setSelectedAssignmentId(assignmentId);
     setSubmissionNote('');
@@ -117,7 +125,7 @@ export default function StudentAssignments() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard 
           title="Total Assignments" 
-          value="18" 
+          value={totalAssignments} 
           icon={ClipboardCheck} 
           iconBgClass="bg-blue-50 dark:bg-blue-900/20"
           iconColorClass="text-blue-600 dark:text-blue-400"
@@ -125,15 +133,15 @@ export default function StudentAssignments() {
         />
         <KPICard 
           title="Avg. Grade" 
-          value="88%" 
+          value={`${avgGrade}%`} 
           icon={TrendingUp} 
           iconBgClass="bg-emerald-50 dark:bg-emerald-900/20"
           iconColorClass="text-emerald-600 dark:text-emerald-400"
-          trend={{ value: 3, label: "Above class avg" }}
+          trend={{ value: 0, label: gradedAssignments.length > 0 ? "Based on graded" : "No grades yet" }}
         />
         <KPICard 
           title="Pending" 
-          value="3" 
+          value={pendingCount} 
           icon={Clock} 
           iconBgClass="bg-rose-50 dark:bg-rose-900/20"
           iconColorClass="text-rose-600 dark:text-rose-400"
@@ -141,7 +149,7 @@ export default function StudentAssignments() {
         />
         <KPICard 
           title="Graded" 
-          value="15" 
+          value={gradedCount} 
           icon={CheckCircle} 
           iconBgClass="bg-amber-50 dark:bg-amber-900/20"
           iconColorClass="text-amber-600 dark:text-amber-400"
@@ -234,7 +242,7 @@ export default function StudentAssignments() {
                 </div>
               </div>
               
-              <button onClick={() => showToast({ title: 'Assignment details opened', description: 'Review the upcoming submission requirements and deadline.', variant: 'info' })} className="w-full bg-white text-slate-900 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-100 transition-colors">
+              <button onClick={() => { const pending = assignments.find(a => a.status === 'Pending' || a.status === 'Active'); if (pending) handleOpenSubmit(pending.id); }} className="w-full bg-white text-slate-900 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-100 transition-colors">
                 View Details
               </button>
             </div>
@@ -250,7 +258,7 @@ export default function StudentAssignments() {
                 { name: 'Template Project.zip', size: '4.5 MB' },
                 { name: 'Reference Papers.pdf', size: '8.4 MB' },
               ].map((res, i) => (
-                <div key={i} onClick={() => showToast({ title: 'Resource ready', description: `${res.name} is ready for download.`, variant: 'info' })} className="flex items-center justify-between p-3 border border-slate-100 rounded-lg group cursor-pointer hover:border-blue-200 hover:bg-blue-50/30 transition-all">
+                <div key={i} onClick={() => { const blob = new Blob(['Demo file content'], { type: 'application/octet-stream' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = res.name; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); showToast({ title: 'Download started', description: `${res.name} (${res.size}) is being downloaded.`, variant: 'success' }); }} className="flex items-center justify-between p-3 border border-slate-100 rounded-lg group cursor-pointer hover:border-blue-200 hover:bg-blue-50/30 transition-all">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-slate-50 text-slate-400 group-hover:text-blue-600 group-hover:bg-blue-50 rounded-lg transition-colors">
                       <Download className="w-4 h-4" />

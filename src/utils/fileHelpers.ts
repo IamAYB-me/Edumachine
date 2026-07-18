@@ -32,6 +32,7 @@ type PaymentReceiptOptions = {
   paymentMethod?: string;
   schoolName?: string;
   schoolCode?: string;
+  schoolLogoUrl?: string;
   note?: string;
 };
 
@@ -53,7 +54,7 @@ export function openPaymentReceiptWindow(options: PaymentReceiptOptions) {
     <title>${escapeHtml(options.receiptNumber)} Receipt</title>
     <style>
       * { box-sizing: border-box; }
-      body { margin: 0; padding: 32px; background: #eef4ff; font-family: Inter, Arial, sans-serif; color: #0f172a; }
+      body { margin: 0; padding: 32px; background: #eef4ff; font-family: Inter, Arial, sans-serif; color: #0f172a; ${options.schoolLogoUrl ? `--receipt-logo: url(${options.schoolLogoUrl});` : ''} }
       .sheet { max-width: 820px; margin: 0 auto; background: #fff; border-radius: 28px; overflow: hidden; box-shadow: 0 30px 90px rgba(37,99,235,.16); border: 1px solid #dbeafe; }
       .hero { background: linear-gradient(135deg, #1d4ed8, #4f46e5); color: #fff; padding: 32px; }
       .eyebrow { margin: 0 0 8px; font-size: 11px; letter-spacing: .28em; text-transform: uppercase; opacity: .78; font-weight: 700; }
@@ -77,7 +78,7 @@ export function openPaymentReceiptWindow(options: PaymentReceiptOptions) {
       .footer { display: flex; justify-content: space-between; align-items: end; gap: 20px; margin-top: 28px; padding-top: 24px; border-top: 1px dashed #cbd5e1; }
       .footer-note { max-width: 420px; font-size: 13px; line-height: 1.6; color: #475569; }
       .receipt-stamp { min-width: 180px; border: 2px solid #1d4ed8; color: #1d4ed8; border-radius: 18px; padding: 12px 16px; text-align: center; font-size: 11px; font-weight: 900; letter-spacing: .24em; text-transform: uppercase; }
-      @media print { body { background: white; padding: 0; } .sheet { box-shadow: none; border-radius: 0; border: none; } }
+      @media print { body { background: white; padding: 0; } .sheet { box-shadow: none; border-radius: 0; border: none; } body::before { content: ''; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 260px; height: 260px; background-image: var(--receipt-logo); background-repeat: no-repeat; background-position: center; background-size: contain; opacity: 0.06; z-index: -1; pointer-events: none; } }
     </style>
   </head>
   <body>

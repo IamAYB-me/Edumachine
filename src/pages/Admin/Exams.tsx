@@ -1,12 +1,20 @@
 import React, { useState } from 'react';
-import { Plus, Search, Edit, Trash2, X, ClipboardCheck, Clock, BookOpen, ChevronRight, PlayCircle, Award, CheckCircle, AlertCircle, FileText } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, X, ClipboardCheck, Clock, BookOpen, PlayCircle, Award, CheckCircle, AlertCircle, FileText } from 'lucide-react';
 import { cn } from '@/utils';
 import { useDataStore, Exam, Question } from '@/store/useDataStore';
 import { KPICard } from '@/components/ui/KPICard';
+import { useToastStore } from '@/store/useToastStore';
+import { useAuthStore } from '@/store/useAuthStore';
+import { getPortalLevelLabels, resolveSchoolProfile } from '@/utils/schoolProfile';
 
 export default function ExamManagement() {
   const [searchTerm, setSearchTerm] = useState('');
-  const { exams, addExam, updateExam, deleteExam, subjects } = useDataStore();
+  const { exams, addExam, updateExam, deleteExam, subjects, schools } = useDataStore();
+  const showToast = useToastStore((state) => state.showToast);
+  const user = useAuthStore((state) => state.user);
+
+  const schoolProfile = resolveSchoolProfile(user ?? null, schools);
+  const labels = getPortalLevelLabels(schoolProfile.portalLevel);
   
   const stats = {
     total: exams.length,
@@ -53,7 +61,7 @@ export default function ExamManagement() {
   const handleAddQuestion = () => {
     setFormData({
       ...formData,
-      questions: [...formData.questions, { id: Math.random().toString(36).substr(2, 9), text: '', options: ['', '', '', ''], correctOption: 0 }]
+      questions: [...formData.questions, { id: Math.random().toString(36).substring(2, 11), text: '', options: ['', '', '', ''], correctOption: 0 }]
     });
   };
 
@@ -82,22 +90,22 @@ export default function ExamManagement() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Exam Management (CBT)</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Create and manage Computer Based Tests and academic exams.</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{labels.assessmentLabel} Management</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Create and manage {labels.assessmentLabel.toLowerCase()} and academic records.</p>
         </div>
         <button 
           onClick={() => handleOpenModal()}
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-blue-900/20"
         >
           <Plus className="w-4 h-4" />
-          Create New Exam
+          Create New {labels.assessmentLabel.slice(0, -1) || 'Exam'}
         </button>
       </div>
 
       {/* Stats Widgets */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard 
-          title="Total Exams" 
+          title={`Total ${labels.assessmentLabel}`} 
           value={stats.total.toString()} 
           icon={FileText} 
           iconBgClass="bg-blue-50 dark:bg-blue-900/20"
@@ -181,7 +189,7 @@ export default function ExamManagement() {
               </div>
 
               <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-700">
-                <button className="w-full py-2.5 bg-slate-900 dark:bg-slate-700 text-white rounded-xl text-xs font-bold hover:bg-slate-800 dark:hover:bg-slate-600 transition-colors shadow-md flex items-center justify-center gap-2">
+                <button onClick={() => showToast({ title: 'Exam preview', description: 'Generating exam preview for review before publishing.', variant: 'info' })} className="w-full py-2.5 bg-slate-900 dark:bg-slate-700 text-white rounded-xl text-xs font-bold hover:bg-slate-800 dark:hover:bg-slate-600 transition-colors shadow-md flex items-center justify-center gap-2">
                   <PlayCircle className="w-4 h-4" />
                   Preview Exam
                 </button>
@@ -202,7 +210,7 @@ export default function ExamManagement() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-4xl my-8 overflow-hidden flex flex-col max-h-[90vh]">
             <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">{editingExam ? 'Edit Exam' : 'Create New Exam'}</h2>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">{editingExam ? `Edit ${labels.assessmentLabel.slice(0, -1) || 'Exam'}` : `Create New ${labels.assessmentLabel.slice(0, -1) || 'Exam'}`}</h2>
               <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors"><X className="w-5 h-5 text-slate-500" /></button>
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto">
@@ -212,7 +220,7 @@ export default function ExamManagement() {
                   <input type="text" required value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 rounded-xl dark:text-white" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-500 uppercase">Subject</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase">{labels.subjectSingular}</label>
                   <select value={formData.subject} onChange={(e) => setFormData({...formData, subject: e.target.value})} className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 rounded-xl dark:text-white">
                     {subjects.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                   </select>

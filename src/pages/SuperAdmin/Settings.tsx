@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Settings, Globe, Shield, Bell, Database, Mail, ArrowLeft, Save, Upload, CheckCircle2, AlertCircle, RefreshCw, HardDrive, ShieldCheck, Clock, Calendar, Lock } from 'lucide-react';
+import { Globe, Shield, Bell, Database, Mail, ArrowLeft, Save, Upload, CheckCircle2, AlertCircle, RefreshCw, HardDrive, ShieldCheck, Lock } from 'lucide-react';
 import { cn } from '@/utils';
 
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -7,9 +7,9 @@ import { useToastStore } from '@/store/useToastStore';
 
 export default function GlobalSettings() {
   const [activeSection, setActiveSection] = useState<string | null>(null);
-  const [maintenanceMode, setMaintenanceMode] = useState(false);
   const { globalSettings, updateGlobalSettings } = useSettingsStore();
   const showToast = useToastStore((state) => state.showToast);
+  const maintenanceMode = globalSettings.maintenanceMode;
 
   const sections = [
     { id: 'general', title: 'General Settings', icon: Globe, desc: 'Platform name, branding, and localization.' },
@@ -21,7 +21,7 @@ export default function GlobalSettings() {
 
   const handleMaintenanceToggle = () => {
     const nextMode = !maintenanceMode;
-    setMaintenanceMode(nextMode);
+    updateGlobalSettings({ maintenanceMode: nextMode });
     showToast({
       title: nextMode ? 'Maintenance mode enabled' : 'Maintenance mode disabled',
       description: nextMode
@@ -569,6 +569,7 @@ function EmailSettingsView({ settings, onUpdate }: { settings: any, onUpdate: an
 function DatabaseSettingsView() {
   const [autoBackupEnabled, setAutoBackupEnabled] = useState(true);
   const [isBackingUp, setIsBackingUp] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const showToast = useToastStore((state) => state.showToast);
 
   const handleBackupToggle = () => {
@@ -648,6 +649,59 @@ function DatabaseSettingsView() {
           </button>
         </div>
       </div>
+
+      {/* Danger Zone */}
+      <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border-2 border-red-200 dark:border-red-900/50 shadow-sm">
+        <h3 className="text-sm font-bold text-red-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4" />
+          Danger Zone
+        </h3>
+        <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+          Permanently delete all platform data including students, staff, fees, exams, settings, and registered accounts. This action cannot be undone.
+        </p>
+        <button
+          onClick={() => setShowResetConfirm(true)}
+          className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-2xl text-sm font-bold transition-all shadow-lg shadow-red-900/20 flex items-center gap-2"
+        >
+          <RefreshCw className="w-4 h-4" />
+          Reset All Data
+        </button>
+      </div>
+
+      {/* Reset Confirmation Modal */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-md overflow-hidden">
+            <div className="p-8 text-center">
+              <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+                <AlertCircle className="w-8 h-8 text-red-600" />
+              </div>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Reset All Data?</h2>
+              <p className="text-sm text-slate-500 mb-8">
+                This will permanently erase all students, staff, fees, exams, admission applications, settings, and registered accounts. You will be logged out.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowResetConfirm(false)}
+                  className="flex-1 px-6 py-3 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    localStorage.clear();
+                    showToast({ title: 'All data erased', description: 'Platform has been reset. Reloading...', variant: 'success' });
+                    setTimeout(() => { window.location.href = '/login'; }, 800);
+                  }}
+                  className="flex-1 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-2xl text-sm font-bold transition-all shadow-lg shadow-red-900/20"
+                >
+                  Yes, Reset Everything
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

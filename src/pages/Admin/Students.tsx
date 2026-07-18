@@ -27,13 +27,10 @@ const generateCode = (prefix: string) =>
   `${prefix}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
 
 const createEmptyStudentForm = (portalLevel: PortalLevel): StudentFormState => {
-  const admissionNumber = generateCode(`${portalLevel.slice(0, 3).toUpperCase()}-ADM`);
-
   return {
     name: '',
-    studentId: generateCode(`${portalLevel.slice(0, 3).toUpperCase()}-STD`),
-    regNo: admissionNumber,
-    admissionNumber,
+    regNo: '',
+    admissionNumber: '',
     nin: '',
     class: '',
     parentName: '',
@@ -173,8 +170,9 @@ const baseSections: Array<{ title: string; fields: FieldConfig[] }> = [
   {
     title: 'System Details',
     fields: [
-      { name: 'admissionNumber', label: 'Admission Number', readOnly: true },
-      { name: 'regNo', label: 'Registration Number' },
+      { name: 'portalLevel', label: 'Portal Level', type: 'select', options: portalLevelOptions, colSpan: 1 },
+      { name: 'admissionNumber', label: 'Admission Number' },
+      { name: 'regNo', label: 'Registration Number', readOnly: true },
       { name: 'nin', label: 'NIN' },
       { name: 'status', label: 'Status', type: 'select', options: ['Active', 'Inactive', 'Graduated', 'Suspended', 'Withdrawn'] },
       { name: 'academicSession', label: 'Academic Session' },
@@ -384,7 +382,6 @@ const systemGeneratedSection: Array<{ title: string; fields: FieldConfig[] }> = 
   {
     title: 'System Generated Fields',
     fields: [
-      { name: 'studentId', label: 'Student ID', readOnly: true },
       { name: 'qrCode', label: 'QR Code', readOnly: true },
       { name: 'barcode', label: 'Barcode', readOnly: true },
       { name: 'rfidTag', label: 'RFID Tag' },
@@ -481,83 +478,6 @@ const validateStudentPayload = (
   return errors;
 };
 
-const validateStudentPayload = (
-  payload: StudentFormState,
-  students: Student[],
-  editingStudentId?: string,
-): StudentFormErrors => {
-  const errors: StudentFormErrors = {};
-  const fullName = buildStudentDisplayName(payload);
-  const guardianName = buildPrimaryGuardianName(payload);
-  const resolvedClass = payload.classDepartment?.trim() || payload.classApplyingFor?.trim() || payload.class?.trim() || '';
-
-  if (!fullName) {
-    errors.name = 'Enter the student full name or fill surname and first name.';
-  }
-
-  if (!payload.email?.trim()) {
-    errors.email = 'Email address is required.';
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email.trim())) {
-    errors.email = 'Enter a valid email address.';
-  }
-
-  if (!payload.regNo?.trim()) {
-    errors.regNo = 'Registration number is required.';
-  }
-
-  if (!resolvedClass) {
-    errors.class = 'Class or department is required.';
-  }
-
-  if (!guardianName) {
-    errors.parentName = 'Parent or guardian name is required.';
-  }
-
-  if (!payload.dateOfAdmission?.trim()) {
-    errors.dateOfAdmission = 'Date of admission is required.';
-  }
-
-  if ((payload.portalLevel === 'College' || payload.portalLevel === 'University') && !payload.department?.trim()) {
-    errors.department = 'Department is required for this portal level.';
-  }
-
-  if ((payload.portalLevel === 'College' || payload.portalLevel === 'University') && !payload.programme?.trim()) {
-    errors.programme = 'Programme is required for this portal level.';
-  }
-
-  const comparableStudentId = normalizeValue(payload.studentId);
-  const comparableRegNo = normalizeValue(payload.regNo);
-  const comparableAdmissionNumber = normalizeValue(payload.admissionNumber);
-  const comparableEmail = normalizeValue(payload.email);
-
-  const duplicateStudent = students.find((student) => {
-    if (student.id === editingStudentId) return false;
-
-    return (
-      (comparableStudentId && normalizeValue(student.studentId) === comparableStudentId) ||
-      (comparableRegNo && normalizeValue(student.regNo) === comparableRegNo) ||
-      (comparableAdmissionNumber && normalizeValue(student.admissionNumber) === comparableAdmissionNumber) ||
-      (comparableEmail && normalizeValue(student.email) === comparableEmail)
-    );
-  });
-
-  if (duplicateStudent) {
-    if (comparableStudentId && normalizeValue(duplicateStudent.studentId) === comparableStudentId) {
-      errors.studentId = `Student ID already belongs to ${duplicateStudent.name}.`;
-    }
-    if (comparableRegNo && normalizeValue(duplicateStudent.regNo) === comparableRegNo) {
-      errors.regNo = `Registration number already belongs to ${duplicateStudent.name}.`;
-    }
-    if (comparableAdmissionNumber && normalizeValue(duplicateStudent.admissionNumber) === comparableAdmissionNumber) {
-      errors.admissionNumber = `Admission number already belongs to ${duplicateStudent.name}.`;
-    }
-    if (comparableEmail && normalizeValue(duplicateStudent.email) === comparableEmail) {
-      errors.email = `Email address already belongs to ${duplicateStudent.name}.`;
-    }
-  }
-
-  return errors;
-};
 
 export default function StudentsDirectory() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -593,7 +513,6 @@ export default function StudentsDirectory() {
         student.name,
         student.regNo,
         student.admissionNumber,
-        student.studentId,
         student.email,
         student.classDepartment,
         student.class,
@@ -636,7 +555,6 @@ export default function StudentsDirectory() {
         name: item.name || item.Name || '',
         regNo: item.regNo || item['Reg No'] || item.ID || base.regNo,
         admissionNumber: item.admissionNumber || item['Admission Number'] || base.admissionNumber,
-        studentId: item.studentId || item['Student ID'] || base.studentId,
         class: item.class || item.Class || '',
         classDepartment: item.classDepartment || item['Class / Department'] || item.class || item.Class || '',
         parentName: item.parentName || item['Parent Name'] || '',
@@ -681,6 +599,7 @@ export default function StudentsDirectory() {
     });
   };
 
+
   const updateField = (field: keyof StudentFormState, value: string) => {
     setFormData((current) => {
       const next = { ...current, [field]: value };
@@ -689,7 +608,6 @@ export default function StudentsDirectory() {
         const nextPortalLevel = value as PortalLevel;
         if (!editingStudent) {
           const regenerated = createEmptyStudentForm(nextPortalLevel);
-          next.studentId = regenerated.studentId;
           next.admissionNumber = regenerated.admissionNumber;
           if (!current.regNo || current.regNo === current.admissionNumber) {
             next.regNo = regenerated.regNo;
@@ -724,20 +642,30 @@ export default function StudentsDirectory() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const fullName = buildStudentDisplayName(formData);
-    const admissionNumber = formData.admissionNumber || generateCode(`${formData.portalLevel.slice(0, 3).toUpperCase()}-ADM`);
-    const studentId = formData.studentId || generateCode(`${formData.portalLevel.slice(0, 3).toUpperCase()}-STD`);
-    const parentName = buildPrimaryGuardianName(formData);
-    const classDepartment = formData.classDepartment || formData.classApplyingFor || formData.department || formData.class;
+    const fullName =
+      [formData.surname, formData.firstName, formData.middleName].filter(Boolean).join(' ').trim() ||
+      formData.name.trim();
+    const admissionNumber = formData.admissionNumber || '';
+    const regNo = formData.regNo || generateCode(`${formData.portalLevel.slice(0, 3).toUpperCase()}-REG`);
+    const parentName =
+      formData.parentName ||
+      formData.fatherName ||
+      formData.guardianName ||
+      formData.motherName ||
+      '';
+    const classDepartment =
+      formData.classDepartment ||
+      formData.classApplyingFor ||
+      formData.department ||
+      formData.class;
 
     const payload: StudentFormState = {
       ...formData,
       portalLevel: activePortalLevel,
       name: fullName,
       parentName,
-      studentId,
       admissionNumber,
-      regNo: formData.regNo || admissionNumber,
+      regNo,
       classDepartment,
       class: formData.class || classDepartment,
       qrCode: formData.qrCode || generateCode('QR'),
@@ -892,7 +820,7 @@ export default function StudentsDirectory() {
           <ExcelImport
             onImport={handleImport}
             templateName="Students"
-            expectedKeys={['name', 'regNo', 'admissionNumber', 'studentId', 'class', 'parentName', 'email', 'status']}
+            expectedKeys={['name', 'regNo', 'admissionNumber', 'class', 'parentName', 'email', 'status']}
           />
           <button
             onClick={() => handleOpenModal()}
@@ -912,17 +840,20 @@ export default function StudentsDirectory() {
       </div>
 
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
-        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col gap-4 bg-slate-50/50 dark:bg-slate-800/50">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="relative w-full lg:max-w-md">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search by name, admission no, student ID, class, guardian, or email..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all dark:text-white"
-              />
+        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between gap-4 bg-slate-50/50 dark:bg-slate-800/50">
+          <div className="relative w-full sm:w-80">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search by name, admission no, reg no, class, or email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all dark:text-white"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300">
+              {schoolProfile.portalLevel} mode
             </div>
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
@@ -973,7 +904,7 @@ export default function StudentsDirectory() {
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-700 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest bg-slate-50/50 dark:bg-slate-800/30">
                 <th className="py-4 px-6">Student Information</th>
-                <th className="py-4 px-6">Student ID / Admission No</th>
+                <th className="py-4 px-6">Admission No / Reg No</th>
                 <th className="py-4 px-6">Portal Level</th>
                 <th className="py-4 px-6">Class / Department</th>
                 <th className="py-4 px-6">Parent / Guardian</th>
@@ -1006,9 +937,9 @@ export default function StudentsDirectory() {
                   <td className="py-4 px-6">
                     <div className="space-y-1">
                       <span className="block font-mono text-xs font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
-                        {student.studentId || student.regNo}
+                        {student.admissionNumber || '—'}
                       </span>
-                      <span className="block text-[10px] text-slate-500">{student.admissionNumber || student.regNo}</span>
+                      <span className="block text-[10px] text-slate-500">{student.regNo}</span>
                     </div>
                   </td>
                   <td className="py-4 px-6">
@@ -1103,9 +1034,9 @@ export default function StudentsDirectory() {
       )}
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={closeModal}>
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-6xl max-h-[88vh] overflow-hidden animate-in fade-in zoom-in duration-200" onClick={(event) => event.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-6xl max-h-[88vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200" onClick={(event) => event.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 flex-shrink-0">
               <div>
                 <h2 className="text-lg font-bold text-slate-900 dark:text-white">
                   {editingStudent ? 'Edit Admission Record' : `${formData.portalLevel} Admission Form`}
@@ -1119,13 +1050,8 @@ export default function StudentsDirectory() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="flex flex-col max-h-[88vh]">
-              <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                {formErrors.name ? (
-                  <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                    {formErrors.name}
-                  </div>
-                ) : null}
+            <form onSubmit={handleSubmit} className="flex-1 min-h-0 flex flex-col overflow-hidden">
+              <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
                 {sectionsToRender.map((section) => (
                   <section key={section.title} className="rounded-2xl border border-slate-200 dark:border-slate-800 p-5 bg-slate-50/40 dark:bg-slate-800/20">
                     <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-4">{section.title}</h3>
@@ -1136,7 +1062,7 @@ export default function StudentsDirectory() {
                 ))}
               </div>
 
-              <div className="sticky bottom-0 px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur flex flex-col-reverse sm:flex-row gap-3 justify-end">
+              <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex gap-3 justify-end flex-shrink-0">
                 <button
                   type="button"
                   onClick={closeModal}
@@ -1162,7 +1088,7 @@ export default function StudentsDirectory() {
         schoolProfile={schoolProfile}
         fullName={idCardStudent?.name || ''}
         roleLabel="Student"
-        identifier={idCardStudent?.studentId || idCardStudent?.regNo || ''}
+        identifier={idCardStudent?.admissionNumber || idCardStudent?.regNo || ''}
         email={idCardStudent?.email}
         phone={idCardStudent?.phone}
         address={idCardStudent?.residentialAddress}

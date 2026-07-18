@@ -41,7 +41,7 @@ export function KPICard({
         </div>
       </div>
       
-      {trend && (
+      {trend && trend.value !== 0 && (
         <div className="mt-auto flex items-center gap-2">
           <span className={cn(
             "text-xs font-semibold px-2 py-1 rounded-full",

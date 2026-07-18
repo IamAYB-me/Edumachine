@@ -1,11 +1,17 @@
 import React from 'react';
-import { Calendar, CheckCircle, XCircle, Clock, ChevronLeft, ChevronRight, TrendingUp, UserCheck } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, ChevronLeft, ChevronRight, TrendingUp, UserCheck } from 'lucide-react';
 import { cn } from '@/utils';
 import { KPICard } from '@/components/ui/KPICard';
 
 export default function StudentAttendance() {
-  const days = Array.from({ length: 31 }, (_, i) => i + 1);
-  const currentMonth = "July 2026";
+  const [monthOffset, setMonthOffset] = React.useState(0);
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const now = new Date();
+  const currentMonthIndex = (now.getMonth() + monthOffset + 12) % 12;
+  const currentYear = now.getFullYear() + Math.floor((now.getMonth() + monthOffset) / 12);
+  const currentMonth = `${months[currentMonthIndex]} ${currentYear}`;
+  const daysInMonth = new Date(currentYear, currentMonthIndex + 1, 0).getDate();
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
   return (
     <div className="space-y-6">
@@ -15,11 +21,11 @@ export default function StudentAttendance() {
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Track your daily presence and academic consistency.</p>
         </div>
         <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2 shadow-sm">
-          <button className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors">
+          <button onClick={() => setMonthOffset(m => m - 1)} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors">
             <ChevronLeft className="w-4 h-4" />
           </button>
           <span className="text-sm font-bold min-w-[100px] text-center">{currentMonth}</span>
-          <button className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors">
+          <button onClick={() => setMonthOffset(m => m + 1)} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors">
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
@@ -83,9 +89,10 @@ export default function StudentAttendance() {
                 ))}
                 {days.map(day => {
                   const isWeekend = day % 7 === 6 || day % 7 === 0;
-                  const isAbsent = day === 15;
-                  const isLate = day === 5 || day === 12;
-                  const isFuture = day > 7;
+                  const isAbsent = false;
+                  const isLate = false;
+                  const nowDate = new Date();
+                  const isFuture = (currentYear === nowDate.getFullYear() && currentMonthIndex === nowDate.getMonth() && day > nowDate.getDate()) || (currentYear === nowDate.getFullYear() && currentMonthIndex > nowDate.getMonth()) || currentYear > nowDate.getFullYear();
                   
                   return (
                     <div 
