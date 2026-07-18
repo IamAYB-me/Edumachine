@@ -1,0 +1,8 @@
+RewriteEngine On
+
+# Handle requests that don't match existing files or directories
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Rewrite everything else to index.html for SPA routing
+RewriteRule ^ index.html [QSA,L]

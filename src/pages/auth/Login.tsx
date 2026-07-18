@@ -22,7 +22,7 @@ export default function LoginPage() {
 
     await new Promise((r) => setTimeout(r, 500));
 
-    const result = loginWithCredentials(email, password);
+    const result = await loginWithCredentials(email, password);
 
     if (!result.success) {
       setError(result.error || 'Login failed. Please try again.');

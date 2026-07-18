@@ -2,6 +2,8 @@ import React, { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import DashboardLayout from './components/layout/DashboardLayout';
 import { useSettingsStore } from './store/useSettingsStore';
+import { useAuthStore } from './store/useAuthStore';
+import { useDataStore } from './store/useDataStore';
 
 import LoginPage from './pages/auth/Login';
 import RegisterPage from './pages/auth/Register';
@@ -77,6 +79,15 @@ import AdminAdmissions from './pages/Admin/Admissions';
 
 export default function App() {
   const logoUrl = useSettingsStore((s) => s.globalSettings.logoUrl);
+  const initAuthListener = useAuthStore((s) => s.initAuthListener);
+  const initSettingsSubscription = useSettingsStore((s) => s.initSettingsSubscription);
+  const initSubscriptions = useDataStore((s) => s.initSubscriptions);
+
+  useEffect(() => {
+    initAuthListener();
+    initSettingsSubscription();
+    initSubscriptions();
+  }, [initAuthListener, initSettingsSubscription, initSubscriptions]);
 
   useEffect(() => {
     if (logoUrl) {

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { addDocument, updateDocument, deleteDocument, subscribeToCollection, generateId } from '@/services/firestoreService';
+import type { Unsubscribe } from 'firebase/firestore';
 
 export type PortalLevel = 'Primary' | 'Secondary' | 'College' | 'University';
 
@@ -184,7 +185,7 @@ export interface Parent {
   name: string;
   email: string;
   phone: string;
-  children: string[]; // Student IDs
+  children: string[];
   occupation: string;
 }
 
@@ -398,7 +399,7 @@ export interface Exam {
   id: string;
   title: string;
   subject: string;
-  duration: number; // in minutes
+  duration: number;
   totalMarks: number;
   questions: Question[];
   status: 'Draft' | 'Published' | 'Closed';
@@ -612,6 +613,7 @@ interface DataState {
   admissionApplications: AdmissionApplication[];
   _hasHydrated: boolean;
   setHasHydrated: (value: boolean) => void;
+  initSubscriptions: () => void;
 
   // Student Actions
   addStudent: (student: Omit<Student, 'id'>) => StudentMutationResult;
@@ -700,297 +702,395 @@ interface DataState {
   deleteAdmissionApplication: (id: string) => void;
 }
 
-export const useDataStore = create<DataState>()(
-  persist(
-    (set) => ({
-      students: [],
-      parents: [],
-      staff: [],
-      feeRecords: [],
-      feeStructures: [],
-      schools: [],
-      delegatedAccess: [],
-      plans: [
-        { id: '1', name: 'Basic', price: 49, studentsLimit: 100, features: ['Core Dashboard', 'Attendance', 'Basic Reports'] },
-        { id: '2', name: 'Standard', price: 99, studentsLimit: 500, features: ['Everything in Basic', 'Fee Management', 'SMS Alerts'] },
-        { id: '3', name: 'Professional', price: 199, studentsLimit: 2000, features: ['Everything in Standard', 'Hostel & Transport', 'Advanced Analytics'] },
-        { id: '4', name: 'Enterprise', price: 399, studentsLimit: 10000, features: ['Everything in Professional', 'Multi-Campus', 'Priority Support'] },
-      ],
-      teachers: [],
-      classes: [],
-      faculties: [],
-      subjects: [],
-      exams: [],
-      examResults: [],
-      examTimetable: [],
-      attendance: [],
-      expenses: [],
-      payroll: [],
+const defaultPlans: SubscriptionPlan[] = [
+  { id: '1', name: 'Basic', price: 49, studentsLimit: 100, features: ['Core Dashboard', 'Attendance', 'Basic Reports'] },
+  { id: '2', name: 'Standard', price: 99, studentsLimit: 500, features: ['Everything in Basic', 'Fee Management', 'SMS Alerts'] },
+  { id: '3', name: 'Professional', price: 199, studentsLimit: 2000, features: ['Everything in Standard', 'Hostel & Transport', 'Advanced Analytics'] },
+  { id: '4', name: 'Enterprise', price: 399, studentsLimit: 10000, features: ['Everything in Professional', 'Multi-Campus', 'Priority Support'] },
+];
 
-      addStudent: (student) => {
-        let result: StudentMutationResult = { success: false, error: 'Unable to create student record.' };
+const subscriptions: Unsubscribe[] = [];
 
-        set((state) => {
-          const duplicateError = getDuplicateStudentError(state.students, student);
-          if (duplicateError) {
-            result = { success: false, error: duplicateError };
-            return {};
-          }
+export const useDataStore = create<DataState>()((set, get) => ({
+  students: [],
+  parents: [],
+  staff: [],
+  feeRecords: [],
+  feeStructures: [],
+  schools: [],
+  delegatedAccess: [],
+  plans: defaultPlans,
+  teachers: [],
+  classes: [],
+  faculties: [],
+  subjects: [],
+  exams: [],
+  examResults: [],
+  examTimetable: [],
+  attendance: [],
+  expenses: [],
+  payroll: [],
+  registrationConfigs: [],
+  admissionApplications: [],
 
-          const createdStudent: Student = {
-            ...student,
-            id: Math.random().toString(36).substr(2, 9),
-          };
+  _hasHydrated: true,
+  setHasHydrated: (_value) => {},
 
-          result = { success: true, student: createdStudent };
-          return {
-            students: [...state.students, createdStudent],
-          };
-        });
+  initSubscriptions: () => {
+    if (subscriptions.length > 0) return;
 
-        return result;
-      },
-      updateStudent: (id, updatedStudent) => {
-        let result: StudentMutationResult = { success: false, error: 'Unable to update student record.' };
+    subscriptions.push(
+      subscribeToCollection('students', (data) => set({ students: data as unknown as Student[] })),
+      subscribeToCollection('parents', (data) => set({ parents: data as unknown as Parent[] })),
+      subscribeToCollection('staff', (data) => set({ staff: data as unknown as Staff[] })),
+      subscribeToCollection('teachers', (data) => set({ teachers: data as unknown as Teacher[] })),
+      subscribeToCollection('classes', (data) => set({ classes: data as unknown as Class[] })),
+      subscribeToCollection('faculties', (data) => set({ faculties: data as unknown as Faculty[] })),
+      subscribeToCollection('subjects', (data) => set({ subjects: data as unknown as Subject[] })),
+      subscribeToCollection('feeRecords', (data) => set({ feeRecords: data as unknown as FeeRecord[] })),
+      subscribeToCollection('feeStructures', (data) => set({ feeStructures: data as unknown as FeeStructure[] })),
+      subscribeToCollection('schools', (data) => set({ schools: data as unknown as School[] })),
+      subscribeToCollection('delegatedAccess', (data) => set({ delegatedAccess: data as unknown as DelegatedPortalAccess[] })),
+      subscribeToCollection('exams', (data) => set({ exams: data as unknown as Exam[] })),
+      subscribeToCollection('examResults', (data) => set({ examResults: data as unknown as ExamResult[] })),
+      subscribeToCollection('examTimetable', (data) => set({ examTimetable: data as unknown as ExamTimetableEntry[] })),
+      subscribeToCollection('attendance', (data) => set({ attendance: data as unknown as AttendanceRecord[] })),
+      subscribeToCollection('expenses', (data) => set({ expenses: data as unknown as Expense[] })),
+      subscribeToCollection('payroll', (data) => set({ payroll: data as unknown as Payroll[] })),
+      subscribeToCollection('registrationConfigs', (data) => set({ registrationConfigs: data as unknown as SchoolRegistrationConfig[] })),
+      subscribeToCollection('admissionApplications', (data) => set({ admissionApplications: data as unknown as AdmissionApplication[] })),
+    );
+  },
 
-        set((state) => {
-          const existingStudent = state.students.find((student) => student.id === id);
-          if (!existingStudent) {
-            result = { success: false, error: 'Student record could not be found.' };
-            return {};
-          }
+  addStudent: (student) => {
+    let result: StudentMutationResult = { success: false, error: 'Unable to create student record.' };
 
-          const mergedStudent: Student = {
-            ...existingStudent,
-            ...updatedStudent,
-          };
+    set((state) => {
+      const duplicateError = getDuplicateStudentError(state.students, student);
+      if (duplicateError) {
+        result = { success: false, error: duplicateError };
+        return {};
+      }
 
-          const duplicateError = getDuplicateStudentError(state.students, mergedStudent, id);
-          if (duplicateError) {
-            result = { success: false, error: duplicateError };
-            return {};
-          }
+      const id = generateId();
+      const createdStudent: Student = { ...student, id };
 
-          result = { success: true, student: mergedStudent };
-          return {
-            students: state.students.map((student) => (student.id === id ? mergedStudent : student)),
-          };
-        });
+      result = { success: true, student: createdStudent };
+      addDocument('students', { ...createdStudent, id }).catch(console.error);
+      return { students: [...state.students, createdStudent] };
+    });
 
-        return result;
-      },
-      deleteStudent: (id) => {
-        let result: StudentMutationResult = { success: false, error: 'Unable to delete student record.' };
+    return result;
+  },
 
-        set((state) => {
-          const existingStudent = state.students.find((student) => student.id === id);
-          if (!existingStudent) {
-            result = { success: false, error: 'Student record could not be found.' };
-            return {};
-          }
+  updateStudent: (id, updatedStudent) => {
+    let result: StudentMutationResult = { success: false, error: 'Unable to update student record.' };
 
-          result = { success: true, student: existingStudent };
-          return {
-            students: state.students.filter((student) => student.id !== id),
-          };
-        });
+    set((state) => {
+      const existingStudent = state.students.find((student) => student.id === id);
+      if (!existingStudent) {
+        result = { success: false, error: 'Student record could not be found.' };
+        return {};
+      }
 
-        return result;
-      },
+      const mergedStudent: Student = { ...existingStudent, ...updatedStudent };
 
-      addParent: (parent) => set((state) => ({ 
-        parents: [...state.parents, { ...parent, id: Math.random().toString(36).substring(2, 11) }] 
-      })),
-      updateParent: (id, updatedParent) => set((state) => ({
-        parents: state.parents.map((p) => (p.id === id ? { ...p, ...updatedParent } : p))
-      })),
-      deleteParent: (id) => set((state) => ({
-        parents: state.parents.filter((p) => p.id !== id)
-      })),
+      const duplicateError = getDuplicateStudentError(state.students, mergedStudent, id);
+      if (duplicateError) {
+        result = { success: false, error: duplicateError };
+        return {};
+      }
 
-      addStaff: (staff) => set((state) => ({ 
-        staff: [...state.staff, { ...staff, id: Math.random().toString(36).substring(2, 11) }] 
-      })),
-      updateStaff: (id, updatedStaff) => set((state) => ({
-        staff: state.staff.map((s) => (s.id === id ? { ...s, ...updatedStaff } : s))
-      })),
-      deleteStaff: (id) => set((state) => ({
-        staff: state.staff.filter((s) => s.id !== id)
-      })),
+      result = { success: true, student: mergedStudent };
+      updateDocument('students', id, updatedStudent as Record<string, unknown>).catch(console.error);
+      return { students: state.students.map((s) => (s.id === id ? mergedStudent : s)) };
+    });
 
-      addFeeRecord: (record) => set((state) => ({ 
-        feeRecords: [...state.feeRecords, { ...record, id: Math.random().toString(36).substring(2, 11) }] 
-      })),
-      updateFeeRecord: (id, updatedRecord) => set((state) => ({
-        feeRecords: state.feeRecords.map((r) => (r.id === id ? { ...r, ...updatedRecord } : r))
-      })),
-      deleteFeeRecord: (id) => set((state) => ({
-        feeRecords: state.feeRecords.filter((r) => r.id !== id)
-      })),
-      addFeeStructure: (structure) => set((state) => ({
-        feeStructures: [...state.feeStructures, { ...structure, id: `FS-${Math.floor(Math.random() * 10000)}` }]
-      })),
-      updateFeeStructure: (id, updatedStructure) => set((state) => ({
-        feeStructures: state.feeStructures.map((item) => (item.id === id ? { ...item, ...updatedStructure } : item))
-      })),
-      deleteFeeStructure: (id) => set((state) => ({
-        feeStructures: state.feeStructures.filter((item) => item.id !== id)
-      })),
+    return result;
+  },
 
-      addSchool: (school) => set((state) => ({ 
-        schools: [...state.schools, { ...school, id: Math.random().toString(36).substring(2, 11) }] 
-      })),
-      updateSchool: (id, updatedSchool) => set((state) => ({
-        schools: state.schools.map((s) => (s.id === id ? { ...s, ...updatedSchool } : s))
-      })),
-      deleteSchool: (id) => set((state) => ({
-        schools: state.schools.filter((s) => s.id !== id)
-      })),
-      addDelegatedAccess: (access) => set((state) => ({
-        delegatedAccess: [
-          ...state.delegatedAccess,
-          {
-            ...access,
-            id: `DA-${Math.floor(Math.random() * 10000)}`,
-            updatedAt: new Date().toISOString().split('T')[0],
-          },
-        ],
-      })),
-      updateDelegatedAccess: (id, updatedAccess) => set((state) => ({
-        delegatedAccess: state.delegatedAccess.map((item) =>
-          item.id === id
-            ? { ...item, ...updatedAccess, updatedAt: new Date().toISOString().split('T')[0] }
-            : item
-        )
-      })),
-      deleteDelegatedAccess: (id) => set((state) => ({
-        delegatedAccess: state.delegatedAccess.filter((item) => item.id !== id)
-      })),
+  deleteStudent: (id) => {
+    let result: StudentMutationResult = { success: false, error: 'Unable to delete student record.' };
 
-      addTeacher: (teacher) => set((state) => ({ 
-        teachers: [...state.teachers, { ...teacher, id: Math.random().toString(36).substring(2, 11) }] 
-      })),
-      updateTeacher: (id, updatedTeacher) => set((state) => ({
-        teachers: state.teachers.map((t) => (t.id === id ? { ...t, ...updatedTeacher } : t))
-      })),
-      deleteTeacher: (id) => set((state) => ({
-        teachers: state.teachers.filter((t) => t.id !== id)
-      })),
+    set((state) => {
+      const existingStudent = state.students.find((student) => student.id === id);
+      if (!existingStudent) {
+        result = { success: false, error: 'Student record could not be found.' };
+        return {};
+      }
 
-      addClass: (cls) => set((state) => ({ 
-        classes: [...state.classes, { ...cls, id: Math.random().toString(36).substring(2, 11) }] 
-      })),
-      updateClass: (id, updatedCls) => set((state) => ({
-        classes: state.classes.map((c) => (c.id === id ? { ...c, ...updatedCls } : c))
-      })),
-      deleteClass: (id) => set((state) => ({
-        classes: state.classes.filter((c) => c.id !== id)
-      })),
+      result = { success: true, student: existingStudent };
+      deleteDocument('students', id).catch(console.error);
+      return { students: state.students.filter((s) => s.id !== id) };
+    });
 
-      addFaculty: (faculty) => set((state) => ({ 
-        faculties: [...state.faculties, { ...faculty, id: Math.random().toString(36).substring(2, 11) }] 
-      })),
-      updateFaculty: (id, updatedFaculty) => set((state) => ({
-        faculties: state.faculties.map((f) => (f.id === id ? { ...f, ...updatedFaculty } : f))
-      })),
-      deleteFaculty: (id) => set((state) => ({
-        faculties: state.faculties.filter((f) => f.id !== id)
-      })),
+    return result;
+  },
 
-      addSubject: (subject) => set((state) => ({ 
-        subjects: [...state.subjects, { ...subject, id: Math.random().toString(36).substring(2, 11) }] 
-      })),
-      updateSubject: (id, updatedSubject) => set((state) => ({
-        subjects: state.subjects.map((s) => (s.id === id ? { ...s, ...updatedSubject } : s))
-      })),
-      deleteSubject: (id) => set((state) => ({
-        subjects: state.subjects.filter((s) => s.id !== id)
-      })),
+  addParent: (parent) => {
+    const id = generateId();
+    const record = { ...parent, id };
+    set((state) => ({ parents: [...state.parents, record] }));
+    addDocument('parents', record).catch(console.error);
+  },
+  updateParent: (id, updatedParent) => {
+    set((state) => ({ parents: state.parents.map((p) => (p.id === id ? { ...p, ...updatedParent } : p)) }));
+    updateDocument('parents', id, updatedParent as Record<string, unknown>).catch(console.error);
+  },
+  deleteParent: (id) => {
+    set((state) => ({ parents: state.parents.filter((p) => p.id !== id) }));
+    deleteDocument('parents', id).catch(console.error);
+  },
 
-      updatePlan: (id, updatedPlan) => set((state) => ({
-        plans: state.plans.map((p) => (p.id === id ? { ...p, ...updatedPlan } : p))
-      })),
+  addStaff: (staff) => {
+    const id = generateId();
+    const record = { ...staff, id };
+    set((state) => ({ staff: [...state.staff, record] }));
+    addDocument('staff', record).catch(console.error);
+  },
+  updateStaff: (id, updatedStaff) => {
+    set((state) => ({ staff: state.staff.map((s) => (s.id === id ? { ...s, ...updatedStaff } : s)) }));
+    updateDocument('staff', id, updatedStaff as Record<string, unknown>).catch(console.error);
+  },
+  deleteStaff: (id) => {
+    set((state) => ({ staff: state.staff.filter((s) => s.id !== id) }));
+    deleteDocument('staff', id).catch(console.error);
+  },
 
-      addExam: (exam) => set((state) => ({ 
-        exams: [...state.exams, { ...exam, id: Math.random().toString(36).substring(2, 11) }] 
-      })),
-      updateExam: (id, updatedExam) => set((state) => ({
-        exams: state.exams.map((e) => (e.id === id ? { ...e, ...updatedExam } : e))
-      })),
-      deleteExam: (id) => set((state) => ({
-        exams: state.exams.filter((e) => e.id !== id)
-      })),
-      addExamResult: (result) => set((state) => ({
-        examResults: [...state.examResults, { ...result, id: Math.random().toString(36).substring(2, 11) }]
-      })),
-      updateExamResult: (id, updated) => set((state) => ({
-        examResults: state.examResults.map((r) => (r.id === id ? { ...r, ...updated } : r))
-      })),
-      deleteExamResult: (id) => set((state) => ({
-        examResults: state.examResults.filter((r) => r.id !== id)
-      })),
-      setExamTimetable: (timetable) => set({ examTimetable: timetable }),
-      addExamTimetableEntry: (entry) => set((state) => ({
-        examTimetable: [...state.examTimetable, { ...entry, id: Math.random().toString(36).substring(2, 11) }]
-      })),
+  addFeeRecord: (record) => {
+    const id = generateId();
+    const entry = { ...record, id };
+    set((state) => ({ feeRecords: [...state.feeRecords, entry] }));
+    addDocument('feeRecords', entry).catch(console.error);
+  },
+  updateFeeRecord: (id, updatedRecord) => {
+    set((state) => ({ feeRecords: state.feeRecords.map((r) => (r.id === id ? { ...r, ...updatedRecord } : r)) }));
+    updateDocument('feeRecords', id, updatedRecord as Record<string, unknown>).catch(console.error);
+  },
+  deleteFeeRecord: (id) => {
+    set((state) => ({ feeRecords: state.feeRecords.filter((r) => r.id !== id) }));
+    deleteDocument('feeRecords', id).catch(console.error);
+  },
 
-      markAttendance: (records) => set((state) => {
-        const newRecords = records.map(r => ({ ...r, id: Math.random().toString(36).substring(2, 11) }));
-        // Replace existing records for same date/target/class
-        const filteredAttendance = state.attendance.filter(existing => 
-          !records.some(r => r.date === existing.date && r.targetId === existing.targetId && r.classId === existing.classId)
-        );
-        return { attendance: [...filteredAttendance, ...newRecords] };
-      }),
+  addFeeStructure: (structure) => {
+    const id = `FS-${generateId()}`;
+    const entry = { ...structure, id };
+    set((state) => ({ feeStructures: [...state.feeStructures, entry] }));
+    addDocument('feeStructures', entry).catch(console.error);
+  },
+  updateFeeStructure: (id, updatedStructure) => {
+    set((state) => ({ feeStructures: state.feeStructures.map((item) => (item.id === id ? { ...item, ...updatedStructure } : item)) }));
+    updateDocument('feeStructures', id, updatedStructure as Record<string, unknown>).catch(console.error);
+  },
+  deleteFeeStructure: (id) => {
+    set((state) => ({ feeStructures: state.feeStructures.filter((item) => item.id !== id) }));
+    deleteDocument('feeStructures', id).catch(console.error);
+  },
 
-      addExpense: (expense) => set((state) => ({
-        expenses: [...state.expenses, { ...expense, id: `EXP-${Math.floor(Math.random() * 10000)}` }]
-      })),
-      updateExpense: (id, updatedExpense) => set((state) => ({
-        expenses: state.expenses.map((e) => (e.id === id ? { ...e, ...updatedExpense } : e))
-      })),
-      deleteExpense: (id) => set((state) => ({
-        expenses: state.expenses.filter((e) => e.id !== id)
-      })),
+  addSchool: (school) => {
+    const id = generateId();
+    const record = { ...school, id };
+    set((state) => ({ schools: [...state.schools, record] }));
+    addDocument('schools', record).catch(console.error);
+  },
+  updateSchool: (id, updatedSchool) => {
+    set((state) => ({ schools: state.schools.map((s) => (s.id === id ? { ...s, ...updatedSchool } : s)) }));
+    updateDocument('schools', id, updatedSchool as Record<string, unknown>).catch(console.error);
+  },
+  deleteSchool: (id) => {
+    set((state) => ({ schools: state.schools.filter((s) => s.id !== id) }));
+    deleteDocument('schools', id).catch(console.error);
+  },
 
-      addPayroll: (payroll) => set((state) => ({
-        payroll: [...state.payroll, { ...payroll, id: `PAY-${Math.floor(Math.random() * 10000)}` }]
-      })),
-      updatePayroll: (id, updatedPayroll) => set((state) => ({
-        payroll: state.payroll.map((p) => (p.id === id ? { ...p, ...updatedPayroll } : p))
-      })),
+  addDelegatedAccess: (access) => {
+    const id = `DA-${generateId()}`;
+    const updatedAt = new Date().toISOString().split('T')[0];
+    const record = { ...access, id, updatedAt };
+    set((state) => ({ delegatedAccess: [...state.delegatedAccess, record] }));
+    addDocument('delegatedAccess', record).catch(console.error);
+  },
+  updateDelegatedAccess: (id, updatedAccess) => {
+    const updatedAt = new Date().toISOString().split('T')[0];
+    const patch = { ...updatedAccess, updatedAt };
+    set((state) => ({
+      delegatedAccess: state.delegatedAccess.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+    }));
+    updateDocument('delegatedAccess', id, patch as Record<string, unknown>).catch(console.error);
+  },
+  deleteDelegatedAccess: (id) => {
+    set((state) => ({ delegatedAccess: state.delegatedAccess.filter((item) => item.id !== id) }));
+    deleteDocument('delegatedAccess', id).catch(console.error);
+  },
 
-      registrationConfigs: [],
-      addRegistrationConfig: (config) => set((state) => ({
-        registrationConfigs: [...state.registrationConfigs, { ...config, id: `RC-${Math.floor(Math.random() * 100000)}` }]
-      })),
-      updateRegistrationConfig: (id, updated) => set((state) => ({
-        registrationConfigs: state.registrationConfigs.map((c) => (c.id === id ? { ...c, ...updated } : c))
-      })),
-      deleteRegistrationConfig: (id) => set((state) => ({
-        registrationConfigs: state.registrationConfigs.filter((c) => c.id !== id)
-      })),
+  addTeacher: (teacher) => {
+    const id = generateId();
+    const record = { ...teacher, id };
+    set((state) => ({ teachers: [...state.teachers, record] }));
+    addDocument('teachers', record).catch(console.error);
+  },
+  updateTeacher: (id, updatedTeacher) => {
+    set((state) => ({ teachers: state.teachers.map((t) => (t.id === id ? { ...t, ...updatedTeacher } : t)) }));
+    updateDocument('teachers', id, updatedTeacher as Record<string, unknown>).catch(console.error);
+  },
+  deleteTeacher: (id) => {
+    set((state) => ({ teachers: state.teachers.filter((t) => t.id !== id) }));
+    deleteDocument('teachers', id).catch(console.error);
+  },
 
-      admissionApplications: [],
-      addAdmissionApplication: (app) => set((state) => ({
-        admissionApplications: [...state.admissionApplications, { ...app, id: `ADM-${Math.floor(Math.random() * 100000)}` }],
-      })),
-      updateAdmissionApplication: (id, updated) => set((state) => ({
-        admissionApplications: state.admissionApplications.map((a) => (a.id === id ? { ...a, ...updated } : a)),
-      })),
-      deleteAdmissionApplication: (id) => set((state) => ({
-        admissionApplications: state.admissionApplications.filter((a) => a.id !== id),
-      })),
+  addClass: (cls) => {
+    const id = generateId();
+    const record = { ...cls, id };
+    set((state) => ({ classes: [...state.classes, record] }));
+    addDocument('classes', record).catch(console.error);
+  },
+  updateClass: (id, updatedCls) => {
+    set((state) => ({ classes: state.classes.map((c) => (c.id === id ? { ...c, ...updatedCls } : c)) }));
+    updateDocument('classes', id, updatedCls as Record<string, unknown>).catch(console.error);
+  },
+  deleteClass: (id) => {
+    set((state) => ({ classes: state.classes.filter((c) => c.id !== id) }));
+    deleteDocument('classes', id).catch(console.error);
+  },
 
-      _hasHydrated: false,
-      setHasHydrated: (value) => set({ _hasHydrated: value }),
-    }),
-    {
-      name: 'edu-platform-data',
-      version: 1,
-      onRehydrateStorage: () => (state) => {
-        state?.setHasHydrated(true);
-      },
-    }
-  )
-);
+  addFaculty: (faculty) => {
+    const id = generateId();
+    const record = { ...faculty, id };
+    set((state) => ({ faculties: [...state.faculties, record] }));
+    addDocument('faculties', record).catch(console.error);
+  },
+  updateFaculty: (id, updatedFaculty) => {
+    set((state) => ({ faculties: state.faculties.map((f) => (f.id === id ? { ...f, ...updatedFaculty } : f)) }));
+    updateDocument('faculties', id, updatedFaculty as Record<string, unknown>).catch(console.error);
+  },
+  deleteFaculty: (id) => {
+    set((state) => ({ faculties: state.faculties.filter((f) => f.id !== id) }));
+    deleteDocument('faculties', id).catch(console.error);
+  },
+
+  addSubject: (subject) => {
+    const id = generateId();
+    const record = { ...subject, id };
+    set((state) => ({ subjects: [...state.subjects, record] }));
+    addDocument('subjects', record).catch(console.error);
+  },
+  updateSubject: (id, updatedSubject) => {
+    set((state) => ({ subjects: state.subjects.map((s) => (s.id === id ? { ...s, ...updatedSubject } : s)) }));
+    updateDocument('subjects', id, updatedSubject as Record<string, unknown>).catch(console.error);
+  },
+  deleteSubject: (id) => {
+    set((state) => ({ subjects: state.subjects.filter((s) => s.id !== id) }));
+    deleteDocument('subjects', id).catch(console.error);
+  },
+
+  updatePlan: (id, updatedPlan) => {
+    set((state) => ({ plans: state.plans.map((p) => (p.id === id ? { ...p, ...updatedPlan } : p)) }));
+  },
+
+  addExam: (exam) => {
+    const id = generateId();
+    const record = { ...exam, id };
+    set((state) => ({ exams: [...state.exams, record] }));
+    addDocument('exams', record).catch(console.error);
+  },
+  updateExam: (id, updatedExam) => {
+    set((state) => ({ exams: state.exams.map((e) => (e.id === id ? { ...e, ...updatedExam } : e)) }));
+    updateDocument('exams', id, updatedExam as Record<string, unknown>).catch(console.error);
+  },
+  deleteExam: (id) => {
+    set((state) => ({ exams: state.exams.filter((e) => e.id !== id) }));
+    deleteDocument('exams', id).catch(console.error);
+  },
+
+  addExamResult: (result) => {
+    const id = generateId();
+    const record = { ...result, id };
+    set((state) => ({ examResults: [...state.examResults, record] }));
+    addDocument('examResults', record).catch(console.error);
+  },
+  updateExamResult: (id, updated) => {
+    set((state) => ({ examResults: state.examResults.map((r) => (r.id === id ? { ...r, ...updated } : r)) }));
+    updateDocument('examResults', id, updated as Record<string, unknown>).catch(console.error);
+  },
+  deleteExamResult: (id) => {
+    set((state) => ({ examResults: state.examResults.filter((r) => r.id !== id) }));
+    deleteDocument('examResults', id).catch(console.error);
+  },
+
+  setExamTimetable: (timetable) => set({ examTimetable: timetable }),
+
+  addExamTimetableEntry: (entry) => {
+    const id = generateId();
+    const record = { ...entry, id };
+    set((state) => ({ examTimetable: [...state.examTimetable, record] }));
+    addDocument('examTimetable', record).catch(console.error);
+  },
+
+  markAttendance: (records) => {
+    const newRecords = records.map((r) => ({ ...r, id: generateId() }));
+    set((state) => {
+      const filteredAttendance = state.attendance.filter(
+        (existing) => !records.some((r) => r.date === existing.date && r.targetId === existing.targetId && r.classId === existing.classId),
+      );
+      return { attendance: [...filteredAttendance, ...newRecords] };
+    });
+    newRecords.forEach((record) => {
+      addDocument('attendance', record).catch(console.error);
+    });
+  },
+
+  addExpense: (expense) => {
+    const id = `EXP-${generateId()}`;
+    const record = { ...expense, id };
+    set((state) => ({ expenses: [...state.expenses, record] }));
+    addDocument('expenses', record).catch(console.error);
+  },
+  updateExpense: (id, updatedExpense) => {
+    set((state) => ({ expenses: state.expenses.map((e) => (e.id === id ? { ...e, ...updatedExpense } : e)) }));
+    updateDocument('expenses', id, updatedExpense as Record<string, unknown>).catch(console.error);
+  },
+  deleteExpense: (id) => {
+    set((state) => ({ expenses: state.expenses.filter((e) => e.id !== id) }));
+    deleteDocument('expenses', id).catch(console.error);
+  },
+
+  addPayroll: (payroll) => {
+    const id = `PAY-${generateId()}`;
+    const record = { ...payroll, id };
+    set((state) => ({ payroll: [...state.payroll, record] }));
+    addDocument('payroll', record).catch(console.error);
+  },
+  updatePayroll: (id, updatedPayroll) => {
+    set((state) => ({ payroll: state.payroll.map((p) => (p.id === id ? { ...p, ...updatedPayroll } : p)) }));
+    updateDocument('payroll', id, updatedPayroll as Record<string, unknown>).catch(console.error);
+  },
+
+  addRegistrationConfig: (config) => {
+    const id = `RC-${generateId()}`;
+    const record = { ...config, id };
+    set((state) => ({ registrationConfigs: [...state.registrationConfigs, record] }));
+    addDocument('registrationConfigs', record).catch(console.error);
+  },
+  updateRegistrationConfig: (id, updated) => {
+    set((state) => ({ registrationConfigs: state.registrationConfigs.map((c) => (c.id === id ? { ...c, ...updated } : c)) }));
+    updateDocument('registrationConfigs', id, updated as Record<string, unknown>).catch(console.error);
+  },
+  deleteRegistrationConfig: (id) => {
+    set((state) => ({ registrationConfigs: state.registrationConfigs.filter((c) => c.id !== id) }));
+    deleteDocument('registrationConfigs', id).catch(console.error);
+  },
+
+  addAdmissionApplication: (app) => {
+    const id = `ADM-${generateId()}`;
+    const record = { ...app, id };
+    set((state) => ({ admissionApplications: [...state.admissionApplications, record] }));
+    addDocument('admissionApplications', record).catch(console.error);
+  },
+  updateAdmissionApplication: (id, updated) => {
+    set((state) => ({ admissionApplications: state.admissionApplications.map((a) => (a.id === id ? { ...a, ...updated } : a)) }));
+    updateDocument('admissionApplications', id, updated as Record<string, unknown>).catch(console.error);
+  },
+  deleteAdmissionApplication: (id) => {
+    set((state) => ({ admissionApplications: state.admissionApplications.filter((a) => a.id !== id) }));
+    deleteDocument('admissionApplications', id).catch(console.error);
+  },
+}));

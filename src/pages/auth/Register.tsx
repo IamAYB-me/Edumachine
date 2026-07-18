@@ -31,7 +31,6 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [registered, setRegistered] = useState(false);
-  const [verificationToken, setVerificationToken] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +54,7 @@ export default function RegisterPage() {
     setIsLoading(true);
     await new Promise((r) => setTimeout(r, 600));
 
-    const result = register({ name, email, password, role, schoolName, phone });
+    const result = await register({ name, email, password, role, schoolName, phone });
 
     if (!result.success) {
       setError(result.error || 'Registration failed. Please try again.');
@@ -63,7 +62,6 @@ export default function RegisterPage() {
       return;
     }
 
-    setVerificationToken(result.verificationToken || '');
     setRegistered(true);
     setIsLoading(false);
   };
@@ -83,16 +81,10 @@ export default function RegisterPage() {
             </p>
 
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 mb-6">
-              <p className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider mb-2">Demo Mode</p>
-              <p className="text-sm text-blue-600 dark:text-blue-300 mb-3">
-                Since this is a demo, email sending is simulated. Use the button below to verify instantly.
+              <p className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider mb-2">Real Email Sent</p>
+              <p className="text-sm text-blue-600 dark:text-blue-300">
+                A real verification email has been sent to your inbox. Check your email and click the verification link.
               </p>
-              <Link
-                to={`/verify-email?token=${verificationToken}`}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-lg transition-all"
-              >
-                Verify Email Now
-              </Link>
             </div>
 
             <Link

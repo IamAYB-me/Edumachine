@@ -1,14 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { GraduationCap, CheckCircle, XCircle, Loader2 } from 'lucide-react';
-import { useAuthStore } from '@/store/useAuthStore';
+import { applyActionCode } from 'firebase/auth';
+import { auth } from '@/config/firebase';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
 type VerifyState = 'loading' | 'success' | 'error';
 
 export default function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
-  const verifyEmail = useAuthStore((s) => s.verifyEmail);
   const { globalSettings } = useSettingsStore();
   const [state, setState] = useState<VerifyState>('loading');
   const [errorMessage, setErrorMessage] = useState('');
@@ -18,20 +18,21 @@ export default function VerifyEmailPage() {
     if (hasVerified.current) return;
     hasVerified.current = true;
 
-    const token = searchParams.get('token');
-    if (!token) {
+    const oobCode = searchParams.get('oobCode');
+    if (!oobCode) {
       setState('error');
-      setErrorMessage('No verification token provided. Please check your email for the correct link.');
+      setErrorMessage('No verification code provided. Please check your email for the correct link.');
       return;
     }
 
-    const result = verifyEmail(token);
-    if (result.success) {
-      setState('success');
-    } else {
-      setState('error');
-      setErrorMessage(result.error || 'Verification failed.');
-    }
+    applyActionCode(auth, oobCode)
+      .then(() => {
+        setState('success');
+      })
+      .catch((error: { message?: string }) => {
+        setState('error');
+        setErrorMessage(error.message || 'Verification failed. The link may have expired.');
+      });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
