@@ -38,7 +38,7 @@ export default function TeacherExams() {
       .map((s) => s.name);
   }, [subjects, classes, user?.id, user?.name]);
 
-  const fallbackSubjects = ['Mathematics', 'Physics', 'Further Mathematics'];
+  const fallbackSubjects: string[] = [];
   const teacherSubjects = teacherSubjectNames.length > 0 ? teacherSubjectNames : fallbackSubjects;
 
   const teacherExams = useMemo(() =>
@@ -181,7 +181,7 @@ export default function TeacherExams() {
     }
 
     const today = new Date().toISOString().split('T')[0];
-    const termLabel = isCollege ? 'First Semester' : 'First Term';
+    const termLabel = labels.termOptions[0];
 
     scoreEntries.forEach((entry) => {
       addExamResult({
@@ -366,7 +366,7 @@ export default function TeacherExams() {
                 <thead className="bg-slate-50 dark:bg-slate-800">
                   <tr className="border-b border-slate-200 dark:border-slate-700 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                     <th className="py-2.5 px-4">{labels.learnerSingular}</th>
-                    <th className="py-2.5 px-4">Subject</th>
+                    <th className="py-2.5 px-4">{labels.subjectSingular}</th>
                     <th className="py-2.5 px-4">Type</th>
                     <th className="py-2.5 px-4">Score</th>
                     <th className="py-2.5 px-4">Grade</th>
@@ -550,7 +550,7 @@ export default function TeacherExams() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2 space-y-1">
                   <label className="text-xs font-bold text-slate-500 uppercase">{labels.assessmentLabel.slice(0, -1)} Title</label>
-                  <input type="text" value={assessmentTitle} onChange={(e) => setAssessmentTitle(e.target.value)} placeholder={`e.g. ${isCollege ? 'Mid-Semester Test' : 'First Term Test'} 1`}
+                   <input type="text" value={assessmentTitle} onChange={(e) => setAssessmentTitle(e.target.value)} placeholder={`e.g. ${labels.termOptions[0]} Test 1`}
                     className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:border-blue-500 dark:text-white" />
                 </div>
                 <div className="space-y-1">

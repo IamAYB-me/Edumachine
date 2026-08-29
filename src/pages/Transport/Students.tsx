@@ -4,9 +4,14 @@ import { KPICard } from '@/components/ui/KPICard';
 import { useDataStore } from '@/store/useDataStore';
 import { useToastStore } from '@/store/useToastStore';
 import { downloadTextFile } from '@/utils/fileHelpers';
+import { useAuthStore } from '@/store/useAuthStore';
+import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
 
 export default function TransportStudents() {
-  const { students } = useDataStore();
+  const { students, schools } = useDataStore();
+  const user = useAuthStore((state) => state.user);
+  const schoolProfile = resolveSchoolProfile(user, schools);
+  const labels = getPortalLevelLabels(schoolProfile.portalLevel);
   const [searchTerm, setSearchTerm] = useState('');
   const [routeFilter, setRouteFilter] = useState<'All Routes' | 'Route RT-01' | 'Route RT-02' | 'Route RT-03' | 'Route RT-04'>('All Routes');
   const showToast = useToastStore((state) => state.showToast);
@@ -69,7 +74,7 @@ export default function TransportStudents() {
     }
 
     const content = [
-      'EduPlatform Transport Passenger List',
+      'BROCHEST Portal Transport Passenger List',
       `Generated: ${new Date().toLocaleString()}`,
       `Filter: ${routeFilter}`,
       '',
@@ -188,7 +193,7 @@ export default function TransportStudents() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                <th className="py-4 px-6">Student Name</th>
+                <th className="py-4 px-6">{labels.learnerSingular} Name</th>
                 <th className="py-4 px-6">Assigned Route</th>
                 <th className="py-4 px-6">Bus Stop</th>
                 <th className="py-4 px-6">Pickup Time</th>

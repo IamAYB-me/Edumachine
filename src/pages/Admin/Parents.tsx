@@ -6,11 +6,17 @@ import { KPICard } from '@/components/ui/KPICard';
 import ExcelImport from '@/components/ui/ExcelImport';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useToastStore } from '@/store/useToastStore';
+import { useAuthStore } from '@/store/useAuthStore';
+import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
 
 export default function AdminParents() {
   const [searchTerm, setSearchTerm] = useState('');
-  const { parents, addParent, updateParent, deleteParent, students } = useDataStore();
+  const { parents, addParent, updateParent, deleteParent, students, schools } = useDataStore();
+  const { user } = useAuthStore();
   const showToast = useToastStore((state) => state.showToast);
+  const schoolProfile = resolveSchoolProfile(user, schools);
+  const activePortalLevel = schoolProfile.portalLevel ?? 'Secondary';
+  const labels = getPortalLevelLabels(activePortalLevel);
   
   const stats = {
     total: parents.length,
@@ -84,7 +90,8 @@ export default function AdminParents() {
         email: row.Email || row.email,
         phone: (row.Phone || row.phone || '').toString(),
         occupation: row.Occupation || row.occupation || '',
-        children: (row['Children IDs'] || row.children || '').toString().split(',').map((id: string) => id.trim()).filter((id: string) => id !== '')
+        children: (row['Children IDs'] || row.children || '').toString().split(',').map((id: string) => id.trim()).filter((id: string) => id !== ''),
+        password: row.Password || row.password || ''
       });
     });
   };
@@ -111,13 +118,13 @@ export default function AdminParents() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Parents Management</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Manage parent accounts and their linked students.</p>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Manage parent accounts and their linked {labels.learnerPlural.toLowerCase()}.</p>
         </div>
         <div className="flex items-center gap-3">
           <ExcelImport 
             onImport={handleBulkImport} 
             templateName="Parents"
-            expectedKeys={['Name', 'Email', 'Phone', 'Occupation', 'Children IDs']}
+            expectedKeys={['Name', 'Email', 'Phone', 'Occupation', 'Children IDs', 'Password']}
           />
           <button 
             onClick={() => handleOpenModal()}
@@ -385,7 +392,7 @@ export default function AdminParents() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-500 uppercase">Linked Students (IDs)</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase">Linked {labels.learnerPlural} (IDs)</label>
                   <p className="text-[10px] text-slate-400 mb-1">Separate IDs with commas (e.g., 1, 2)</p>
                   <input 
                     type="text" 

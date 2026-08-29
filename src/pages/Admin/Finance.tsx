@@ -10,15 +10,16 @@ import { useToastStore } from '@/store/useToastStore';
 import { downloadFromUrl, readFileAsDataUrl } from '@/utils/fileHelpers';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/useAuthStore';
-import { resolveSchoolProfile } from '@/utils/schoolProfile';
+import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
 
 export default function AdminFinanceDashboard() {
-  const { format, currency } = useCurrency();
+  const { format, currency, symbol } = useCurrency();
   const navigate = useNavigate();
   const { feeRecords, feeStructures, expenses, addFeeRecord, updateFeeRecord, addExpense, students, schools } = useDataStore();
   const { user } = useAuthStore();
   const showToast = useToastStore((state) => state.showToast);
   const schoolProfile = resolveSchoolProfile(user ?? null, schools);
+  const labels = getPortalLevelLabels(schoolProfile.portalLevel);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showAddTx, setShowAddTx] = useState(false);
   const [showRecordFee, setShowRecordFee] = useState(false);
@@ -57,7 +58,7 @@ export default function AdminFinanceDashboard() {
 
   const selectedStudent = students.find((item) => item.id === formData.studentId);
   const studentFeeOptions = feeStructures.filter(
-    (item) => item.className === selectedStudent?.class && item.status === 'Active'
+    (item) => item.status === 'Active' && (item.isUniversal || item.className === selectedStudent?.class)
   );
 
   const handleOpenFeeModal = (fee?: FeeRecord) => {
@@ -95,7 +96,7 @@ export default function AdminFinanceDashboard() {
   const handleStudentChange = (studentId: string) => {
     const student = students.find((item) => item.id === studentId);
     const availableStructures = feeStructures.filter(
-      (item) => item.className === student?.class && item.status === 'Active'
+      (item) => item.status === 'Active' && (item.isUniversal || item.className === student?.class)
     );
     const defaultStructure = availableStructures[0];
 
@@ -134,7 +135,7 @@ export default function AdminFinanceDashboard() {
     setShowRecordFee(false);
     showToast({
       title: editingFee ? 'Fee record updated' : 'Fee payment recorded',
-      description: `${dataToSave.studentName || 'Student'} ${editingFee ? 'record' : 'payment'} saved successfully.`,
+      description: `${dataToSave.studentName || labels.learnerSingular} ${editingFee ? 'record' : 'payment'} saved successfully.`,
       variant: 'success',
     });
   };
@@ -210,7 +211,7 @@ export default function AdminFinanceDashboard() {
           >
             <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center sticky top-0 z-10 bg-white/95 dark:bg-slate-900/95 backdrop-blur">
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                {editingFee ? 'Edit Fee Record' : 'Record Student Fee'}
+                {editingFee ? 'Edit Fee Record' : `Record ${labels.learnerSingular} Fee`}
               </h2>
               <button onClick={() => setShowRecordFee(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
                 <X className="w-5 h-5 text-slate-500" />
@@ -219,14 +220,14 @@ export default function AdminFinanceDashboard() {
             <form onSubmit={handleFeeSubmit} className="p-8 space-y-4 overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Student</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{labels.learnerSingular}</label>
                   <select 
                     required 
                     value={formData.studentId} 
                     onChange={(e) => handleStudentChange(e.target.value)}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:border-emerald-500 dark:text-white text-sm"
                   >
-                    <option value="">Select Student...</option>
+                    <option value="">                    Select {labels.learnerSingular}...</option>
                     {students.map(s => (
                       <option key={s.id} value={s.id}>{s.name}</option>
                     ))}
@@ -260,7 +261,7 @@ export default function AdminFinanceDashboard() {
                   {selectedStudent ? (
                     <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
                       {studentFeeOptions.length > 0
-                        ? `Configured class fees loaded for ${selectedStudent.class}.`
+                        ? `Configured ${labels.structureSingular.toLowerCase()} fees loaded for ${selectedStudent.class}.`
                         : `No fee setup found for ${selectedStudent.class} yet.`}
                     </p>
                   ) : null}
@@ -270,7 +271,7 @@ export default function AdminFinanceDashboard() {
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Amount</label>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">{({ USD: '$', EUR: '€', GBP: '£', NGN: '₦' } as Record<string, string>)[currency] || currency}</span>
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">{symbol}</span>
                     <input 
                       type="number" 
                       required 
@@ -324,8 +325,8 @@ export default function AdminFinanceDashboard() {
       )}
 
       {showAddTx && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg flex flex-col overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowAddTx(false)}>
+          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">Add Expense Transaction</h2>
               <button onClick={() => setShowAddTx(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
@@ -402,7 +403,7 @@ export default function AdminFinanceDashboard() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 print:hidden">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Finance Dashboard</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Manage school fees, revenue, and expenses.</p>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Manage {labels.structurePlural.toLowerCase()} fees, revenue, and expenses.</p>
         </div>
         <div className="flex gap-3 w-full sm:w-auto">
           <button 
@@ -445,7 +446,7 @@ export default function AdminFinanceDashboard() {
           </div>
           <div className="min-w-[240px] rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
             <p><span className="font-bold text-slate-900">Role:</span> Administrator</p>
-            <p><span className="font-bold text-slate-900">Academic Year:</span> 2026/2027</p>
+            <p><span className="font-bold text-slate-900">Academic Year:</span> {new Date().getFullYear()}/{new Date().getFullYear() + 1}</p>
             <p><span className="font-bold text-slate-900">Date:</span> {new Date().toLocaleDateString()}</p>
           </div>
         </div>
@@ -552,8 +553,8 @@ export default function AdminFinanceDashboard() {
 
       <div className="print:hidden">
         <FeeStructureManager
-          title="Class Fee Categories"
-          description="Create different fee categories and set the amount each class should pay."
+          title={`${labels.structurePlural} Fee Categories`}
+          description={`Create different fee categories and set the amount each ${labels.structureSingular.toLowerCase()} should pay.`}
         />
       </div>
 
@@ -673,9 +674,9 @@ export default function AdminFinanceDashboard() {
       <div className="hidden print:block mt-10 pt-6 border-t border-slate-200">
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: 'Class Teacher', name: schoolProfile.teacherSignatoryName || 'Teacher Signatory', signatureUrl: schoolProfile.teacherSignatureUrl },
-            { label: 'Head of Department', name: schoolProfile.hodSignatoryName || 'HOD Signatory', signatureUrl: schoolProfile.hodSignatureUrl },
-            { label: 'Principal', name: schoolProfile.principalSignatoryName || 'Principal Signatory', signatureUrl: schoolProfile.principalSignatureUrl },
+            { label: `${labels.teacherSignatoryLabel}`, name: schoolProfile.teacherSignatoryName || `${labels.teacherSingular} Signatory`, signatureUrl: schoolProfile.teacherSignatureUrl },
+            { label: labels.hodSignatoryLabel, name: schoolProfile.hodSignatoryName || 'HOD Signatory', signatureUrl: schoolProfile.hodSignatureUrl },
+            { label: labels.headSignatoryLabel, name: schoolProfile.principalSignatoryName || `${labels.headSignatoryLabel} Signatory`, signatureUrl: schoolProfile.principalSignatureUrl },
           ].map((signatory) => (
             <div key={signatory.label} className="rounded-2xl border border-slate-200 p-4">
               <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">{signatory.label}</p>

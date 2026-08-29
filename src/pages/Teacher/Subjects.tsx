@@ -82,7 +82,7 @@ export default function TeacherSubjects() {
           { label: `Total ${labels.subjectPlural}`, value: subjects.length, icon: BookOpen, color: 'blue' },
           { label: `Active ${labels.structurePlural}`, value: classes.length, icon: Users, color: 'emerald' },
           { label: `Total ${labels.learnerPlural}`, value: totalStudents, icon: Users, color: 'purple' },
-          { label: 'Avg. Performance', value: '84%', icon: BarChart3, color: 'amber' },
+          { label: 'Avg. Performance', value: '—', icon: BarChart3, color: 'amber' },
         ].map((kpi) => (
           <div key={kpi.label} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm">
             <div className="flex items-center gap-3">

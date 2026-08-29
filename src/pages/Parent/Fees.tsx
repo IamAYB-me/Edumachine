@@ -117,7 +117,7 @@ export default function FeesAndPayments() {
       amount: format(record?.amount || 0),
       paymentDate: new Date().toLocaleDateString(),
       paymentMethod: selectedMethod === 'bank' ? 'Direct Bank Transfer' : selectedMethod === 'card' ? 'Debit / Credit Card' : 'Recorded Payment',
-      schoolName: schools[0]?.name || 'EduPlatform',
+      schoolName: schools[0]?.name || 'BROCHEST Portal',
       schoolCode: schools[0]?.code || 'EDU-001',
       schoolLogoUrl: schools[0]?.logoUrl,
       note: 'This receipt confirms payment received on behalf of the student account and may be used for finance clearance and parent records.',

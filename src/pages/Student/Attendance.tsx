@@ -35,28 +35,28 @@ export default function StudentAttendance() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard 
           title="Attendance Rate" 
-          value="94%" 
+          value="0%" 
           icon={TrendingUp} 
           iconBgClass="bg-emerald-50 dark:bg-emerald-900/20"
           iconColorClass="text-emerald-600 dark:text-emerald-400"
         />
         <KPICard 
           title="Days Present" 
-          value="22" 
+          value="0" 
           icon={CheckCircle} 
           iconBgClass="bg-blue-50 dark:bg-blue-900/20"
           iconColorClass="text-blue-600 dark:text-blue-400"
         />
         <KPICard 
           title="Days Absent" 
-          value="1" 
+          value="0" 
           icon={XCircle} 
           iconBgClass="bg-rose-50 dark:bg-rose-900/20"
           iconColorClass="text-rose-600 dark:text-rose-400"
         />
         <KPICard 
           title="Late Arrivals" 
-          value="2" 
+          value="0" 
           icon={Clock} 
           iconBgClass="bg-amber-50 dark:bg-amber-900/20"
           iconColorClass="text-amber-600 dark:text-amber-400"
@@ -128,19 +128,19 @@ export default function StudentAttendance() {
             <div className="space-y-4">
               <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
                 <span className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase">Total School Days</span>
-                <span className="text-sm font-bold text-slate-900 dark:text-white">24</span>
+                <span className="text-sm font-bold text-slate-900 dark:text-white">0</span>
               </div>
               <div className="flex justify-between items-center p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
                 <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase">Days Attended</span>
-                <span className="text-sm font-bold text-emerald-700 dark:text-emerald-400">22</span>
+                <span className="text-sm font-bold text-emerald-700 dark:text-emerald-400">0</span>
               </div>
               <div className="flex justify-between items-center p-3 bg-rose-50 dark:bg-rose-900/20 rounded-xl">
                 <span className="text-xs font-bold text-rose-700 dark:text-rose-400 uppercase">Days Missed</span>
-                <span className="text-sm font-bold text-rose-700 dark:text-rose-400">1</span>
+                <span className="text-sm font-bold text-rose-700 dark:text-rose-400">0</span>
               </div>
               <div className="flex justify-between items-center p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl">
                 <span className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase">Late Arrivals</span>
-                <span className="text-sm font-bold text-amber-700 dark:text-amber-400">2</span>
+                <span className="text-sm font-bold text-amber-700 dark:text-amber-400">0</span>
               </div>
             </div>
           </div>
@@ -156,9 +156,9 @@ export default function StudentAttendance() {
               Maintain 100% attendance this month to earn the "Academic Consistency" badge on your profile!
             </p>
             <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
-              <div className="bg-white h-full rounded-full" style={{ width: '94%' }}></div>
+              <div className="bg-white h-full rounded-full" style={{ width: '0%' }}></div>
             </div>
-            <p className="text-[10px] text-blue-200 font-bold mt-2 uppercase tracking-widest">94% Progress</p>
+            <p className="text-[10px] text-blue-200 font-bold mt-2 uppercase tracking-widest">0% Progress</p>
           </div>
         </div>
       </div>

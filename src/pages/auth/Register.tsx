@@ -1,11 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { GraduationCap, Eye, EyeOff, UserPlus, CheckCircle } from 'lucide-react';
 import { useAuthStore, Role } from '@/store/useAuthStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { useDataStore } from '@/store/useDataStore';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '@/config/firebase';
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = [
-  { value: 'ADMIN', label: 'School Administrator' },
+  { value: 'SUPER_ADMIN', label: 'System Admin' },
+  { value: 'ADMIN', label: 'School Admin' },
   { value: 'TEACHER', label: 'Teacher' },
   { value: 'STUDENT', label: 'Student' },
   { value: 'PARENT', label: 'Parent / Guardian' },
@@ -19,6 +23,7 @@ const ROLE_OPTIONS: { value: Role; label: string }[] = [
 export default function RegisterPage() {
   const register = useAuthStore((s) => s.register);
   const { globalSettings } = useSettingsStore();
+  const schools = useDataStore((s) => s.schools);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -27,10 +32,38 @@ export default function RegisterPage() {
   const [role, setRole] = useState<Role>('STUDENT');
   const [schoolName, setSchoolName] = useState('');
   const [phone, setPhone] = useState('');
+  const [portalLevel, setPortalLevel] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [registered, setRegistered] = useState(false);
+  const [publicSchools, setPublicSchools] = useState<string[]>([]);
+
+  const creatorRoles: Role[] = ['SUPER_ADMIN', 'ADMIN'];
+  const isCreator = creatorRoles.includes(role);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchSchools() {
+      try {
+        const snap = await getDocs(collection(db, 'schools'));
+        if (cancelled) return;
+        const names = snap.docs
+          .map((d) => (d.data() as any).name)
+          .filter(Boolean);
+        setPublicSchools(Array.from(new Set(names)).sort());
+      } catch {
+        // Firestore rules may block — fall back to store
+      }
+    }
+    fetchSchools();
+    return () => { cancelled = true; };
+  }, []);
+
+  const schoolNames = useMemo(() => {
+    const source = publicSchools.length > 0 ? publicSchools : Array.from(new Set(schools.map((s) => s.name).filter(Boolean)));
+    return source.sort();
+  }, [schools, publicSchools]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,7 +87,10 @@ export default function RegisterPage() {
     setIsLoading(true);
     await new Promise((r) => setTimeout(r, 600));
 
-    const result = await register({ name, email, password, role, schoolName, phone });
+    const selectedSchool = schools.find((s) => s.name === schoolName);
+    const effectivePortalLevel = isCreator ? portalLevel : (selectedSchool?.portalLevel || '');
+
+    const result = await register({ name, email, password, role, schoolName, phone, portalLevel: effectivePortalLevel });
 
     if (!result.success) {
       setError(result.error || 'Registration failed. Please try again.');
@@ -113,7 +149,7 @@ export default function RegisterPage() {
                 </div>
               )}
               <div className="text-left">
-                <h1 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">{globalSettings.appName || 'EduMachine'}</h1>
+                <h1 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">{globalSettings.appName || 'BROCHEST Portal'}</h1>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-widest">{globalSettings.appTagline || 'School Management System'}</p>
               </div>
             </Link>
@@ -201,16 +237,50 @@ export default function RegisterPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-500 uppercase">School / Institution Name</label>
-                <input
-                  type="text"
-                  required
-                  value={schoolName}
-                  onChange={(e) => setSchoolName(e.target.value)}
-                  placeholder="e.g. Greenfield International School"
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:text-white transition-all"
-                />
+                <label className="text-xs font-bold text-slate-500 uppercase">
+                  {isCreator ? 'School / Institution Name' : 'Select Your School'}
+                </label>
+                {isCreator ? (
+                  <input
+                    type="text"
+                    required
+                    value={schoolName}
+                    onChange={(e) => setSchoolName(e.target.value)}
+                    placeholder="e.g. Greenfield International School"
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:text-white transition-all"
+                  />
+                ) : (
+                  <select
+                    required
+                    value={schoolName}
+                    onChange={(e) => setSchoolName(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:border-blue-500 dark:text-white transition-all"
+                  >
+                    <option value="">-- Select a school --</option>
+                    {schoolNames.map((name) => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                )}
               </div>
+
+              {isCreator && (
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-500 uppercase">Institution Type</label>
+                  <select
+                    value={portalLevel}
+                    onChange={(e) => setPortalLevel(e.target.value)}
+                    required
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:text-white transition-all"
+                  >
+                    <option value="">-- Select institution type --</option>
+                    <option value="Primary">Primary School</option>
+                    <option value="Secondary">Secondary School</option>
+                    <option value="College">College / Polytechnic</option>
+                    <option value="University">University</option>
+                  </select>
+                </div>
+              )}
 
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-500 uppercase">Phone Number (optional)</label>

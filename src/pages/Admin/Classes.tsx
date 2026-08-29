@@ -1,13 +1,20 @@
-import React, { useState } from 'react';
-import { Search, Plus, GraduationCap, Edit, Trash2, X, Users, DoorOpen, LayoutGrid, List, CheckCircle, AlertCircle } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Search, Plus, GraduationCap, Edit, Trash2, X, Users, DoorOpen, LayoutGrid, List, CheckCircle, AlertCircle, Building2 } from 'lucide-react';
 import { cn } from '@/utils';
 import { useDataStore, Class } from '@/store/useDataStore';
 import { KPICard } from '@/components/ui/KPICard';
+import { useAuthStore } from '@/store/useAuthStore';
+import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
 
 export default function ClassesManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const { classes, addClass, updateClass, deleteClass, teachers, students, feeRecords } = useDataStore();
+  const { classes, addClass, updateClass, deleteClass, teachers, students, feeRecords, schools, faculties, departments } = useDataStore();
+  const user = useAuthStore((state) => state.user);
+  const schoolProfile = resolveSchoolProfile(user, schools);
+  const labels = getPortalLevelLabels(schoolProfile.portalLevel);
+  const isCollege = schoolProfile.portalLevel === 'College' || schoolProfile.portalLevel === 'University';
+  const structureLabel = isCollege ? 'Faculty/School' : '';
   
   const stats = {
     totalClasses: classes.length,
@@ -24,8 +31,16 @@ export default function ClassesManagement() {
     teacherId: '',
     teacherName: '',
     studentsCount: 0,
-    room: ''
+    room: '',
+    facultyId: '',
+    departmentId: ''
   });
+
+  const safeFaculties = useMemo(() => (faculties || []).filter(Boolean), [faculties]);
+  const safeDepartments = useMemo(() => (departments || []).filter(Boolean), [departments]);
+  const deptsForFaculty = formData.facultyId
+    ? safeDepartments.filter((d) => d.facultyId === formData.facultyId)
+    : safeDepartments;
 
   const filteredClasses = classes.filter(cls => 
     cls.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -41,7 +56,9 @@ export default function ClassesManagement() {
         teacherId: cls.teacherId,
         teacherName: cls.teacherName,
         studentsCount: cls.studentsCount,
-        room: cls.room
+        room: cls.room,
+        facultyId: cls.facultyId || '',
+        departmentId: cls.departmentId || ''
       });
     } else {
       setEditingClass(null);
@@ -50,7 +67,9 @@ export default function ClassesManagement() {
         teacherId: teachers[0]?.id || '',
         teacherName: teachers[0]?.name || '',
         studentsCount: 0,
-        room: ''
+        room: '',
+        facultyId: '',
+        departmentId: ''
       });
     }
     setIsModalOpen(true);
@@ -84,29 +103,29 @@ export default function ClassesManagement() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Classes Management</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Manage school classes, assigned teachers, and rooms.</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{labels.structurePlural} Management</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Manage {labels.structurePlural.toLowerCase()}, assigned {labels.teacherPlural.toLowerCase()}, and rooms.</p>
         </div>
         <button 
           onClick={() => handleOpenModal()}
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-blue-900/20"
         >
           <Plus className="w-4 h-4" />
-          Create New Class
+          Create New {labels.structureSingular}
         </button>
       </div>
 
       {/* Stats Widgets */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard 
-          title="Total Classes" 
+          title={`Total ${labels.structurePlural}`} 
           value={stats.totalClasses.toString()} 
           icon={GraduationCap} 
           iconBgClass="bg-blue-50 dark:bg-blue-900/20"
           iconColorClass="text-blue-600 dark:text-blue-400"
         />
         <KPICard 
-          title="Avg Students" 
+          title={`Avg ${labels.learnerPlural}`}
           value={stats.avgStudents.toString()} 
           icon={Users} 
           iconBgClass="bg-emerald-50 dark:bg-emerald-900/20"
@@ -120,7 +139,7 @@ export default function ClassesManagement() {
           iconColorClass="text-amber-600 dark:text-amber-400"
         />
         <KPICard 
-          title="Active Teachers" 
+          title={`Active ${labels.teacherPlural}`} 
           value={stats.totalTeachers.toString()} 
           icon={AlertCircle} 
           iconBgClass="bg-indigo-50 dark:bg-indigo-900/20"
@@ -135,7 +154,7 @@ export default function ClassesManagement() {
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input 
               type="text" 
-              placeholder="Search classes..." 
+              placeholder={`Search ${labels.structurePlural.toLowerCase()}...`} 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all dark:text-white"
@@ -184,16 +203,31 @@ export default function ClassesManagement() {
                 <DoorOpen className="w-4 h-4 text-slate-400" /> {cls.room}
               </p>
 
+              {isCollege && (cls.facultyId || cls.departmentId) && (
+                <div className="mb-3 space-y-1">
+                  {cls.facultyId && (
+                    <p className="text-xs text-purple-600 dark:text-purple-400 flex items-center gap-1">
+                      <Building2 className="w-3 h-3" /> {safeFaculties.find((f) => f.id === cls.facultyId)?.name || '—'}
+                    </p>
+                  )}
+                  {cls.departmentId && (
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                      <GraduationCap className="w-3 h-3" /> {safeDepartments.find((d) => d.id === cls.departmentId)?.name || '—'}
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-sm p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-                  <span className="text-slate-500 font-medium">Class Teacher</span>
+                  <span className="text-slate-500 font-medium">Assigned {labels.teacherSingular}</span>
                   <span className="font-bold text-slate-900 dark:text-white">{cls.teacherName}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
                   <span className="text-slate-500 font-medium">Enrolled</span>
                   <div className="flex items-center gap-1.5 font-bold text-blue-600 dark:text-blue-400">
                     <Users className="w-4 h-4" />
-                    {cls.studentsCount} Students
+                    {cls.studentsCount} {labels.learnerPlural}
                   </div>
                 </div>
               </div>
@@ -211,7 +245,7 @@ export default function ClassesManagement() {
           {filteredClasses.length === 0 && (
              <div className="col-span-full py-20 flex flex-col items-center justify-center text-slate-400 dark:text-slate-600">
                <GraduationCap className="w-12 h-12 mb-4 opacity-20" />
-               <p className="text-sm font-medium">No classes found matching your search.</p>
+                <p className="text-sm font-medium">No {labels.structurePlural.toLowerCase()} found matching your search.</p>
              </div>
           )}
         </div>
@@ -223,7 +257,7 @@ export default function ClassesManagement() {
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-md flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
               <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-                {editingClass ? 'Edit Class' : 'Create New Class'}
+                {editingClass ? `Edit ${labels.structureSingular}` : `Create New ${labels.structureSingular}`}
               </h2>
               <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors">
                 <X className="w-5 h-5 text-slate-500" />
@@ -232,7 +266,7 @@ export default function ClassesManagement() {
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div className="space-y-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-500 uppercase">Class Name</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase">{labels.structureSingular} Name</label>
                   <input 
                     type="text" 
                     required
@@ -242,8 +276,40 @@ export default function ClassesManagement() {
                     className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500 dark:text-white"
                   />
                 </div>
+                {isCollege && safeFaculties.length > 0 && (
+                  <>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-500 uppercase">{structureLabel}</label>
+                      <select 
+                        value={formData.facultyId}
+                        onChange={(e) => setFormData({...formData, facultyId: e.target.value, departmentId: ''})}
+                        className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500 dark:text-white"
+                      >
+                        <option value="">Select {structureLabel}</option>
+                        {safeFaculties.map(f => (
+                          <option key={f.id} value={f.id}>{f.name} ({f.code})</option>
+                        ))}
+                      </select>
+                    </div>
+                    {formData.facultyId && deptsForFaculty.length > 0 && (
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-500 uppercase">Department</label>
+                        <select 
+                          value={formData.departmentId}
+                          onChange={(e) => setFormData({...formData, departmentId: e.target.value})}
+                          className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500 dark:text-white"
+                        >
+                          <option value="">Select Department</option>
+                          {deptsForFaculty.map(d => (
+                            <option key={d.id} value={d.id}>{d.name} ({d.code})</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </>
+                )}
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-500 uppercase">Class Teacher</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase">Assigned {labels.teacherSingular}</label>
                   <select 
                     value={formData.teacherId}
                     onChange={(e) => setFormData({...formData, teacherId: e.target.value})}
@@ -267,7 +333,7 @@ export default function ClassesManagement() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-500 uppercase">Student Capacity</label>
+                    <label className="text-xs font-bold text-slate-500 uppercase">{labels.learnerSingular} Capacity</label>
                     <input 
                       type="number" 
                       required
@@ -290,7 +356,7 @@ export default function ClassesManagement() {
                   type="submit"
                   className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-900/20 transition-all"
                 >
-                  {editingClass ? 'Save Changes' : 'Create Class'}
+                  {editingClass ? 'Save Changes' : `Create ${labels.structureSingular}`}
                 </button>
               </div>
             </form>
@@ -316,11 +382,11 @@ export default function ClassesManagement() {
             <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/70 dark:bg-slate-800/40">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Assigned Teacher</p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Assigned {labels.teacherSingular}</p>
                   <p className="mt-2 text-lg font-black text-slate-900 dark:text-white">{reportClass.teacherName}</p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/70 dark:bg-slate-800/40">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Enrolled Students</p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Enrolled {labels.learnerPlural}</p>
                   <p className="mt-2 text-lg font-black text-slate-900 dark:text-white">{reportStudents.length || reportClass.studentsCount}</p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/70 dark:bg-slate-800/40">
@@ -360,7 +426,7 @@ export default function ClassesManagement() {
                     </div>
                   )) : (
                     <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 px-4 py-6 text-center text-sm text-slate-500">
-                      No students are currently linked to this class record.
+                      No {labels.learnerPlural.toLowerCase()} are currently linked to this {labels.structureSingular.toLowerCase()} record.
                     </div>
                   )}
                 </div>

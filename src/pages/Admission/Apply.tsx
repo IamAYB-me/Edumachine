@@ -1,13 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   GraduationCap, ArrowRight, ArrowLeft, CheckCircle, CreditCard, User,
   Users, BookOpen, FileText, Loader2, AlertCircle, Camera, Upload, Mail, Phone,
-  Printer,
+  Printer, ShieldCheck,
 } from 'lucide-react';
 import { cn } from '@/utils';
 import { useDataStore } from '@/store/useDataStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { useCurrency } from '@/hooks/useCurrency';
+import { subscribeToCollection } from '@/services/firestoreService';
+import { usePaystackPayment } from 'react-paystack';
+import { functions } from '@/config/firebase';
+import { httpsCallable } from 'firebase/functions';
 
 const STEPS = [
   { label: 'Student Info', icon: User },
@@ -75,21 +80,20 @@ interface FormData {
   residentialAddress: string;
   phone: string;
   email: string;
+  password: string;
+  passwordConfirm: string;
   maritalStatus: string;
-  courseOfStudy: string;
-  classApplyingFor: string;
-
   // Course Choices
+  faculty: string;
+  department: string;
   firstChoiceCourse: string;
   secondChoiceCourse: string;
-  thirdChoiceCourse: string;
 
   // Sponsor
   sponsorFullName: string;
   sponsorAddress: string;
   sponsorPhone: string;
   sponsorSignatureUrl: string;
-  sponsorDate: string;
 
   // Next of Kin
   nextOfKinName: string;
@@ -111,8 +115,12 @@ interface FormData {
   useSecondSitting: boolean;
 }
 
-const emptySubjects = (): SubjectGrade[] =>
-  Array.from({ length: 10 }, () => ({ subject: '', grade: '' }));
+const emptySubjects = (): SubjectGrade[] => {
+  const arr: SubjectGrade[] = Array.from({ length: 8 }, () => ({ subject: '', grade: '' }));
+  arr[0] = { subject: 'English Language', grade: '' };
+  arr[1] = { subject: 'Mathematics', grade: '' };
+  return arr;
+};
 
 function generateFormNumber(prefix: string, nextSeq: number): string {
   const year = new Date().getFullYear();
@@ -125,11 +133,11 @@ const initialForm: FormData = {
   passportFile: '',
   surname: '', firstName: '', middleName: '', dateOfBirth: '', placeOfBirth: '',
   gender: '', lga: '', stateOfOrigin: '', nationality: 'Nigerian',
-  residentialAddress: '', phone: '', email: '', maritalStatus: 'Single',
-  courseOfStudy: '', classApplyingFor: '',
-  firstChoiceCourse: '', secondChoiceCourse: '', thirdChoiceCourse: '',
+  residentialAddress: '', phone: '', email: '', password: '', passwordConfirm: '', maritalStatus: 'Single',
+
+  faculty: '', department: '', firstChoiceCourse: '', secondChoiceCourse: '',
   sponsorFullName: '', sponsorAddress: '', sponsorPhone: '',
-  sponsorSignatureUrl: '', sponsorDate: '',
+  sponsorSignatureUrl: '',
   nextOfKinName: '', nextOfKinAddress: '', nextOfKinPhone: '',
   nextOfKinRelationship: '',
   firstSittingRegNumber: '', firstSittingExamBody: '', firstSittingExamYear: '',
@@ -140,25 +148,67 @@ const initialForm: FormData = {
 };
 
 export default function AdmissionApply() {
-  const { addAdmissionApplication, admissionApplications } = useDataStore();
-  const { globalSettings, updateGlobalSettings } = useSettingsStore();
+  const { subjects, classes } = useDataStore();
+  const { globalSettings } = useSettingsStore();
+  const { format } = useCurrency();
   const [step, setStep] = useState(0);
   const [submitted, setSubmitted] = useState(false);
   const [paying, setPaying] = useState(false);
   const [paymentDone, setPaymentDone] = useState(false);
+  const [paymentSucceeded, setPaymentSucceeded] = useState(false);
+  const [paymentReference, setPaymentReference] = useState('');
   const [applicationId, setApplicationId] = useState('');
   const [error, setError] = useState('');
+  const [remoteSubjects, setRemoteSubjects] = useState<{ name: string; code: string; facultyId?: string; departmentId?: string }[]>([]);
+  const [remoteFaculties, setRemoteFaculties] = useState<{ id: string; name: string; code: string }[]>([]);
+  const [remoteDepartments, setRemoteDepartments] = useState<{ id: string; name: string; code: string; facultyId: string }[]>([]);
 
-  const prefix = globalSettings.admissionFormPrefix || 'EMS';
+  useEffect(() => {
+    const unsubSubjects = subscribeToCollection('subjects', (data) => {
+      setRemoteSubjects(data.map((d: any) => ({ name: d.name, code: d.code, facultyId: d.facultyId || '', departmentId: d.departmentId || '' })));
+    }, (err) => console.error('[Apply] subjects subscription error:', err));
+    const unsubFaculties = subscribeToCollection('faculties', (data) => {
+      setRemoteFaculties(data.map((d: any) => ({ id: d.id, name: d.name, code: d.code })));
+    }, (err) => console.error('[Apply] faculties subscription error:', err));
+    const unsubDepts = subscribeToCollection('departments', (data) => {
+      setRemoteDepartments(data.map((d: any) => ({ id: d.id, name: d.name, code: d.code, facultyId: d.facultyId || '' })));
+    }, (err) => console.error('[Apply] departments subscription error:', err));
+    return () => { unsubSubjects(); unsubFaculties(); unsubDepts(); };
+  }, []);
+
+  const prefix = globalSettings.admissionFormPrefix || 'BRO';
   const nextSeq = globalSettings.admissionFormNextSequence || 1;
   const formNumber = generateFormNumber(prefix, nextSeq);
+
+  const availableSubjects = remoteSubjects.length > 0
+    ? remoteSubjects.map((s) => s.name).filter((n, i, a) => a.indexOf(n) === i)
+    : subjects.length > 0
+      ? subjects.map((s) => s.name).filter((n, i, a) => a.indexOf(n) === i)
+      : COMMON_SUBJECTS;
+  const availableFaculties = remoteFaculties;
+  const availableClasses = classes.length > 0
+    ? classes.map((c) => c.name).filter((n, i, a) => a.indexOf(n) === i)
+    : CLASS_OPTIONS;
 
   const [form, setForm] = useState<FormData>({
     ...initialForm,
     applicationFormNumber: formNumber,
   });
 
+  useEffect(() => {
+    setForm((prev) => ({ ...prev, applicationFormNumber: formNumber }));
+  }, [formNumber]);
+
   const ADMISSION_FEE = globalSettings.admissionFee || 5000;
+
+  const availableDepartments = form.faculty
+    ? remoteDepartments.filter((d) => d.facultyId === form.faculty)
+    : remoteDepartments;
+
+  const filteredCourses = useMemo(() => {
+    if (remoteDepartments.length === 0) return COURSE_OPTIONS;
+    return remoteDepartments.map((d) => d.code ? `${d.name} (${d.code})` : d.name).filter((n, i, a) => a.indexOf(n) === i);
+  }, [remoteDepartments]);
 
   const update = (field: keyof FormData, value: any) =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -193,76 +243,181 @@ export default function AdmissionApply() {
     }
   };
 
-  const handlePayment = async () => {
+  const submitApplication = useCallback(async (reference: string) => {
     setPaying(true);
     setError('');
-    await new Promise((r) => setTimeout(r, 2000));
-    const ref = 'PAY-' + Date.now().toString(36).toUpperCase();
+    try {
+      // Step 1: Persist application + create applicant account + send emails (server-side).
+      const submitAdmission = httpsCallable(functions, 'submitAdmissionApplication');
+      const res = await submitAdmission({
+        schoolName: globalSettings.appName || 'BROCHEST Portal',
+        passportUrl: form.passportFile,
+        surname: form.surname,
+        firstName: form.firstName,
+        middleName: form.middleName,
+        dateOfBirth: form.dateOfBirth,
+        placeOfBirth: form.placeOfBirth,
+        gender: form.gender,
+        lga: form.lga,
+        stateOfOrigin: form.stateOfOrigin,
+        nationality: form.nationality,
+        residentialAddress: form.residentialAddress,
+        phone: form.phone,
+        email: form.email,
+        maritalStatus: form.maritalStatus,
+        password: form.password,
+        courseOfStudy: form.department
+          ? `${remoteDepartments.find((d) => d.id === form.department)?.name || form.department} — ${remoteFaculties.find((f) => f.id === form.faculty)?.name || form.faculty}`
+          : remoteFaculties.find((f) => f.id === form.faculty)?.name || form.faculty,
+        firstChoiceCourse: form.firstChoiceCourse,
+        secondChoiceCourse: form.secondChoiceCourse,
+        sponsorFullName: form.sponsorFullName,
+        sponsorAddress: form.sponsorAddress,
+        sponsorPhone: form.sponsorPhone,
+        sponsorSignatureUrl: form.sponsorSignatureUrl,
+        nextOfKinName: form.nextOfKinName,
+        nextOfKinAddress: form.nextOfKinAddress,
+        nextOfKinPhone: form.nextOfKinPhone,
+        nextOfKinRelationship: form.nextOfKinRelationship,
+        firstSittingRegNumber: form.firstSittingRegNumber,
+        firstSittingExamBody: form.firstSittingExamBody,
+        firstSittingExamYear: form.firstSittingExamYear,
+        firstSittingSubjects: form.firstSittingSubjects.filter((s) => s.subject),
+        secondSittingRegNumber: form.secondSittingRegNumber,
+        secondSittingExamBody: form.secondSittingExamBody,
+        secondSittingExamYear: form.secondSittingExamYear,
+        secondSittingSubjects: form.useSecondSitting ? form.secondSittingSubjects.filter((s) => s.subject) : [],
+        admissionFee: ADMISSION_FEE,
+        parentName: form.sponsorFullName,
+        parentPhone: form.sponsorPhone,
+        reference,
+        progressUrl: `${window.location.origin}/admission/progress`,
+      });
 
-    addAdmissionApplication({
-      schoolName: globalSettings.appName || 'EduMachine',
-      applicationFormNumber: form.applicationFormNumber,
-      passportUrl: form.passportFile,
-      surname: form.surname,
-      firstName: form.firstName,
-      middleName: form.middleName,
-      dateOfBirth: form.dateOfBirth,
-      placeOfBirth: form.placeOfBirth,
-      gender: form.gender,
-      lga: form.lga,
-      stateOfOrigin: form.stateOfOrigin,
-      nationality: form.nationality,
-      residentialAddress: form.residentialAddress,
-      phone: form.phone,
-      email: form.email,
-      maritalStatus: form.maritalStatus,
-      courseOfStudy: form.courseOfStudy,
-      classApplyingFor: form.classApplyingFor,
-      firstChoiceCourse: form.firstChoiceCourse,
-      secondChoiceCourse: form.secondChoiceCourse,
-      thirdChoiceCourse: form.thirdChoiceCourse,
-      sponsorFullName: form.sponsorFullName,
-      sponsorAddress: form.sponsorAddress,
-      sponsorPhone: form.sponsorPhone,
-      sponsorSignatureUrl: form.sponsorSignatureUrl,
-      sponsorDate: form.sponsorDate,
-      nextOfKinName: form.nextOfKinName,
-      nextOfKinAddress: form.nextOfKinAddress,
-      nextOfKinPhone: form.nextOfKinPhone,
-      nextOfKinRelationship: form.nextOfKinRelationship,
-      firstSittingRegNumber: form.firstSittingRegNumber,
-      firstSittingExamBody: form.firstSittingExamBody,
-      firstSittingExamYear: form.firstSittingExamYear,
-      firstSittingSubjects: form.firstSittingSubjects.filter((s) => s.subject),
-      secondSittingRegNumber: form.secondSittingRegNumber,
-      secondSittingExamBody: form.secondSittingExamBody,
-      secondSittingExamYear: form.secondSittingExamYear,
-      secondSittingSubjects: form.useSecondSitting ? form.secondSittingSubjects.filter((s) => s.subject) : [],
-      admissionFee: ADMISSION_FEE,
-      paymentStatus: 'Paid',
-      paymentReference: ref,
-      applicationStatus: 'Pending',
-      submittedAt: new Date().toISOString().split('T')[0],
-      parentName: form.sponsorFullName,
-      parentPhone: form.sponsorPhone,
+      const result = res.data as { applicationFormNumber: string };
+
+      // Step 2: Verify payment via Cloud Function (server-side with secret key)
+      try {
+        const verifyPayment = httpsCallable(functions, 'verifyPaystackPayment');
+        await verifyPayment({ reference, applicationFormNumber: result.applicationFormNumber });
+      } catch (err) {
+        console.warn('[Apply] Cloud verification failed, payment will be verified via webhook:', err);
+        // Application is already saved — Paystack webhook will handle verification as fallback
+      }
+
+      setApplicationId(result.applicationFormNumber);
+      setPaymentDone(true);
+      setPaying(false);
+      setSubmitted(true);
+    } catch (err: any) {
+      console.error('[Apply] Submission failed:', err);
+      setError(err?.message || 'Your application could not be submitted. Please try again.');
+      setPaying(false);
+    }
+  }, [form, remoteDepartments, remoteFaculties, ADMISSION_FEE, globalSettings]);
+
+  const paystackConfig = useMemo(() => ({
+    reference: `ADM-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
+    email: form.email || 'applicant@example.com',
+    amount: ADMISSION_FEE * 100, // Paystack expects amount in kobo
+    publicKey: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY as string,
+  }), [form.email, ADMISSION_FEE]);
+
+  const onPaystackSuccess = useCallback((reference: any) => {
+    const ref = reference?.reference;
+    setPaymentReference(ref);
+    setPaymentSucceeded(true);
+    setError('');
+    submitApplication(ref);
+  }, [submitApplication]);
+
+  const onPaystackClose = useCallback(() => {
+    setError('Payment cancelled. Your application has not been submitted yet.');
+  }, []);
+
+  const initializePayment = usePaystackPayment(paystackConfig);
+
+  if (globalSettings.admissionsEnabled === false) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center px-4">
+        <div className="w-full max-w-md text-center">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl p-8 sm:p-10">
+            <div className="w-20 h-20 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center mx-auto mb-6">
+              <AlertCircle className="w-10 h-10 text-rose-600 dark:text-rose-400" />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">Admissions Currently Closed</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 leading-relaxed">
+              The admission application portal is not accepting new submissions at this time. Please check back later or contact the school for more information.
+            </p>
+            <a
+              href="https://www.brochest.com.ng"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-900/20 transition-all"
+            >
+              Back to Home
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const handlePayment = () => {
+    setPaying(true);
+    setError('');
+    initializePayment({
+      onSuccess: onPaystackSuccess,
+      onClose: onPaystackClose,
     });
-
-    setApplicationId(form.applicationFormNumber);
-    setPaymentDone(true);
-    setPaying(false);
-    setSubmitted(true);
-
-    // Increment the sequence for the next applicant
-    updateGlobalSettings({ admissionFormNextSequence: nextSeq + 1 });
   };
 
-  const canProceed = () => {
-    if (step === 0) return form.surname && form.firstName && form.gender && form.phone && form.email;
-    if (step === 1) return form.classApplyingFor;
-    if (step === 2) return form.sponsorFullName && form.sponsorPhone;
-    if (step === 3) return form.nextOfKinName && form.nextOfKinPhone;
-    if (step === 4) return form.firstSittingExamBody && form.firstSittingExamYear;
-    return true;
+  const validateStep = (): { ok: boolean; message?: string } => {
+    if (step === 0) {
+      if (!form.surname || !form.firstName || !form.gender || !form.phone || !form.email) {
+        return { ok: false, message: 'Please fill in all required fields.' };
+      }
+      const policy = globalSettings.passwordPolicy;
+      if (!form.password) {
+        return { ok: false, message: 'Please create a password for your applicant account.' };
+      }
+      if (form.password !== form.passwordConfirm) {
+        return { ok: false, message: 'Passwords do not match.' };
+      }
+      if (form.password.length < (policy.minLength || 8)) {
+        return { ok: false, message: `Password must be at least ${policy.minLength || 8} characters.` };
+      }
+      if (policy.requireCapital && !/[A-Z]/.test(form.password)) {
+        return { ok: false, message: 'Password must include at least one capital letter.' };
+      }
+      if (policy.requireNumbers && !/\d/.test(form.password)) {
+        return { ok: false, message: 'Password must include at least one number.' };
+      }
+      if (policy.requireSymbols && !/[^A-Za-z0-9]/.test(form.password)) {
+        return { ok: false, message: 'Password must include at least one special character.' };
+      }
+      return { ok: true };
+    }
+    if (step === 1) {
+      return form.firstChoiceCourse ? { ok: true } : { ok: false, message: 'Please select a first choice course.' };
+    }
+    if (step === 2) {
+      return (form.sponsorFullName && form.sponsorPhone)
+        ? { ok: true }
+        : { ok: false, message: 'Please fill in all required fields.' };
+    }
+    if (step === 3) {
+      return (form.nextOfKinName && form.nextOfKinPhone)
+        ? { ok: true }
+        : { ok: false, message: 'Please fill in all required fields.' };
+    }
+    if (step === 4) {
+      const filledSubjects = form.firstSittingSubjects.filter((s) => s.subject && s.grade).length;
+      return (form.firstSittingRegNumber && form.firstSittingExamBody && form.firstSittingExamYear && filledSubjects >= 5)
+        ? { ok: true }
+        : { ok: false, message: 'Please complete your first sitting results (minimum 5 subjects).' };
+    }
+    return { ok: true };
   };
 
   const inputClass = "w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:border-blue-500 dark:text-white transition-colors";
@@ -282,7 +437,7 @@ export default function AdmissionApply() {
                 {globalSettings.logoUrl && (
                   <img src={globalSettings.logoUrl} alt="Logo" style={{ height: '50px' }} />
                 )}
-                <h1 style={{ fontSize: '22px', fontWeight: 'bold', margin: 0 }}>{globalSettings.appName || 'EduMachine'}</h1>
+                <h1 style={{ fontSize: '22px', fontWeight: 'bold', margin: 0 }}>{globalSettings.appName || 'BROCHEST Portal'}</h1>
               </div>
               <p style={{ fontSize: '11px', color: '#64748b', margin: 0, textTransform: 'uppercase', letterSpacing: '2px' }}>Student Admission Application Receipt</p>
             </div>
@@ -303,10 +458,10 @@ export default function AdmissionApply() {
                   ['State of Origin', form.stateOfOrigin],
                   ['Nationality', form.nationality],
                   ['Residential Address', form.residentialAddress],
-                  ['Class Applying For', form.classApplyingFor],
+                  ['Faculty / School', remoteFaculties.find((f) => f.id === form.faculty)?.name || ''],
+                  ['Department', remoteDepartments.find((d) => d.id === form.department)?.name || ''],
                   ['First Choice Course', form.firstChoiceCourse],
                   ['Second Choice Course', form.secondChoiceCourse],
-                  ['Third Choice Course', form.thirdChoiceCourse],
                   ['Sponsor Name', form.sponsorFullName],
                   ['Sponsor Phone', form.sponsorPhone],
                   ['Next of Kin', form.nextOfKinName],
@@ -328,7 +483,7 @@ export default function AdmissionApply() {
                 <tbody>
                   <tr>
                     <td style={{ padding: '4px 0', color: '#475569' }}>Amount Paid</td>
-                    <td style={{ padding: '4px 0', fontWeight: 'bold', textAlign: 'right' }}>₦{ADMISSION_FEE.toLocaleString()}</td>
+                    <td style={{ padding: '4px 0', fontWeight: 'bold', textAlign: 'right' }}>{format(ADMISSION_FEE)}</td>
                   </tr>
                   <tr>
                     <td style={{ padding: '4px 0', color: '#475569' }}>Payment Status</td>
@@ -350,7 +505,7 @@ export default function AdmissionApply() {
 
             <div style={{ textAlign: 'center', borderTop: '2px solid #e2e8f0', paddingTop: '16px', fontSize: '11px', color: '#94a3b8' }}>
               <p style={{ margin: '0 0 4px' }}>Generated on {new Date().toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-              <p style={{ margin: 0 }}>{globalSettings.appName || 'EduMachine'} — Admission Portal</p>
+              <p style={{ margin: 0 }}>{globalSettings.appName || 'BROCHEST Portal'} — Admission Portal</p>
             </div>
           </div>
         </div>
@@ -399,14 +554,16 @@ export default function AdmissionApply() {
                     <span className="font-medium text-slate-700 dark:text-slate-300">{form.phone}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Class</span>
-                    <span className="font-medium text-slate-700 dark:text-slate-300">{form.classApplyingFor}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
                     <span className="text-slate-500">Payment</span>
-                    <span className="font-bold text-emerald-600">Paid — ₦{ADMISSION_FEE.toLocaleString()}</span>
+                    <span className="font-bold text-emerald-600">Paid — {format(ADMISSION_FEE)}</span>
                   </div>
                 </div>
+              </div>
+
+              <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4 mb-6">
+                <p className="text-xs text-emerald-700 dark:text-emerald-400 leading-relaxed">
+                  Your login credentials and a link to track this application have been sent to <strong>{form.email}</strong>. Sign in with your password to follow your application status.
+                </p>
               </div>
 
               <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 mb-6">
@@ -422,6 +579,12 @@ export default function AdmissionApply() {
                 >
                   <Printer className="w-4 h-4" /> Print Receipt
                 </button>
+                <Link
+                  to="/admission/progress"
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-900/20 transition-all"
+                >
+                  <ShieldCheck className="w-4 h-4" /> Track Application
+                </Link>
                 <Link
                   to="/"
                   className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-900/20 transition-all"
@@ -451,13 +614,13 @@ export default function AdmissionApply() {
               </div>
             )}
             <div>
-              <h1 className="text-lg font-bold text-slate-900 dark:text-white">{globalSettings.appName || 'EduMachine'}</h1>
+              <h1 className="text-lg font-bold text-slate-900 dark:text-white">{globalSettings.appName || 'BROCHEST Portal'}</h1>
               <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Student Admission Application</p>
             </div>
           </Link>
           <div className="hidden sm:block text-right">
             <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Application Fee</p>
-            <p className="text-lg font-bold text-blue-600">₦{ADMISSION_FEE.toLocaleString()}</p>
+            <p className="text-lg font-bold text-blue-600">{format(ADMISSION_FEE)}</p>
           </div>
         </div>
       </header>
@@ -630,21 +793,44 @@ export default function AdmissionApply() {
                 </div>
               </div>
 
-              {/* Marital Status, Course of Study */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className={labelClass}>Marital Status</label>
-                  <select value={form.maritalStatus} onChange={(e) => update('maritalStatus', e.target.value)} className={inputClass}>
-                    {MARITAL_STATUS_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
-                  </select>
+              {/* Account Password */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                <p className="text-xs font-bold text-blue-800 dark:text-blue-300 mb-1 flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4" />
+                  Create Your Applicant Account
+                </p>
+                <p className="text-[11px] text-blue-600 dark:text-blue-400 mb-4">
+                  Your account lets you log in and track the status of this application.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className={labelClass}>Password *</label>
+                    <input type="password" value={form.password} onChange={(e) => update('password', e.target.value)}
+                      placeholder="Create a password" className={inputClass} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className={labelClass}>Confirm Password *</label>
+                    <input type="password" value={form.passwordConfirm} onChange={(e) => update('passwordConfirm', e.target.value)}
+                      placeholder="Re-enter password" className={inputClass} />
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <label className={labelClass}>Course of Study</label>
-                  <select value={form.courseOfStudy} onChange={(e) => update('courseOfStudy', e.target.value)} className={inputClass}>
-                    <option value="">Select Course</option>
-                    {COURSE_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
+                {form.password && form.passwordConfirm && form.password !== form.passwordConfirm && (
+                  <p className="text-[11px] font-bold text-rose-600 mt-2">Passwords do not match.</p>
+                )}
+                <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-3">
+                  Use at least {globalSettings.passwordPolicy.minLength || 8} characters
+                  {globalSettings.passwordPolicy.requireCapital ? ' with a capital letter' : ''}
+                  {globalSettings.passwordPolicy.requireNumbers ? ' and a number' : ''}
+                  {globalSettings.passwordPolicy.requireSymbols ? ' and a special character' : ''}.
+                </p>
+              </div>
+
+              {/* Marital Status */}
+              <div className="space-y-1">
+                <label className={labelClass}>Marital Status</label>
+                <select value={form.maritalStatus} onChange={(e) => update('maritalStatus', e.target.value)} className={inputClass}>
+                  {MARITAL_STATUS_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
               </div>
             </div>
           )}
@@ -653,33 +839,17 @@ export default function AdmissionApply() {
           {step === 1 && (
             <div className="space-y-5">
               <div className="space-y-1">
-                <label className={labelClass}>Class Applying For *</label>
-                <select value={form.classApplyingFor} onChange={(e) => update('classApplyingFor', e.target.value)} className={inputClass}>
-                  <option value="">Select Class</option>
-                  {CLASS_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-              <div className="space-y-1">
                 <label className={labelClass}>First Choice Course *</label>
                 <select value={form.firstChoiceCourse} onChange={(e) => update('firstChoiceCourse', e.target.value)} className={inputClass}>
                   <option value="">Select First Choice</option>
-                  {COURSE_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+                  {filteredCourses.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div className="space-y-1">
                 <label className={labelClass}>Second Choice Course</label>
                 <select value={form.secondChoiceCourse} onChange={(e) => update('secondChoiceCourse', e.target.value)} className={inputClass}>
                   <option value="">Select Second Choice</option>
-                  {COURSE_OPTIONS.filter((c) => c !== form.firstChoiceCourse).map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className={labelClass}>Third Choice Course</label>
-                <select value={form.thirdChoiceCourse} onChange={(e) => update('thirdChoiceCourse', e.target.value)} className={inputClass}>
-                  <option value="">Select Third Choice</option>
-                  {COURSE_OPTIONS.filter((c) => c !== form.firstChoiceCourse && c !== form.secondChoiceCourse).map((c) => (
+                  {filteredCourses.filter((c) => c !== form.firstChoiceCourse).map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </select>
@@ -705,10 +875,6 @@ export default function AdmissionApply() {
                   <label className={labelClass}>Sponsor Phone Number *</label>
                   <input type="tel" value={form.sponsorPhone} onChange={(e) => update('sponsorPhone', e.target.value)}
                     placeholder="+234 xxx xxx xxxx" className={inputClass} />
-                </div>
-                <div className="space-y-1">
-                  <label className={labelClass}>Date</label>
-                  <input type="date" value={form.sponsorDate} onChange={(e) => update('sponsorDate', e.target.value)} className={inputClass} />
                 </div>
               </div>
               <div className="space-y-1">
@@ -776,8 +942,8 @@ export default function AdmissionApply() {
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-1">
-                    <label className={labelClass}>Registration Number</label>
-                    <input type="text" value={form.firstSittingRegNumber} onChange={(e) => update('firstSittingRegNumber', e.target.value)}
+                    <label className={labelClass}>Registration Number *</label>
+                    <input type="text" required value={form.firstSittingRegNumber} onChange={(e) => update('firstSittingRegNumber', e.target.value)}
                       placeholder="e.g. 4012345678" className={inputClass} />
                   </div>
                   <div className="space-y-1">
@@ -799,11 +965,16 @@ export default function AdmissionApply() {
                   {form.firstSittingSubjects.map((sg, i) => (
                     <div key={i} className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <select value={sg.subject} onChange={(e) => updateFirstSittingSubject(i, 'subject', e.target.value)}
+                        disabled={i < 2}
                         className={cn(inputClass, i < 2 && "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700")}>
-                        <option value="">{i < 2 ? (i === 0 ? 'English Language (Compulsory)' : 'Mathematics (Compulsory)') : `Subject ${i + 1}`}</option>
-                        {COMMON_SUBJECTS.filter((s) => s === sg.subject || !form.firstSittingSubjects.some((x, j) => j !== i && x.subject === s)).map((s) => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
+                        <option value="">{i === 0 ? 'English Language (Compulsory)' : i === 1 ? 'Mathematics (Compulsory)' : `Subject ${i + 1}`}</option>
+                        {i < 2 ? (
+                          <option value={i === 0 ? 'English Language' : 'Mathematics'}>{i === 0 ? 'English Language' : 'Mathematics'}</option>
+                        ) : (
+                          availableSubjects.filter((s) => !form.firstSittingSubjects.some((x, j) => j !== i && x.subject === s)).map((s) => (
+                            <option key={s} value={s}>{s}</option>
+                          ))
+                        )}
                       </select>
                       <select value={sg.grade} onChange={(e) => updateFirstSittingSubject(i, 'grade', e.target.value)}
                         className={cn(inputClass, i < 2 && "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700")}>
@@ -862,11 +1033,17 @@ export default function AdmissionApply() {
                     <p className="text-[10px] font-bold text-slate-500 uppercase">Subjects & Grades</p>
                     {form.secondSittingSubjects.map((sg, i) => (
                       <div key={i} className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <select value={sg.subject} onChange={(e) => updateSecondSittingSubject(i, 'subject', e.target.value)} className={inputClass}>
-                          <option value="">{`Subject ${i + 1}`}</option>
-                          {COMMON_SUBJECTS.filter((s) => s === sg.subject || !form.secondSittingSubjects.some((x, j) => j !== i && x.subject === s)).map((s) => (
-                            <option key={s} value={s}>{s}</option>
-                          ))}
+                        <select value={sg.subject} onChange={(e) => updateSecondSittingSubject(i, 'subject', e.target.value)}
+                          disabled={i < 2}
+                          className={cn(inputClass, i < 2 && "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700")}>
+                          <option value="">{i === 0 ? 'English Language (Compulsory)' : i === 1 ? 'Mathematics (Compulsory)' : `Subject ${i + 1}`}</option>
+                          {i < 2 ? (
+                            <option value={i === 0 ? 'English Language' : 'Mathematics'}>{i === 0 ? 'English Language' : 'Mathematics'}</option>
+                          ) : (
+                            availableSubjects.filter((s) => !form.secondSittingSubjects.some((x, j) => j !== i && x.subject === s)).map((s) => (
+                              <option key={s} value={s}>{s}</option>
+                            ))
+                          )}
                         </select>
                         <select value={sg.grade} onChange={(e) => updateSecondSittingSubject(i, 'grade', e.target.value)} className={inputClass}>
                           <option value="">Grade</option>
@@ -894,32 +1071,49 @@ export default function AdmissionApply() {
                     <span className="text-slate-500">Application No.</span>
                     <span className="font-medium text-slate-700 dark:text-slate-300 font-mono">{form.applicationFormNumber}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Class</span>
-                    <span className="font-medium text-slate-700 dark:text-slate-300">{form.classApplyingFor || '—'}</span>
-                  </div>
                   <div className="border-t border-slate-200 dark:border-slate-700 pt-3 flex justify-between">
                     <span className="text-sm font-bold text-slate-900 dark:text-white">Total</span>
-                    <span className="text-lg font-bold text-blue-600">₦{ADMISSION_FEE.toLocaleString()}</span>
+                    <span className="text-lg font-bold text-blue-600">{format(ADMISSION_FEE)}</span>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
-                <p className="text-xs text-amber-700 dark:text-amber-400">
-                  This is a demo payment. In production, this will connect to Paystack, Flutterwave, or your preferred payment gateway.
-                </p>
+              <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                  <ShieldCheck className="w-5 h-5 text-emerald-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300 mb-1">Secure Payment via Paystack</p>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                      You can pay with Card, Bank Transfer, USSD, or Mobile Money. After payment, your application will be submitted automatically.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {!paymentDone ? (
-                <button onClick={handlePayment} disabled={paying}
-                  className="w-full flex items-center justify-center gap-2 py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-900/20 transition-all">
-                  {paying ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Processing Payment...</>
+                <>
+                  {!paymentSucceeded ? (
+                    <button onClick={handlePayment} disabled={paying}
+                      className="w-full flex items-center justify-center gap-2 py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-900/20 transition-all">
+                      {paying ? (
+                        <><Loader2 className="w-4 h-4 animate-spin" /> Processing Payment...</>
+                      ) : (
+                        <><CreditCard className="w-4 h-4" /> Pay {format(ADMISSION_FEE)} Now</>
+                      )}
+                    </button>
                   ) : (
-                    <><CreditCard className="w-4 h-4" /> Pay ₦{ADMISSION_FEE.toLocaleString()} Now</>
+                    <button onClick={() => submitApplication(paymentReference)} disabled={paying}
+                      className="w-full flex items-center justify-center gap-2 py-3.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-900/20 transition-all">
+                      {paying ? (
+                        <><Loader2 className="w-4 h-4 animate-spin" /> Submitting Application...</>
+                      ) : error ? (
+                        <><AlertCircle className="w-4 h-4" /> Retry Submission</>
+                      ) : (
+                        <><CheckCircle className="w-4 h-4" /> Confirm & Submit</>
+                      )}
+                    </button>
                   )}
-                </button>
+                </>
               ) : (
                 <div className="flex items-center gap-2 justify-center text-emerald-600 font-bold text-sm">
                   <CheckCircle className="w-5 h-5" /> Payment Confirmed
@@ -937,7 +1131,7 @@ export default function AdmissionApply() {
               </button>
             ) : <div />}
             {step < STEPS.length - 1 ? (
-              <button onClick={() => { if (canProceed()) { setError(''); setStep(step + 1); } else { setError('Please fill in all required fields.'); } }}
+              <button onClick={() => { const v = validateStep(); if (v.ok) { setError(''); setStep(step + 1); } else { setError(v.message || 'Please fill in all required fields.'); } }}
                 className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-900/20 transition-all">
                 Continue <ArrowRight className="w-4 h-4" />
               </button>

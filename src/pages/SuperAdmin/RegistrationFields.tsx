@@ -10,6 +10,7 @@ import {
   RegistrationFieldSection, RegistrationFieldType, PortalLevel,
 } from '@/store/useDataStore';
 import { useToastStore } from '@/store/useToastStore';
+import { getPortalLevelLabels } from '@/utils/schoolProfile';
 
 const SECTIONS: RegistrationFieldSection[] = [
   'Personal', 'Contact', 'Parent/Guardian', 'Medical',
@@ -185,6 +186,7 @@ export default function RegistrationFieldsConfig() {
   const [showEnabledOnly, setShowEnabledOnly] = useState(false);
 
   const selectedSchool = useMemo(() => schools.find((s) => s.id === selectedSchoolId), [schools, selectedSchoolId]);
+  const labels = useMemo(() => getPortalLevelLabels(selectedSchool?.portalLevel ?? 'Secondary'), [selectedSchool]);
   const existingConfig = useMemo(() => registrationConfigs.find((c) => c.schoolId === selectedSchoolId), [registrationConfigs, selectedSchoolId]);
 
   useEffect(() => {
@@ -308,8 +310,8 @@ export default function RegistrationFieldsConfig() {
     <div className="space-y-6 h-full flex flex-col">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Student Registration Fields</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Configure which fields appear on each school's student registration form.</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{labels.learnerSingular} Registration Fields</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Configure which fields appear on each school's {labels.learnerSingular.toLowerCase()} registration form.</p>
         </div>
       </div>
 
@@ -614,7 +616,7 @@ export default function RegistrationFieldsConfig() {
             </div>
             <div>
               <p className="text-lg font-bold text-slate-700 dark:text-slate-300">Select a School</p>
-              <p className="text-sm text-slate-400 mt-1">Choose a school above to configure its student registration fields.</p>
+              <p className="text-sm text-slate-400 mt-1">Choose a school above to configure its {labels.learnerSingular.toLowerCase()} registration fields.</p>
               <p className="text-xs text-slate-400 mt-3">Each school's fields are pre-populated based on its portal level (Primary, Secondary, College, University) and can be fully customized.</p>
             </div>
           </div>

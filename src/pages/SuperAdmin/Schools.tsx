@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Search, Plus, Building2, Edit, Trash2, X, Calendar, Settings2, RefreshCw } from 'lucide-react';
 import { cn } from '@/utils';
 import { SchoolIntegrations, useDataStore, School, AdmissionFieldKey, buildDefaultAdmissionFormConfig } from '@/store/useDataStore';
 import { useToastStore } from '@/store/useToastStore';
 import { readFileAsDataUrl } from '@/utils/fileHelpers';
 import { getAdmissionBuilderSections } from '@/utils/admissionBuilder';
+import { getPortalLevelLabels } from '@/utils/schoolProfile';
 
 const createDefaultIntegrations = (): SchoolIntegrations => ({
   paymentGateway: {
@@ -65,6 +66,8 @@ export default function SchoolsManagement() {
     subscriptionPlan: 'Standard' as 'Basic' | 'Standard' | 'Professional' | 'Enterprise',
     expiryDate: new Date().toISOString().split('T')[0]
   });
+
+  const labels = useMemo(() => getPortalLevelLabels(formData.portalLevel), [formData.portalLevel]);
 
   const filteredSchools = schools.filter(school => 
     school.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -359,7 +362,11 @@ const resetAdmissionBuilder = () => {
                         <Edit className="w-4 h-4" />
                       </button>
                       <button 
-                        onClick={() => deleteSchool(school.id)}
+                        onClick={() => {
+                          if (confirm(`Are you sure you want to delete "${school.name}"? This will also affect all users and data associated with this school.`)) {
+                            deleteSchool(school.id);
+                          }
+                        }}
                         className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded" title="Delete"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -509,7 +516,7 @@ const resetAdmissionBuilder = () => {
         Admission Form Builder
       </h3>
       <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-        Choose which student registration fields should appear for this school during deployment.
+        Choose which {labels.learnerSingular.toLowerCase()} registration fields should appear for this school during deployment.
       </p>
     </div>
     <div className="flex items-center gap-2">

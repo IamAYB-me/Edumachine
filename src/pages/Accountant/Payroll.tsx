@@ -102,7 +102,7 @@ export default function AccountantPayroll() {
     }
 
     const content = [
-      'EduPlatform Payroll Payslip Bulk Export',
+      'BROCHEST Portal Payroll Payslip Bulk Export',
       `Generated: ${new Date().toLocaleString()}`,
       '',
       ...filteredPayroll.map((pay) =>

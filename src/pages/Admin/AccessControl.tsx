@@ -4,14 +4,15 @@ import { cn } from '@/utils';
 import { DelegatedPortalAccess, PortalPrivilegeKey, useDataStore } from '@/store/useDataStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useToastStore } from '@/store/useToastStore';
+import { getPortalLevelLabels, resolveSchoolProfile } from '@/utils/schoolProfile';
 
-const privilegeOptions: Array<{ key: PortalPrivilegeKey; label: string; description: string; path: string }> = [
-  { key: 'manage_students', label: 'Students', description: 'Handle student directory and registration.', path: '/admin/students' },
-  { key: 'manage_teachers', label: 'Teachers', description: 'Manage teacher records and staffing.', path: '/admin/teachers' },
+const getPrivilegeOptions = (labels: ReturnType<typeof getPortalLevelLabels>): Array<{ key: PortalPrivilegeKey; label: string; description: string; path: string }> => [
+  { key: 'manage_students', label: labels.learnerPlural, description: `Handle ${labels.learnerSingular.toLowerCase()} directory and registration.`, path: '/admin/students' },
+  { key: 'manage_teachers', label: labels.teacherPlural, description: `Manage ${labels.teacherSingular.toLowerCase()} records and staffing.`, path: '/admin/teachers' },
   { key: 'manage_parents', label: 'Parents', description: 'Handle parent accounts and support.', path: '/admin/parents' },
-  { key: 'manage_classes', label: 'Classes', description: 'Maintain classes or departments.', path: '/admin/classes' },
+  { key: 'manage_classes', label: labels.structurePlural, description: `Maintain ${labels.structurePlural.toLowerCase()} or departments.`, path: '/admin/classes' },
   { key: 'manage_timetable', label: 'Timetable', description: 'Manage school timetable scheduling.', path: '/admin/timetable' },
-  { key: 'manage_curriculum', label: 'Curriculum', description: 'Handle subjects, programmes, and curriculum.', path: '/admin/academic' },
+  { key: 'manage_curriculum', label: 'Curriculum', description: `Handle ${labels.subjectPlural.toLowerCase()}, programmes, and curriculum.`, path: '/admin/academic' },
   { key: 'manage_results', label: 'Results', description: 'Access result sheets and academic records.', path: '/admin/results' },
   { key: 'manage_exam_timetable', label: 'Exam Timetable', description: 'Manage exam and test schedules.', path: '/admin/exam-timetable' },
   { key: 'manage_fees', label: 'Fee Collection', description: 'Record and review fee payments.', path: '/admin/fees' },
@@ -35,9 +36,12 @@ const createEmptyForm = () => ({
 });
 
 export default function AdminAccessControl() {
-  const { teachers, staff, delegatedAccess, addDelegatedAccess, updateDelegatedAccess, deleteDelegatedAccess } = useDataStore();
+  const { teachers, staff, delegatedAccess, addDelegatedAccess, updateDelegatedAccess, deleteDelegatedAccess, schools } = useDataStore();
   const user = useAuthStore((state) => state.user);
   const showToast = useToastStore((state) => state.showToast);
+  const schoolProfile = resolveSchoolProfile(user, schools);
+  const labels = getPortalLevelLabels(schoolProfile.portalLevel ?? 'Secondary');
+  const privilegeOptions = useMemo(() => getPrivilegeOptions(labels), [labels]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAccess, setEditingAccess] = useState<DelegatedPortalAccess | null>(null);

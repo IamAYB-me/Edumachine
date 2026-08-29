@@ -1,9 +1,11 @@
+import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Users, GraduationCap, Bell, UserPlus, BookOpen, 
   Award, CheckCircle, Briefcase, Clock, Calendar, 
   ShieldCheck, BedDouble, Bus, Library,
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { KPICard } from '@/components/ui/KPICard';
 import { cn } from '@/utils';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
@@ -11,32 +13,14 @@ import { useDataStore } from '@/store/useDataStore';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useAuthStore } from '@/store/useAuthStore';
 import { getPortalLevelLabels, resolveSchoolProfile } from '@/utils/schoolProfile';
+import { AnimatedCard } from '@/components/ui/AnimatedCard';
+import { AnimatedPage, AnimatedButton, StaggerContainer, StaggerItem } from '@/components/ui/motion';
 
-const admissionData = [
-  { name: 'Jan', students: 65 },
-  { name: 'Feb', students: 160 },
-  { name: 'Mar', students: 250 },
-  { name: 'Apr', students: 245 },
-  { name: 'May', students: 300 },
-  { name: 'Jun', students: 210 },
-  { name: 'Jul', students: 250 },
-  { name: 'Aug', students: 370 },
-  { name: 'Sep', students: 340 },
-  { name: 'Oct', students: 370 },
-];
-
-const classPerformance = [
-  { name: 'Grade 1', score: 85 },
-  { name: 'Grade 2', score: 78 },
-  { name: 'Grade 3', score: 92 },
-  { name: 'Grade 4', score: 88 },
-  { name: 'Grade 5', score: 95 },
-  { name: 'Grade 6', score: 82 },
-];
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const { staff, schools } = useDataStore();
+  const { staff, schools, students, teachers, classes, expenses, payroll, attendance, examResults, examTimetable } = useDataStore();
   const user = useAuthStore((state) => state.user);
   const { format } = useCurrency();
   const schoolProfile = resolveSchoolProfile(user, schools);
@@ -44,6 +28,13 @@ export default function AdminDashboard() {
   
   const academicStaff = staff.filter(s => s.category === 'Academic').length;
   const nonAcademicStaff = staff.filter(s => s.category === 'Non-Academic').length;
+  const totalPayroll = payroll.reduce((sum, p) => sum + p.net, 0);
+  const totalStaffCount = staff.length;
+  const totalExpense = expenses.reduce((sum, e) => sum + e.amount, 0);
+  
+  const todayStr = new Date().toISOString().split('T')[0];
+  const presentToday = attendance.filter(a => a.date === todayStr && a.status === 'Present').length;
+  const attendanceRate = totalStaffCount > 0 ? ((presentToday / totalStaffCount) * 100).toFixed(1) : '0';
   
   const staffingData = [
     { name: 'Academic', value: academicStaff },
@@ -51,82 +42,133 @@ export default function AdminDashboard() {
   ];
   
   const STAFF_COLORS = ['#6366f1', '#f59e0b'];
-  const structurePerformance = classPerformance.map((entry) => ({
-    ...entry,
-    name: schoolProfile.portalLevel === 'Primary'
-      ? entry.name.replace('Grade', 'Primary')
-      : schoolProfile.portalLevel === 'Secondary'
-        ? entry.name
-        : entry.name.replace('Grade', 'Dept'),
-  }));
-  const topPerformers = schoolProfile.portalLevel === 'Primary'
-    ? [
-        { name: 'Primary 5 - Gold', score: '96%' },
-        { name: 'Primary 4 - Blue', score: '93%' },
-        { name: 'Primary 6 - Gold', score: '91%' },
-      ]
-    : schoolProfile.portalLevel === 'Secondary'
-      ? [
-          { name: 'SS 2 - Science', score: '98%' },
-          { name: 'JSS 3 - Blue', score: '93%' },
-          { name: 'SS 3 - Arts', score: '91%' },
-        ]
-      : schoolProfile.portalLevel === 'College'
-        ? [
-            { name: 'Computer Science', score: '89%' },
-            { name: 'Accountancy', score: '86%' },
-            { name: 'Mass Communication', score: '84%' },
-          ]
-        : [
-            { name: 'Computer Science', score: '91%' },
-            { name: 'Software Engineering', score: '89%' },
-            { name: 'Information Systems', score: '87%' },
-          ];
+
+  const admissionData = useMemo(() => {
+    const now = new Date();
+    return Array.from({ length: 10 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - 9 + i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2, '0')}`;
+      const count = students.filter((s) => {
+        const dt = s.dateOfAdmission;
+        if (!dt) return false;
+        return dt.startsWith(key);
+      }).length;
+      return { name: MONTH_NAMES[d.getMonth()], students: count };
+    });
+  }, [students]);
+
+  const structurePerformance = useMemo(() => {
+    if (classes.length === 0) return [];
+    const studentClassMap = new Map<string, string>();
+    students.forEach((s) => {
+      const cls = s.class || s.classDepartment || '';
+      if (cls) studentClassMap.set(s.id, cls);
+      if (s.regNo) studentClassMap.set(s.regNo, cls);
+    });
+    const classScoreMap = new Map<string, { total: number; count: number }>();
+    examResults.forEach((r) => {
+      const cls = studentClassMap.get(r.studentId) || studentClassMap.get(r.regNo || '') || '';
+      if (!cls) return;
+      const existing = classScoreMap.get(cls) || { total: 0, count: 0 };
+      const pct = r.totalMarks > 0 ? (r.score / r.totalMarks) * 100 : r.score;
+      existing.total += pct;
+      existing.count += 1;
+      classScoreMap.set(cls, existing);
+    });
+    const result = Array.from(classScoreMap.entries())
+      .map(([name, { total, count }]) => ({ name, score: Math.round(total / count) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 6);
+    if (result.length === 0) {
+      return classes.slice(0, 6).map((c) => ({ name: c.name, score: 0 }));
+    }
+    return result;
+  }, [classes, students, examResults]);
+
+  const topPerformers = useMemo(() => {
+    const studentClassMap = new Map<string, string>();
+    students.forEach((s) => {
+      const cls = s.class || s.classDepartment || '';
+      if (cls) studentClassMap.set(s.id, cls);
+      if (s.regNo) studentClassMap.set(s.regNo, cls);
+    });
+    const classScoreMap = new Map<string, { total: number; count: number }>();
+    examResults.forEach((r) => {
+      const cls = studentClassMap.get(r.studentId) || studentClassMap.get(r.regNo || '') || '';
+      if (!cls) return;
+      const existing = classScoreMap.get(cls) || { total: 0, count: 0 };
+      const pct = r.totalMarks > 0 ? (r.score / r.totalMarks) * 100 : r.score;
+      existing.total += pct;
+      existing.count += 1;
+      classScoreMap.set(cls, existing);
+    });
+    const ranked = Array.from(classScoreMap.entries())
+      .map(([name, { total, count }]) => ({ name, score: `${Math.round(total / count)}%` }))
+      .sort((a, b) => parseInt(b.score) - parseInt(a.score))
+      .slice(0, 3);
+    if (ranked.length === 0) {
+      return classes.slice(0, 3).map((c) => ({ name: c.name, score: '—' }));
+    }
+    return ranked;
+  }, [classes, students, examResults]);
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-end">
+    <AnimatedPage className="space-y-6">
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+        className="flex justify-between items-end"
+      >
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white uppercase tracking-tight">Academy Overview 👋</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 font-medium">Overview of {schoolProfile.portalLevel.toLowerCase()} academic performance and institutional growth.</p>
         </div>
-      </div>
+      </motion.div>
 
       {/* Primary KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard 
           title={`Total ${labels.learnerPlural}`} 
-          value="2,450" 
+          value={students.length.toLocaleString()} 
           icon={Users} 
           iconBgClass="bg-blue-50 dark:bg-blue-900/20"
           iconColorClass="text-blue-600 dark:text-blue-400"
+          to="/admin/students"
+          delay={0}
         />
         <KPICard 
-          title="Total Teachers" 
-          value="156" 
+          title={`Total ${labels.teacherPlural}`} 
+          value={teachers.length} 
           icon={UserPlus} 
           iconBgClass="bg-indigo-50 dark:bg-indigo-900/20"
           iconColorClass="text-indigo-600 dark:text-indigo-400"
+          to="/admin/teachers"
+          delay={0.08}
         />
         <KPICard 
           title={`Total ${labels.structurePlural}`} 
-          value="85" 
+          value={classes.length} 
           icon={GraduationCap} 
           iconBgClass="bg-emerald-50 dark:bg-emerald-900/20"
           iconColorClass="text-emerald-600 dark:text-emerald-400"
+          to="/admin/classes"
+          delay={0.16}
         />
         <KPICard 
-          title={labels.scoreMetricLabel} 
-          value={labels.scoreMetricValue} 
-          icon={Award} 
+          title="Total Staff" 
+          value={totalStaffCount} 
+          icon={Briefcase} 
           iconBgClass="bg-amber-50 dark:bg-amber-900/20"
           iconColorClass="text-amber-600 dark:text-amber-400"
+          to="/hr/employees"
+          delay={0.24}
         />
       </div>
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Admission Chart */}
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm lg:col-span-2">
+        <AnimatedCard delay={0.1} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm lg:col-span-2">
           <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">{labels.learnerSingular} Admission Growth</h3>
           <div className="h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -142,10 +184,10 @@ export default function AdminDashboard() {
               </LineChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </AnimatedCard>
 
         {/* Grade Distribution */}
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
+        <AnimatedCard delay={0.18} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
           <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">{labels.performanceByLabel}</h3>
           <div className="flex-1 min-h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -161,10 +203,10 @@ export default function AdminDashboard() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </AnimatedCard>
 
         {/* Staffing Overview */}
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
+        <AnimatedCard delay={0.26} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
           <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
             <Briefcase className="w-5 h-5 text-indigo-500" />
             Staffing Mix
@@ -193,138 +235,160 @@ export default function AdminDashboard() {
           </div>
           <div className="mt-4 space-y-2">
             {staffingData.map((item, i) => (
-              <div key={i} className="flex justify-between items-center text-xs">
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.5 + i * 0.1, duration: 0.3 }}
+                className="flex justify-between items-center text-xs"
+              >
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: STAFF_COLORS[i] }} />
                   <span className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-tighter">{item.name}</span>
                 </div>
                 <span className="font-bold text-slate-900 dark:text-white">{item.value}</span>
-              </div>
+              </motion.div>
             ))}
           </div>
-        </div>
+        </AnimatedCard>
       </div>
 
       {/* Departmental Glimpse Section */}
       <div className="space-y-4">
-        <div className="flex items-center gap-3 px-2">
+        <motion.div
+          initial={{ opacity: 0, x: -12 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.3, duration: 0.4 }}
+          className="flex items-center gap-3 px-2"
+        >
           <div className="h-6 w-1 bg-blue-600 rounded-full"></div>
           <h2 className="text-lg font-bold text-slate-900 dark:text-white uppercase tracking-wider">Operational Glimpse</h2>
-        </div>
+        </motion.div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" staggerDelay={0.08}>
           {/* HR Glimpse */}
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm group hover:border-blue-500/50 transition-all">
-            <div className="flex items-center justify-between mb-6">
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-2xl text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
-                <ShieldCheck className="w-6 h-6" />
+          <StaggerItem variant="scaleIn">
+            <AnimatedCard noEntrance className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm group hover:border-blue-500/50 transition-all">
+              <div className="flex items-center justify-between mb-6">
+                <motion.div 
+                  whileHover={{ scale: 1.15, rotate: 8 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 15 }}
+                  className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-2xl text-blue-600 dark:text-blue-400"
+                >
+                  <ShieldCheck className="w-6 h-6" />
+                </motion.div>
+                <Link to="/hr" className="text-[10px] font-bold text-blue-600 uppercase tracking-widest hover:underline">HR Portal</Link>
               </div>
-              <Link to="/hr" className="text-[10px] font-bold text-blue-600 uppercase tracking-widest hover:underline">HR Portal</Link>
-            </div>
-            <h3 className="font-bold text-slate-900 dark:text-white mb-4">HR & Payroll</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500 dark:text-slate-400 font-medium">Total Staff</span>
-                <span className="font-bold text-slate-900 dark:text-white">126</span>
+              <h3 className="font-bold text-slate-900 dark:text-white mb-4">HR & Payroll</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500 dark:text-slate-400 font-medium">Total Staff</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{totalStaffCount}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500 dark:text-slate-400 font-medium">Attendance</span>
+                  <span className="font-bold text-emerald-600">{attendanceRate}%</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500 dark:text-slate-400 font-medium">Monthly Payroll</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{format(totalPayroll)}</span>
+                </div>
               </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500 dark:text-slate-400 font-medium">Attendance</span>
-                <span className="font-bold text-emerald-600">77.8%</span>
-              </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500 dark:text-slate-400 font-medium">Monthly Payroll</span>
-                <span className="font-bold text-slate-900 dark:text-white">{format(42560)}</span>
-              </div>
-            </div>
-          </div>
+            </AnimatedCard>
+          </StaggerItem>
 
           {/* Hostel Glimpse */}
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm group hover:border-emerald-500/50 transition-all">
-            <div className="flex items-center justify-between mb-6">
-              <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform">
-                <BedDouble className="w-6 h-6" />
+          <StaggerItem variant="scaleIn">
+            <AnimatedCard noEntrance className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm group hover:border-emerald-500/50 transition-all">
+              <div className="flex items-center justify-between mb-6">
+                <motion.div 
+                  whileHover={{ scale: 1.15, rotate: 8 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 15 }}
+                  className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl text-emerald-600 dark:text-emerald-400"
+                >
+                  <BedDouble className="w-6 h-6" />
+                </motion.div>
+                <Link to="/hostel" className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest hover:underline">Hostel Portal</Link>
               </div>
-              <Link to="/hostel" className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest hover:underline">Hostel Portal</Link>
-            </div>
-            <h3 className="font-bold text-slate-900 dark:text-white mb-4">Facility & Hostel</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500 dark:text-slate-400 font-medium">Occupancy</span>
-                <span className="font-bold text-slate-900 dark:text-white">87.5%</span>
+              <h3 className="font-bold text-slate-900 dark:text-white mb-4">Facility & Hostel</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500 dark:text-slate-400 font-medium">Rooms</span>
+                  <span className="font-bold text-slate-900 dark:text-white">Manage via Portal</span>
+                </div>
               </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500 dark:text-slate-400 font-medium">Available Rooms</span>
-                <span className="font-bold text-blue-600">16</span>
-              </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500 dark:text-slate-400 font-medium">Pending Issues</span>
-                <span className="font-bold text-rose-600">3 Alerts</span>
-              </div>
-            </div>
-          </div>
+            </AnimatedCard>
+          </StaggerItem>
 
           {/* Transport Glimpse */}
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm group hover:border-amber-500/50 transition-all">
-            <div className="flex items-center justify-between mb-6">
-              <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-2xl text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform">
-                <Bus className="w-6 h-6" />
+          <StaggerItem variant="scaleIn">
+            <AnimatedCard noEntrance className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm group hover:border-amber-500/50 transition-all">
+              <div className="flex items-center justify-between mb-6">
+                <motion.div 
+                  whileHover={{ scale: 1.15, rotate: 8 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 15 }}
+                  className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-2xl text-amber-600 dark:text-amber-400"
+                >
+                  <Bus className="w-6 h-6" />
+                </motion.div>
+                <Link to="/transport" className="text-[10px] font-bold text-amber-600 uppercase tracking-widest hover:underline">Fleet Portal</Link>
               </div>
-              <Link to="/transport" className="text-[10px] font-bold text-amber-600 uppercase tracking-widest hover:underline">Fleet Portal</Link>
-            </div>
-            <h3 className="font-bold text-slate-900 dark:text-white mb-4">Transport & Logistics</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500 dark:text-slate-400 font-medium">Active Fleet</span>
-                <span className="font-bold text-slate-900 dark:text-white">24 Vehicles</span>
+              <h3 className="font-bold text-slate-900 dark:text-white mb-4">Transport & Logistics</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500 dark:text-slate-400 font-medium">Fleet</span>
+                  <span className="font-bold text-slate-900 dark:text-white">Manage via Portal</span>
+                </div>
               </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500 dark:text-slate-400 font-medium">Students Covered</span>
-                <span className="font-bold text-indigo-600">856</span>
-              </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500 dark:text-slate-400 font-medium">Route Efficiency</span>
-                <span className="font-bold text-emerald-600">94%</span>
-              </div>
-            </div>
-          </div>
+            </AnimatedCard>
+          </StaggerItem>
 
           {/* Library Glimpse */}
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm group hover:border-rose-500/50 transition-all">
-            <div className="flex items-center justify-between mb-6">
-              <div className="p-3 bg-rose-50 dark:bg-rose-900/20 rounded-2xl text-rose-600 dark:text-rose-400 group-hover:scale-110 transition-transform">
-                <Library className="w-6 h-6" />
+          <StaggerItem variant="scaleIn">
+            <AnimatedCard noEntrance className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm group hover:border-rose-500/50 transition-all">
+              <div className="flex items-center justify-between mb-6">
+                <motion.div 
+                  whileHover={{ scale: 1.15, rotate: 8 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 15 }}
+                  className="p-3 bg-rose-50 dark:bg-rose-900/20 rounded-2xl text-rose-600 dark:text-rose-400"
+                >
+                  <Library className="w-6 h-6" />
+                </motion.div>
+                <Link to="/librarian" className="text-[10px] font-bold text-rose-600 uppercase tracking-widest hover:underline">Library Portal</Link>
               </div>
-              <Link to="/librarian" className="text-[10px] font-bold text-rose-600 uppercase tracking-widest hover:underline">Library Portal</Link>
-            </div>
-            <h3 className="font-bold text-slate-900 dark:text-white mb-4">Library & Resources</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500 dark:text-slate-400 font-medium">Catalog Size</span>
-                <span className="font-bold text-slate-900 dark:text-white">12,450 Books</span>
+              <h3 className="font-bold text-slate-900 dark:text-white mb-4">Library & Resources</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500 dark:text-slate-400 font-medium">Books</span>
+                  <span className="font-bold text-slate-900 dark:text-white">Manage via Portal</span>
+                </div>
               </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500 dark:text-slate-400 font-medium">Active Borrows</span>
-                <span className="font-bold text-blue-600">845</span>
-              </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500 dark:text-slate-400 font-medium">Overdue</span>
-                <span className="font-bold text-rose-600">42 Items</span>
-              </div>
-            </div>
-          </div>
-        </div>
+            </AnimatedCard>
+          </StaggerItem>
+        </StaggerContainer>
       </div>
       
       {/* Bottom Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <AnimatedCard delay={0.2} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white uppercase tracking-tighter">{labels.topStructureLabel}</h3>
-            <button onClick={() => navigate('/admin/results')} className="text-xs text-blue-600 font-bold hover:text-blue-700 uppercase tracking-widest">View Report</button>
+            <AnimatedButton
+              onClick={() => navigate('/admin/results')}
+              className="text-xs text-blue-600 font-bold hover:text-blue-700 uppercase tracking-widest"
+            >
+              View Report
+            </AnimatedButton>
           </div>
           <div className="space-y-4">
             {topPerformers.map((cls, i) => (
-              <div key={i} className="flex items-center justify-between p-4 bg-slate-50/50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800/50">
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, x: -12 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.5 + i * 0.1, duration: 0.35 }}
+                className="flex items-center justify-between p-4 bg-slate-50/50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800/50"
+              >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-xs">
                     {i+1}
@@ -332,65 +396,86 @@ export default function AdminDashboard() {
                   <span className="font-bold text-slate-900 dark:text-white text-sm">{cls.name}</span>
                 </div>
                 <span className="font-bold text-emerald-600">{cls.score}</span>
-              </div>
+              </motion.div>
             ))}
           </div>
-        </div>
+        </AnimatedCard>
         
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <AnimatedCard delay={0.28} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6 uppercase tracking-tighter">Academic Actions</h3>
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+          <StaggerContainer className="grid grid-cols-2 lg:grid-cols-3 gap-4" staggerDelay={0.05}>
             {[
-              { name: 'Faculty', icon: UserPlus, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20', path: '/admin/teachers', desc: 'Staffing' },
-              { name: labels.curriculumLabel, icon: BookOpen, color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-900/20', path: '/admin/academic', desc: 'Subjects' },
+              { name: labels.teacherPlural, icon: UserPlus, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20', path: '/admin/teachers', desc: 'Staffing' },
+              { name: labels.curriculumLabel, icon: BookOpen, color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-900/20', path: '/admin/academic', desc: labels.subjectPlural },
               { name: labels.structurePlural, icon: GraduationCap, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/20', path: '/admin/classes', desc: 'Sections' },
               { name: 'Periods', icon: Clock, color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-900/20', path: '/admin/timetable', desc: 'Timetable' },
-              { name: 'Exams', icon: Calendar, color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-900/20', path: '/admin/exam-timetable', desc: 'Schedule' },
+              { name: labels.assessmentLabel, icon: Calendar, color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-900/20', path: '/admin/exam-timetable', desc: 'Schedule' },
               { name: 'Notice', icon: Bell, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/20', path: '/admin/notices', desc: 'Broadcast' },
             ].map((action, i) => (
-              <Link 
-                key={i} 
-                to={action.path}
-                className="flex flex-col items-center justify-center p-4 rounded-2xl border border-slate-100 dark:border-slate-800/50 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-all gap-2 group text-center shadow-sm active:scale-95"
-              >
-                <div className={cn("p-3 rounded-xl transition-all duration-300 group-hover:scale-110 group-hover:rotate-3", action.bg, action.color)}>
-                  <action.icon className="w-5 h-5" />
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold text-slate-700 dark:text-slate-300 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{action.name}</p>
-                </div>
-              </Link>
+              <StaggerItem key={i} variant="scaleIn">
+                <Link 
+                  to={action.path}
+                  className="flex flex-col items-center justify-center p-4 rounded-2xl border border-slate-100 dark:border-slate-800/50 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-all gap-2 group text-center shadow-sm"
+                >
+                  <motion.div 
+                    whileHover={{ scale: 1.15, rotate: 5 }}
+                    whileTap={{ scale: 0.9 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+                    className={cn("p-3 rounded-xl", action.bg, action.color)}
+                  >
+                    <action.icon className="w-5 h-5" />
+                  </motion.div>
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-700 dark:text-slate-300 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{action.name}</p>
+                  </div>
+                </Link>
+              </StaggerItem>
             ))}
-          </div>
-        </div>
+          </StaggerContainer>
+        </AnimatedCard>
 
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <AnimatedCard delay={0.36} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6 uppercase tracking-tighter">Academic Health</h3>
           <div className="space-y-5">
-             <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800/50">
-               <div className="flex items-center gap-3">
-                 <div className="p-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-lg"><CheckCircle className="w-4 h-4" /></div>
-                 <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Attendance Rate</span>
-               </div>
-               <span className="font-bold text-slate-900 dark:text-white">94%</span>
-             </div>
-             <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800/50">
-               <div className="flex items-center gap-3">
-                 <div className="p-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg"><Award className="w-4 h-4" /></div>
-                 <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Pass Rate</span>
-               </div>
-               <span className="font-bold text-slate-900 dark:text-white">88%</span>
-             </div>
-             <div className="flex justify-between items-center">
-               <div className="flex items-center gap-3">
-                 <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-lg"><BookOpen className="w-4 h-4" /></div>
-                 <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Syllabus Covered</span>
-               </div>
-               <span className="font-bold text-slate-900 dark:text-white">72%</span>
-             </div>
+            <motion.div
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.5, duration: 0.3 }}
+              className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800/50"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-lg"><CheckCircle className="w-4 h-4" /></div>
+                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{labels.structurePlural} Count</span>
+              </div>
+              <span className="font-bold text-slate-900 dark:text-white">{classes.length}</span>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.6, duration: 0.3 }}
+              className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800/50"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg"><Award className="w-4 h-4" /></div>
+                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Active {labels.learnerPlural}</span>
+              </div>
+              <span className="font-bold text-slate-900 dark:text-white">{students.filter(s => s.status === 'Active').length}</span>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.7, duration: 0.3 }}
+              className="flex justify-between items-center"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-lg"><BookOpen className="w-4 h-4" /></div>
+                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Total Expenses</span>
+              </div>
+              <span className="font-bold text-slate-900 dark:text-white">{format(totalExpense)}</span>
+            </motion.div>
           </div>
-        </div>
+        </AnimatedCard>
       </div>
-    </div>
+    </AnimatedPage>
   );
 }

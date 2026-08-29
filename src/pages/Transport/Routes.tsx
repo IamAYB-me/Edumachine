@@ -3,11 +3,18 @@ import { Search, Filter, Plus, MapPin, Navigation, Users, Clock, ChevronRight, M
 import { cn } from '@/utils';
 import { KPICard } from '@/components/ui/KPICard';
 import { useToastStore } from '@/store/useToastStore';
+import { useDataStore } from '@/store/useDataStore';
+import { useAuthStore } from '@/store/useAuthStore';
+import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
 
 export default function TransportRoutes() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [driverFilter, setDriverFilter] = useState<'All Drivers' | 'Robert Brown' | 'Sarah Jenkins' | 'John Wick' | 'Mike Tyson'>('All Drivers');
+  const [driverFilter, setDriverFilter] = useState<string>('All Drivers');
   const [showModal, setShowModal] = useState(false);
+  const schools = useDataStore((state) => state.schools);
+  const authUser = useAuthStore((state) => state.user);
+  const schoolProfile = resolveSchoolProfile(authUser, schools);
+  const labels = getPortalLevelLabels(schoolProfile.portalLevel);
   const [formData, setFormData] = useState({
     name: '',
     start: 'Main Campus',
@@ -18,12 +25,7 @@ export default function TransportRoutes() {
   });
   const showToast = useToastStore((state) => state.showToast);
 
-  const [routes, setRoutes] = useState([
-    { id: 'RT-01', name: 'Downtown Express', start: 'Main Campus', end: 'Central Station', stops: 8, students: 42, driver: 'Robert Brown' },
-    { id: 'RT-02', name: 'West Side Loop', start: 'Main Campus', end: 'West Mall', stops: 12, students: 38, driver: 'Sarah Jenkins' },
-    { id: 'RT-03', name: 'Staff Route A', start: 'Staff Quarters', end: 'Main Campus', stops: 4, students: 15, driver: 'John Wick' },
-    { id: 'RT-04', name: 'Suburban North', start: 'Main Campus', end: 'North Hill', stops: 15, students: 54, driver: 'Mike Tyson' },
-  ]);
+  const [routes, setRoutes] = useState([]);
 
   const filteredRoutes = routes.filter((route) => {
     const matchesSearch =
@@ -38,14 +40,9 @@ export default function TransportRoutes() {
   });
 
   const cycleDriverFilter = () => {
+    const uniqueDrivers = [...new Set(routes.map((r) => r.driver).filter(Boolean))];
+    const order: string[] = ['All Drivers', ...uniqueDrivers];
     setDriverFilter((current) => {
-      const order: Array<'All Drivers' | 'Robert Brown' | 'Sarah Jenkins' | 'John Wick' | 'Mike Tyson'> = [
-        'All Drivers',
-        'Robert Brown',
-        'Sarah Jenkins',
-        'John Wick',
-        'Mike Tyson',
-      ];
       const nextValue = order[(order.indexOf(current) + 1) % order.length];
 
       showToast({
@@ -131,7 +128,7 @@ export default function TransportRoutes() {
           iconColorClass="text-emerald-600 dark:text-emerald-400"
         />
         <KPICard 
-          title="Students Using" 
+          title={`${labels.learnerPlural} Using`} 
           value="148" 
           icon={Users} 
           iconBgClass="bg-indigo-50 dark:bg-indigo-900/20"
@@ -178,7 +175,7 @@ export default function TransportRoutes() {
                     <th className="py-4 px-6">Route Name / ID</th>
                     <th className="py-4 px-6">Coverage</th>
                     <th className="py-4 px-6">Stops</th>
-                    <th className="py-4 px-6">Students</th>
+                    <th className="py-4 px-6">{labels.learnerPlural}</th>
                     <th className="py-4 px-6 text-center">Action</th>
                   </tr>
                 </thead>
@@ -337,7 +334,7 @@ export default function TransportRoutes() {
                   />
                 </label>
                 <label className="space-y-2 text-sm font-medium text-slate-700">
-                  <span>Students Assigned</span>
+                  <span>{labels.learnerPlural} Assigned</span>
                   <input
                     type="number"
                     min={0}

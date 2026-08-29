@@ -3,12 +3,19 @@ import { Search, Filter, Plus, Home, Key, UserCheck, ChevronRight, LayoutGrid, C
 import { cn } from '@/utils';
 import { KPICard } from '@/components/ui/KPICard';
 import { useToastStore } from '@/store/useToastStore';
+import { useDataStore } from '@/store/useDataStore';
+import { useAuthStore } from '@/store/useAuthStore';
+import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
 
 export default function RoomAllocation() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Allocated' | 'Pending' | 'Available'>('All');
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [showModal, setShowModal] = useState(false);
+  const schools = useDataStore((state) => state.schools);
+  const authUser = useAuthStore((state) => state.user);
+  const schoolProfile = resolveSchoolProfile(authUser, schools);
+  const labels = getPortalLevelLabels(schoolProfile.portalLevel);
   const [formData, setFormData] = useState({
     room: 'Block A - 101',
     student: '',
@@ -17,12 +24,7 @@ export default function RoomAllocation() {
   });
   const showToast = useToastStore((state) => state.showToast);
 
-  const [allocations, setAllocations] = useState([
-    { id: 'ALC-001', room: 'Block A - 101', student: 'John Doe', type: 'Single', status: 'Allocated', date: '2026-07-01' },
-    { id: 'ALC-002', room: 'Block A - 102', student: 'Liam Smith', type: 'Double', status: 'Allocated', date: '2026-07-01' },
-    { id: 'ALC-003', room: 'Block B - 201', student: 'Emma Johnson', type: 'Single', status: 'Pending', date: '-' },
-    { id: 'ALC-004', room: 'Block B - 205', student: '-', type: 'Double', status: 'Available', date: '-' },
-  ]);
+  const [allocations, setAllocations] = useState([]);
 
   const filteredAllocations = allocations.filter((allocation) => {
     const matchesSearch =
@@ -52,7 +54,7 @@ export default function RoomAllocation() {
   const handleCreateAllocation = () => {
     if (!formData.student.trim() && formData.status !== 'Available') {
       showToast({
-        title: 'Student name required',
+        title: `${labels.learnerSingular} name required`,
         description: 'Enter a student name unless the room remains available.',
         variant: 'warning',
       });
@@ -314,7 +316,7 @@ export default function RoomAllocation() {
                 </select>
               </label>
               <label className="space-y-2 text-sm font-medium text-slate-700">
-                <span>Student Name</span>
+                <span>{labels.learnerSingular} Name</span>
                 <input
                   value={formData.student}
                   onChange={(event) => setFormData((current) => ({ ...current, student: event.target.value }))}

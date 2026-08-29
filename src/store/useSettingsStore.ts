@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { subscribeToCollection, setDocument } from '@/services/firestoreService';
+import { subscribeToDocument, setDocument, deleteFieldsFromDocument } from '@/services/firestoreService';
 
 interface GlobalSettings {
   appName: string;
@@ -29,6 +29,7 @@ interface GlobalSettings {
     port: string;
     encryption: string;
     username: string;
+    fromEmail: string;
   };
   timetableSettings: {
     startDay: string;
@@ -41,13 +42,15 @@ interface GlobalSettings {
   admissionFee: number;
   admissionFormPrefix: string;
   admissionFormNextSequence: number;
+  admissionsEnabled: boolean;
+  admissionsEmail: string;
 }
 
 const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
-  appName: 'EduPlatform SaaS',
-  appTagline: 'The Future of School Management',
-  supportEmail: 'support@myskulbot.com',
-  contactPhone: '+1 (555) 000-0000',
+  appName: 'BROCHEST Portal',
+  appTagline: 'School Management',
+  supportEmail: '',
+  contactPhone: '',
   language: 'English (US)',
   timezone: '(GMT+01:00) Lagos',
   maintenanceMode: false,
@@ -56,7 +59,7 @@ const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
     requireCapital: true,
     requireNumbers: true,
     requireSymbols: true,
-    expiryDays: 90,
+    expiryDays: 0,
   },
   authMethods: {
     enforce2FA: true,
@@ -65,10 +68,11 @@ const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
     ipWhitelisting: false,
   },
   smtpSettings: {
-    host: 'smtp.sendgrid.net',
-    port: '587',
-    encryption: 'STARTTLS',
-    username: 'apikey',
+    host: '',
+    port: '',
+    encryption: '',
+    username: '',
+    fromEmail: '',
   },
   timetableSettings: {
     startDay: 'Monday',
@@ -79,9 +83,24 @@ const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
     breakDuration: 30,
   },
   admissionFee: 5000,
-  admissionFormPrefix: 'EMS',
+  admissionFormPrefix: 'BRO',
   admissionFormNextSequence: 1,
+  admissionsEnabled: true,
+  admissionsEmail: 'admissions@brochest.com.ng',
 };
+
+const STALE_FIELDS: string[] = [];
+
+function detectStaleFields(doc: Record<string, unknown>): string[] {
+  const fields: string[] = [];
+  for (const key of ['logoUrl', 'faviconUrl']) {
+    const val = doc[key];
+    if (typeof val === 'string' && val.startsWith('data:') && val.length > 50_000) {
+      fields.push(key);
+    }
+  }
+  return fields;
+}
 
 interface SettingsState {
   theme: 'light' | 'dark';
@@ -97,18 +116,27 @@ interface SettingsState {
 
 export const useSettingsStore = create<SettingsState>()((set, get) => ({
   theme: 'light',
-  currency: 'USD',
+  currency: 'NGN',
   globalSettings: DEFAULT_GLOBAL_SETTINGS,
   _hasHydrated: false,
 
   initSettingsSubscription: () => {
-    subscribeToCollection('settings', (docs) => {
-      if (docs.length > 0) {
-        const settingsDoc = docs[0];
+    subscribeToDocument('settings', 'global', (doc) => {
+      if (doc) {
+        const stale = detectStaleFields(doc);
+        const clean: Record<string, unknown> = { ...doc };
+        for (const f of stale) {
+          delete clean[f];
+        }
         set({
-          globalSettings: { ...DEFAULT_GLOBAL_SETTINGS, ...settingsDoc },
+          globalSettings: { ...DEFAULT_GLOBAL_SETTINGS, ...clean },
           _hasHydrated: true,
         });
+        if (stale.length > 0) {
+          deleteFieldsFromDocument('settings', 'global', stale)
+            .then(() => {})
+            .catch((e) => console.error('Failed to clean stale base64:', e));
+        }
       } else {
         set({ _hasHydrated: true });
       }
@@ -125,9 +153,11 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     const merged = { ...globalSettings, ...updates };
     set({ globalSettings: merged });
     try {
-      await setDocument('settings', 'global', merged);
+      await setDocument('settings', 'global', updates);
     } catch (err) {
       console.error('Failed to save settings to Firestore:', err);
+      set({ globalSettings });
+      throw err;
     }
   },
 }));

@@ -26,7 +26,7 @@ import { useDataStore, FeeRecord } from '@/store/useDataStore';
 import { useToastStore } from '@/store/useToastStore';
 import { downloadFromUrl, readFileAsDataUrl } from '@/utils/fileHelpers';
 import { useAuthStore } from '@/store/useAuthStore';
-import { resolveSchoolProfile } from '@/utils/schoolProfile';
+import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
 
 export default function AccountantFees() {
   const { format } = useCurrency();
@@ -42,6 +42,7 @@ export default function AccountantFees() {
   } = useDataStore();
   const { user } = useAuthStore();
   const schoolProfile = resolveSchoolProfile(user ?? null, schools);
+  const labels = getPortalLevelLabels(schoolProfile.portalLevel ?? 'Secondary');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Paid' | 'Pending' | 'Partial'>('All');
@@ -61,7 +62,7 @@ export default function AccountantFees() {
 
   const selectedStudent = students.find((item) => item.id === formData.studentId);
   const studentFeeOptions = feeStructures.filter(
-    (item) => item.className === selectedStudent?.class && item.status === 'Active'
+    (item) => item.status === 'Active' && (item.isUniversal || item.className === selectedStudent?.class)
   );
 
   const filteredFees = useMemo(() => {
@@ -137,7 +138,7 @@ export default function AccountantFees() {
   const handleStudentChange = (studentId: string) => {
     const student = students.find((item) => item.id === studentId);
     const availableStructures = feeStructures.filter(
-      (item) => item.className === student?.class && item.status === 'Active'
+      (item) => item.status === 'Active' && (item.isUniversal || item.className === student?.class)
     );
     const defaultStructure = availableStructures[0];
 
@@ -207,10 +208,10 @@ export default function AccountantFees() {
   const handleSendReminder = () => {
     const student = students.find(s => s.regNo === quickInvoiceReg || s.id === quickInvoiceReg);
     showToast({
-      title: student ? 'Reminder sent' : 'Student not found',
+      title: student ? 'Reminder sent' : `${labels.learnerSingular} not found`,
       description: student
         ? `Outstanding fee reminder queued for ${student.name}.`
-        : `No student matched reg number "${quickInvoiceReg}".`,
+        : `No ${labels.learnerSingular.toLowerCase()} matched reg number "${quickInvoiceReg}".`,
       variant: student ? 'success' : 'warning',
     });
   };
@@ -223,7 +224,7 @@ export default function AccountantFees() {
             Finance Management
           </h1>
           <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
-            Track payments and manage fee categories by class.
+            Track payments and manage fee categories by {labels.structureSingular.toLowerCase()}.
           </p>
         </div>
         <div className="flex items-center gap-3 print:hidden">
@@ -405,8 +406,8 @@ export default function AccountantFees() {
 
         <div className="space-y-6 print:hidden">
           <FeeStructureManager
-            title="Class Fee Categories"
-            description="Add different fee categories and payable amounts for each class."
+            title={`${labels.structureSingular} Fee Categories`}
+            description={`Add different fee categories and payable amounts for each ${labels.structureSingular.toLowerCase()}.`}
           />
 
           <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -482,9 +483,9 @@ export default function AccountantFees() {
       <div className="hidden print:block mt-10 pt-6 border-t border-slate-200">
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: 'Class Teacher', name: schoolProfile.teacherSignatoryName || 'Teacher Signatory', signatureUrl: schoolProfile.teacherSignatureUrl },
-            { label: 'Head of Department', name: schoolProfile.hodSignatoryName || 'HOD Signatory', signatureUrl: schoolProfile.hodSignatureUrl },
-            { label: 'Principal', name: schoolProfile.principalSignatoryName || 'Principal Signatory', signatureUrl: schoolProfile.principalSignatureUrl },
+            { label: `${labels.teacherSingular}`, name: schoolProfile.teacherSignatoryName || `${labels.teacherSingular} Signatory`, signatureUrl: schoolProfile.teacherSignatureUrl },
+            { label: labels.hodSignatoryLabel, name: schoolProfile.hodSignatoryName || 'HOD Signatory', signatureUrl: schoolProfile.hodSignatureUrl },
+            { label: labels.headSignatoryLabel, name: schoolProfile.principalSignatoryName || `${labels.headSignatoryLabel} Signatory`, signatureUrl: schoolProfile.principalSignatureUrl },
           ].map((signatory) => (
             <div key={signatory.label} className="rounded-2xl border border-slate-200 p-4">
               <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">{signatory.label}</p>
@@ -579,7 +580,7 @@ export default function AccountantFees() {
                   <p className="px-2 text-[11px] font-medium text-slate-500 dark:text-slate-400">
                     {studentFeeOptions.length > 0
                       ? `Using configured fee categories for ${selectedStudent.class}.`
-                      : `No class fee setup found for ${selectedStudent.class} yet.`}
+                      : `No ${labels.structureSingular.toLowerCase()} fee setup found for ${selectedStudent.class} yet.`}
                   </p>
                 ) : null}
               </div>

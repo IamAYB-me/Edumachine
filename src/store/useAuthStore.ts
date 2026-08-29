@@ -8,6 +8,7 @@ import {
   updateUserProfile,
   type FirestoreUser,
 } from '@/services/authService';
+import { logActivity } from '@/utils/activityLogger';
 
 export type Role =
   | 'SUPER_ADMIN'
@@ -19,7 +20,8 @@ export type Role =
   | 'WARDEN'
   | 'ACCOUNTANT'
   | 'TRANSPORT'
-  | 'LIBRARIAN';
+  | 'LIBRARIAN'
+  | 'APPLICANT';
 
 export interface User {
   id: string;
@@ -32,6 +34,7 @@ export interface User {
   phone?: string;
   address?: string;
   isTwoFactorEnabled?: boolean;
+  portalLevel?: string;
 }
 
 export interface RegisteredUser {
@@ -58,6 +61,7 @@ const ROLE_LABELS: Record<Role, string> = {
   ACCOUNTANT: 'Accountant',
   TRANSPORT: 'Transport Officer',
   LIBRARIAN: 'Librarian',
+  APPLICANT: 'Applicant',
 };
 
 const ROLE_DASHBOARDS: Record<Role, string> = {
@@ -71,6 +75,7 @@ const ROLE_DASHBOARDS: Record<Role, string> = {
   ACCOUNTANT: '/accountant',
   TRANSPORT: '/transport',
   LIBRARIAN: '/librarian',
+  APPLICANT: '/admission/progress',
 };
 
 export const ROLE_DASHBOARD_MAP = ROLE_DASHBOARDS;
@@ -87,6 +92,7 @@ function firestoreUserToUser(fu: FirestoreUser): User {
     phone: fu.phone,
     address: fu.address,
     isTwoFactorEnabled: fu.isTwoFactorEnabled,
+    portalLevel: fu.portalLevel,
   };
 }
 
@@ -98,7 +104,7 @@ interface AuthState {
   setHasHydrated: (value: boolean) => void;
   initAuthListener: () => void;
   loginWithCredentials: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  register: (data: { name: string; email: string; password: string; role: Role; schoolName: string; phone?: string }) => Promise<{ success: boolean; error?: string }>;
+  register: (data: { name: string; email: string; password: string; role: Role; schoolName: string; phone?: string; portalLevel?: string }) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   updateProfile: (updates: Partial<User>) => Promise<void>;
 }
@@ -129,7 +135,9 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   loginWithCredentials: async (email, password) => {
     const result = await loginUser(email, password);
     if (result.success && result.user) {
-      set({ user: firestoreUserToUser(result.user), isAuthenticated: true });
+      const user = firestoreUserToUser(result.user);
+      set({ user, isAuthenticated: true });
+      logActivity({ action: 'LOGIN', module: 'auth', description: `User logged in: ${user.email}`, user: { id: user.id, name: user.name, role: user.role } });
       return { success: true };
     }
     return { success: false, error: result.error };
@@ -144,10 +152,15 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       ROLE_LABELS[data.role],
       data.schoolName,
       data.phone,
+      data.portalLevel,
     );
   },
 
   logout: async () => {
+    const { user } = get();
+    if (user) {
+      logActivity({ action: 'LOGOUT', module: 'auth', description: `User logged out: ${user.email}`, user: { id: user.id, name: user.name, role: user.role } });
+    }
     await logoutUser();
     set({ user: null, isAuthenticated: false });
   },
@@ -160,6 +173,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       phone: updates.phone,
       address: updates.address,
       avatarUrl: updates.avatarUrl,
+      portalLevel: updates.portalLevel,
     });
     set({ user: { ...user, ...updates } });
   },

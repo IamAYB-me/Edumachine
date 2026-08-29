@@ -1,0 +1,216 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: check if user is authenticated
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Helper: check if user document has a given role
+    function hasRole(role) {
+      return isAuth() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    }
+
+    // Helper: check if user is admin-level (super admin or school admin)
+    function isAdmin() {
+      return isAuth() && (
+        hasRole('SUPER_ADMIN') || hasRole('ADMIN')
+      );
+    }
+
+    // ─── Users collection ─────────────────────────────────────────────
+    // Authenticated users can read all user documents (needed for dashboard KPIs)
+    // Only the document owner or admins can update
+    // Only admins or the document owner can delete
+    match /users/{userId} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth() && (request.auth.uid == userId || isAdmin());
+      allow delete: if isAuth() && (request.auth.uid == userId || isAdmin());
+    }
+
+    // ─── Schools ──────────────────────────────────────────────────────
+    match /schools/{schoolId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ─── Plans ────────────────────────────────────────────────────────
+    match /plans/{planId} {
+      allow read: if isAuth();
+      allow write: if hasRole('SUPER_ADMIN');
+    }
+
+    // ─── Delegated Access ─────────────────────────────────────────────
+    match /delegatedAccess/{docId} {
+      allow read: if isAuth();
+      allow write: if isAdmin();
+    }
+
+    // ─── Registration Configs ─────────────────────────────────────────
+    match /registrationConfigs/{docId} {
+      allow read: if isAuth();
+      allow write: if isAdmin();
+    }
+
+    // ─── Settings ─────────────────────────────────────────────────────
+    // Public read needed for the admission form (reads fee, prefix, etc.)
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if isAuth();
+    }
+
+    // ─── Notifications ────────────────────────────────────────────────
+    match /notifications/{notifId} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth();
+      allow delete: if isAuth();
+    }
+
+    // ─── Students ─────────────────────────────────────────────────────
+    // Authenticated users can read; admins/teachers manage.
+    // A self-registered student may create/update only their own record
+    // (the students doc id equals their auth uid).
+    match /students/{studentId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && (request.auth.uid == studentId || isAdmin() || hasRole('TEACHER'));
+      allow update: if isAuth() && (request.auth.uid == studentId || isAdmin() || hasRole('TEACHER'));
+      allow delete: if isAdmin() || hasRole('TEACHER');
+    }
+
+    // ─── Teachers ─────────────────────────────────────────────────────
+    match /teachers/{teacherId} {
+      allow read: if isAuth();
+      allow write: if isAdmin() || hasRole('SUPER_ADMIN');
+    }
+
+    // ─── Parents ──────────────────────────────────────────────────────
+    match /parents/{parentId} {
+      allow read: if isAuth();
+      allow write: if isAdmin() || hasRole('SUPER_ADMIN');
+    }
+
+    // ─── Staff ────────────────────────────────────────────────────────
+    match /staff/{staffId} {
+      allow read: if isAuth();
+      allow write: if isAdmin() || hasRole('HR') || hasRole('SUPER_ADMIN');
+    }
+
+    // ─── Classes ──────────────────────────────────────────────────────
+    match /classes/{classId} {
+      allow read: if isAuth();
+      allow write: if isAdmin() || hasRole('TEACHER');
+    }
+
+    // ─── Faculties ────────────────────────────────────────────────────
+    match /faculties/{facultyId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ─── Departments ──────────────────────────────────────────────────
+    match /departments/{departmentId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ─── Subjects ─────────────────────────────────────────────────────
+    match /subjects/{subjectId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ─── Fee Records ──────────────────────────────────────────────────
+    match /feeRecords/{feeId} {
+      allow read: if isAuth();
+      allow write: if isAdmin() || hasRole('ACCOUNTANT');
+    }
+
+    // ─── Fee Structures ───────────────────────────────────────────────
+    match /feeStructures/{fsId} {
+      allow read: if isAuth();
+      allow write: if isAdmin() || hasRole('ACCOUNTANT');
+    }
+
+    // ─── Exams ────────────────────────────────────────────────────────
+    match /exams/{examId} {
+      allow read: if isAuth();
+      allow write: if isAdmin() || hasRole('TEACHER');
+    }
+
+    // ─── Exam Results ─────────────────────────────────────────────────
+    match /examResults/{resultId} {
+      allow read: if isAuth();
+      allow write: if isAdmin() || hasRole('TEACHER');
+    }
+
+    // ─── Exam Timetable ───────────────────────────────────────────────
+    match /examTimetable/{entryId} {
+      allow read: if isAuth();
+      allow write: if isAdmin() || hasRole('TEACHER');
+    }
+
+    // ─── Attendance ───────────────────────────────────────────────────
+    match /attendance/{recordId} {
+      allow read: if isAuth();
+      allow write: if isAuth();
+    }
+
+    // ─── Expenses ─────────────────────────────────────────────────────
+    match /expenses/{expenseId} {
+      allow read: if isAuth();
+      allow write: if isAdmin() || hasRole('ACCOUNTANT');
+    }
+
+    // ─── Payroll ──────────────────────────────────────────────────────
+    match /payroll/{payrollId} {
+      allow read: if isAuth();
+      allow write: if isAdmin() || hasRole('ACCOUNTANT') || hasRole('HR');
+    }
+
+    // ─── Admission Applications ───────────────────────────────────────
+    // Public read for landing page; anyone can create (public admission form)
+    match /admissionApplications/{appId} {
+      allow read: if isAuth();
+      allow create: if true;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ─── Notices ──────────────────────────────────────────────────────
+    match /notices/{noticeId} {
+      allow read: if isAuth();
+      allow write: if isAdmin();
+    }
+
+    // ─── Timetable ────────────────────────────────────────────────────
+    match /timetable/{entryId} {
+      allow read: if isAuth();
+      allow write: if isAdmin();
+    }
+
+    // ─── Activity Logs ───────────────────────────────────────────────
+    // Any authenticated user can append a log entry (audit trail),
+    // but only admins can read or manage them.
+    match /activityLogs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAuth();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ─── Academic Sessions ───────────────────────────────────────────
+    match /academicSessions/{sessionId} {
+      allow read: if isAuth();
+      allow write: if isAdmin();
+    }
+
+    // ─── Catch-all: deny everything else ──────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

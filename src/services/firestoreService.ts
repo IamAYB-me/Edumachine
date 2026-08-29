@@ -1,6 +1,7 @@
 import {
   collection,
   addDoc,
+  setDoc,
   updateDoc,
   deleteDoc,
   doc,
@@ -8,8 +9,8 @@ import {
   onSnapshot,
   query,
   where,
-  orderBy,
   serverTimestamp,
+  deleteField,
   type Unsubscribe,
   type DocumentData,
 } from 'firebase/firestore';
@@ -39,8 +40,6 @@ export async function addDocumentWithId(
   });
 }
 
-import { setDoc } from 'firebase/firestore';
-
 export async function updateDocument(
   collectionName: string,
   id: string,
@@ -48,11 +47,22 @@ export async function updateDocument(
 ): Promise<void> {
   const docRef = doc(db, collectionName, id);
   const { id: _id, createdAt: _createdAt, ...updateData } = data as DocumentData & { id: string; createdAt: unknown };
-  await updateDoc(docRef, { ...updateData, updatedAt: serverTimestamp() });
+  await setDoc(docRef, { ...updateData, updatedAt: serverTimestamp() }, { merge: true });
 }
 
 export async function deleteDocument(collectionName: string, id: string): Promise<void> {
   await deleteDoc(doc(db, collectionName, id));
+}
+
+export async function clearCollection(collectionName: string): Promise<number> {
+  const snapshot = await getDocs(collection(db, collectionName));
+  let count = 0;
+  const batch = snapshot.docs.map(async (d) => {
+    await deleteDoc(d.ref);
+    count += 1;
+  });
+  await Promise.all(batch);
+  return count;
 }
 
 export async function getDocuments(collectionName: string): Promise<DocumentData[]> {
@@ -76,9 +86,9 @@ export function subscribeToCollection(
   callback: (data: DocumentData[]) => void,
   errorCallback?: (error: Error) => void,
 ): Unsubscribe {
-  const q = query(collection(db, collectionName), orderBy('createdAt', 'desc'));
+  const colRef = collection(db, collectionName);
   return onSnapshot(
-    q,
+    colRef,
     (snapshot) => {
       const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
       callback(data);
@@ -119,4 +129,46 @@ export async function setDocument(
   data: DocumentData,
 ): Promise<void> {
   await setDoc(doc(db, collectionName, id), data, { merge: true });
+}
+
+export async function replaceDocument(
+  collectionName: string,
+  id: string,
+  data: DocumentData,
+): Promise<void> {
+  await setDoc(doc(db, collectionName, id), data);
+}
+
+export async function deleteFieldsFromDocument(
+  collectionName: string,
+  id: string,
+  fieldNames: string[],
+): Promise<void> {
+  const updates: Record<string, unknown> = {};
+  for (const f of fieldNames) {
+    updates[f] = deleteField();
+  }
+  await updateDoc(doc(db, collectionName, id), updates);
+}
+
+export function subscribeToDocument(
+  collectionName: string,
+  docId: string,
+  callback: (data: DocumentData | null) => void,
+  errorCallback?: (error: Error) => void,
+): Unsubscribe {
+  const docRef = doc(db, collectionName, docId);
+  return onSnapshot(
+    docRef,
+    (snapshot) => {
+      if (snapshot.exists()) {
+        callback({ id: snapshot.id, ...snapshot.data() });
+      } else {
+        callback(null);
+      }
+    },
+    (error) => {
+      errorCallback?.(error as Error);
+    },
+  );
 }

@@ -6,8 +6,9 @@ import { useDataStore, Student, PortalLevel, AdmissionFieldKey, buildDefaultAdmi
 import ExcelImport from '@/components/ui/ExcelImport';
 import { KPICard } from '@/components/ui/KPICard';
 import { useAuthStore } from '@/store/useAuthStore';
-import { resolveSchoolProfile } from '@/utils/schoolProfile';
+import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
 import { PrintableIdCardModal } from '@/components/ui/PrintableIdCardModal';
+import { adminCreateUser } from '@/services/authService';
 
 type StudentFormState = Omit<Student, 'id'>;
 
@@ -175,7 +176,7 @@ const baseSections: Array<{ title: string; fields: FieldConfig[] }> = [
       { name: 'regNo', label: 'Registration Number', readOnly: true },
       { name: 'nin', label: 'NIN' },
       { name: 'status', label: 'Status', type: 'select', options: ['Active', 'Inactive', 'Graduated', 'Suspended', 'Withdrawn'] },
-      { name: 'academicSession', label: 'Academic Session' },
+      { name: 'academicSession', label: 'Academic Session', type: 'select' },
       { name: 'termSemester', label: 'Term / Semester' },
       { name: 'dateOfAdmission', label: 'Date of Admission', type: 'date' },
       { name: 'admissionStatus', label: 'Admission Status' },
@@ -440,7 +441,7 @@ const validateStudentPayload = (
   const requiresClass = ['class', 'classDepartment', 'classApplyingFor', 'department'].some((field) => enabledFields.has(field as AdmissionFieldKey));
 
   if (requiresName && !fullName) {
-    errors.name = 'Enter the student full name or fill surname and first name.';
+    errors.name = 'Enter the full name or fill surname and first name.';
   }
 
   if (enabledFields.has('email')) {
@@ -468,7 +469,7 @@ const validateStudentPayload = (
   }
 
   if (enabledFields.has('department') && !payload.department?.trim()) {
-    errors.department = 'Department is required.';
+    errors.department = 'Department/Class is required.';
   }
 
   if (enabledFields.has('programme') && !payload.programme?.trim()) {
@@ -481,13 +482,14 @@ const validateStudentPayload = (
 
 export default function StudentsDirectory() {
   const [searchTerm, setSearchTerm] = useState('');
-  const { students, addStudent, updateStudent, deleteStudent, schools } = useDataStore();
+  const { students, addStudent, updateStudent, deleteStudent, schools, academicSessions, bulkUpdateStudentPortalLevel, bulkDeleteStudents } = useDataStore();
   const { user } = useAuthStore();
   const showToast = useToastStore((state) => state.showToast);
   const schoolProfile = resolveSchoolProfile(user, schools);
   const activePortalLevel = schoolProfile.portalLevel ?? 'Secondary';
   const configuredFieldKeys = schoolProfile.admissionFormConfig?.enabledFields ?? buildDefaultAdmissionFormConfig(activePortalLevel).enabledFields;
   const enabledFieldSet = useMemo(() => new Set<AdmissionFieldKey>(configuredFieldKeys), [configuredFieldKeys]);
+  const labels = getPortalLevelLabels(activePortalLevel);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
@@ -497,6 +499,10 @@ export default function StudentsDirectory() {
   const [portalLevelFilter, setPortalLevelFilter] = useState<StudentFilterPortalLevel>('All');
   const [formErrors, setFormErrors] = useState<StudentFormErrors>({});
   const [formData, setFormData] = useState<StudentFormState>(() => createEmptyStudentForm(activePortalLevel));
+  const [studentPassword, setStudentPassword] = useState('');
+  const [creatingAuthUser, setCreatingAuthUser] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkPortalLevel, setBulkPortalLevel] = useState<PortalLevel>(activePortalLevel);
 
   const stats = useMemo(() => ({
     total: students.length,
@@ -550,20 +556,148 @@ export default function StudentsDirectory() {
 
     data.forEach((item) => {
       const base = createEmptyStudentForm(activePortalLevel);
+
+      const pick = (...keys: (string | undefined)[]) => {
+        for (const k of keys) {
+          if (k && item[k] !== undefined && item[k] !== '') return String(item[k]);
+        }
+        return '';
+      };
+
       const result = addStudent({
         ...base,
-        name: item.name || item.Name || '',
-        regNo: item.regNo || item['Reg No'] || item.ID || base.regNo,
-        admissionNumber: item.admissionNumber || item['Admission Number'] || base.admissionNumber,
-        class: item.class || item.Class || '',
-        classDepartment: item.classDepartment || item['Class / Department'] || item.class || item.Class || '',
-        parentName: item.parentName || item['Parent Name'] || '',
-        email: item.email || item.Email || '',
-        surname: item.surname || item.Surname || '',
-        firstName: item.firstName || item['First Name'] || '',
-        middleName: item.middleName || item['Middle Name'] || '',
-        status: (item.status || item.Status || 'Active') as Student['status'],
+        // Core identity
+        name: pick('name', 'Name', 'Full Name', 'Student Name') || '',
+        regNo: pick('regNo', 'Reg No', 'RegNo', 'Registration Number', 'ID') || base.regNo,
+        admissionNumber: pick('admissionNumber', 'Admission Number', 'AdmissionNo', 'Adm No') || base.admissionNumber,
+        nin: pick('nin', 'NIN', 'National Identification Number'),
+        class: pick('class', 'Class', 'Grade', 'Level'),
+        classDepartment: pick('classDepartment', 'Class / Department', 'Class Department', 'Department', 'class', 'Class'),
+        parentName: pick('parentName', 'Parent Name', 'Parent', 'Guardian Name', 'Guardian'),
+        email: pick('email', 'Email', 'Student Email'),
+        status: (pick('status', 'Status') || 'Active') as Student['status'],
+
+        // Name breakdown
+        surname: pick('surname', 'Surname', 'Last Name'),
+        firstName: pick('firstName', 'First Name', 'Given Name'),
+        middleName: pick('middleName', 'Middle Name', 'Middle Initial'),
+
+        // Personal info
+        gender: pick('gender', 'Gender', 'Sex'),
+        dateOfBirth: pick('dateOfBirth', 'Date of Birth', 'DOB', 'Birth Date'),
+        placeOfBirth: pick('placeOfBirth', 'Place of Birth', 'Birth Place'),
+        nationality: pick('nationality', 'Nationality', 'Country'),
+        stateOfOrigin: pick('stateOfOrigin', 'State of Origin', 'State'),
+        lga: pick('lga', 'LGA', 'Local Government', 'LGA of Origin'),
+        tribeEthnicity: pick('tribeEthnicity', 'Tribe', 'Ethnicity', 'Tribe / Ethnicity'),
+        religion: pick('religion', 'Religion'),
+        maritalStatus: pick('maritalStatus', 'Marital Status'),
+
+        // Contact
+        phone: pick('phone', 'Phone', 'Phone Number', 'Tel', 'Telephone', 'Contact Phone'),
+        residentialAddress: pick('residentialAddress', 'Residential Address', 'Address', 'Home Address'),
+        townCity: pick('townCity', 'Town / City', 'Town', 'City'),
+        state: pick('state', 'State of Residence', 'Residence State'),
+        postalAddress: pick('postalAddress', 'Postal Address', 'Mailing Address'),
+
+        // Parent / Guardian
+        fatherName: pick('fatherName', 'Father Name', "Father's Name"),
+        fatherOccupation: pick('fatherOccupation', 'Father Occupation', "Father's Occupation"),
+        fatherEmployer: pick('fatherEmployer', 'Father Employer', "Father's Employer"),
+        fatherPhone: pick('fatherPhone', 'Father Phone', "Father's Phone", 'Father Tel'),
+        fatherEmail: pick('fatherEmail', 'Father Email', "Father's Email"),
+        fatherAddress: pick('fatherAddress', 'Father Address', "Father's Address"),
+        motherName: pick('motherName', 'Mother Name', "Mother's Name"),
+        motherOccupation: pick('motherOccupation', 'Mother Occupation', "Mother's Occupation"),
+        motherEmployer: pick('motherEmployer', 'Mother Employer', "Mother's Employer"),
+        motherPhone: pick('motherPhone', 'Mother Phone', "Mother's Phone", 'Mother Tel'),
+        motherEmail: pick('motherEmail', 'Mother Email', "Mother's Email"),
+        motherAddress: pick('motherAddress', 'Mother Address', "Mother's Address"),
+        guardianName: pick('guardianName', 'Guardian Name', 'Guardian'),
+        guardianRelationship: pick('guardianRelationship', 'Guardian Relationship', 'Relationship'),
+        guardianPhone: pick('guardianPhone', 'Guardian Phone', 'Guardian Tel'),
+        guardianAddress: pick('guardianAddress', 'Guardian Address'),
+        sponsorName: pick('sponsorName', 'Sponsor Name', 'Sponsor'),
+        sponsorOccupation: pick('sponsorOccupation', 'Sponsor Occupation'),
+        sponsorEmployer: pick('sponsorEmployer', 'Sponsor Employer'),
+        sponsorPhone: pick('sponsorPhone', 'Sponsor Phone', 'Sponsor Tel'),
+        sponsorEmail: pick('sponsorEmail', 'Sponsor Email'),
+
+        // Medical
+        bloodGroup: pick('bloodGroup', 'Blood Group', 'Blood Group'),
+        genotype: pick('genotype', 'Genotype'),
+        allergies: pick('allergies', 'Allergies', 'Allergy'),
+        medicalConditions: pick('medicalConditions', 'Medical Conditions', 'Medical Condition'),
+        disability: pick('disability', 'Disability'),
+        hospitalDoctor: pick('hospitalDoctor', 'Hospital / Doctor', 'Hospital', 'Doctor'),
+        emergencyContact: pick('emergencyContact', 'Emergency Contact', 'Emergency Phone'),
+
+        // Previous school
+        previousSchoolName: pick('previousSchoolName', 'Previous School', 'Previous School Name', 'Last School'),
+        previousSchoolAddress: pick('previousSchoolAddress', 'Previous School Address', 'Last School Address'),
+        previousSchoolResult: pick('previousSchoolResult', 'Previous School Result', 'Last Result'),
+        lastClassAttended: pick('lastClassAttended', 'Last Class Attended', 'Last Class'),
+        reasonForLeaving: pick('reasonForLeaving', 'Reason for Leaving', 'Reason Leaving'),
+
+        // Entrance / exam results
+        entranceExamScore: pick('entranceExamScore', 'Entrance Exam Score', 'Entrance Score'),
+        commonEntranceResult: pick('commonEntranceResult', 'Common Entrance Result', 'Entrance Result'),
+        subjectsOffered: pick('subjectsOffered', 'Subjects Offered', 'Subjects'),
+        preferredSport: pick('preferredSport', 'Preferred Sport', 'Sport'),
+        clubSociety: pick('clubSociety', 'Club / Society', 'Club', 'Society'),
+        specialTalent: pick('specialTalent', 'Special Talent', 'Talent'),
+
+        // College / University admission fields
+        jambRegistrationNumber: pick('jambRegistrationNumber', 'JAMB Registration Number', 'JAMB Reg No', 'JAMB Reg No.', 'JAMB Reg', 'JAMB Reg Number'),
+        jambScore: pick('jambScore', 'JAMB Score', 'JAMB'),
+        oLevelResults: pick('oLevelResults', 'O-Level Results', 'O Level Results', 'O-Level'),
+        oLevelSitting: pick('oLevelSitting', 'O-Level Sitting', 'O Level Sitting', 'O-Level Exam Sitting'),
+        oLevelExaminationBody: pick('oLevelExaminationBody', 'O-Level Exam Body', 'Exam Body', 'Examination Body'),
+        oLevelExamNumber: pick('oLevelExamNumber', 'O-Level Exam Number', 'Exam Number', 'O-Level Exam No'),
+        oLevelYear: pick('oLevelYear', 'O-Level Year', 'Exam Year', 'O-Level Exam Year'),
+        oLevelSubjectsGrades: pick('oLevelSubjectsGrades', 'O-Level Subjects & Grades', 'O-Level Grades', 'O Level Subjects Grades'),
+        aLevelResults: pick('aLevelResults', 'A-Level Results', 'A Level Results', 'A-Level'),
+        aLevelQualifications: pick('aLevelQualifications', 'A-Level Qualifications', 'A Level Qualifications'),
+        institutionChoice: pick('institutionChoice', 'Institution Choice', 'Institution', 'First Choice'),
+        faculty: pick('faculty', 'Faculty'),
+        department: pick('department', 'Department', 'Dept'),
+        programme: pick('programme', 'Programme', 'Program'),
+        degreeType: pick('degreeType', 'Degree Type', 'Degree'),
+        level: pick('level', 'Level', 'Year / Level', 'Current Level'),
+        entryMode: pick('entryMode', 'Entry Mode', 'Mode of Entry'),
+        admissionType: pick('admissionType', 'Admission Type', 'Type of Admission'),
+        screeningScore: pick('screeningScore', 'Screening Score', 'Post-UTME Score'),
+        cgpa: pick('cgpa', 'CGPA', 'Cumulative GPA'),
+        matricNumber: pick('matricNumber', 'Matric Number', 'Matriculation Number', 'Matric No'),
+
+        // Admission / school info
         portalLevel: activePortalLevel,
+        classApplyingFor: pick('classApplyingFor', 'Class Applying For', 'Class Applied For', 'Admission Class'),
+        academicSession: pick('academicSession', 'Academic Session', 'Session'),
+        session: pick('session', 'Session'),
+        semester: pick('semester', 'Semester'),
+        termSemester: pick('termSemester', 'Term / Semester', 'Term'),
+        dateOfAdmission: pick('dateOfAdmission', 'Date of Admission', 'Admission Date'),
+        admissionStatus: pick('admissionStatus', 'Admission Status', 'Adm Status'),
+        campus: pick('campus', 'Campus'),
+        branch: pick('branch', 'Branch'),
+        house: pick('house', 'House', 'House / Unit'),
+        hostel: pick('hostel', 'Hostel'),
+        accommodationType: pick('accommodationType', 'Accommodation Type', 'Accommodation'),
+
+        // Financial
+        feeCategory: pick('feeCategory', 'Fee Category', 'Category'),
+        scholarshipStatus: pick('scholarshipStatus', 'Scholarship Status', 'Scholarship'),
+        sponsor: pick('sponsor', 'Sponsor'),
+
+        // Services
+        busRoute: pick('busRoute', 'Bus Route', 'Route'),
+        pickupPoint: pick('pickupPoint', 'Pickup Point'),
+        libraryCardNumber: pick('libraryCardNumber', 'Library Card Number', 'Library Card'),
+        hostelName: pick('hostelName', 'Hostel Name'),
+        roomNumber: pick('roomNumber', 'Room Number', 'Room'),
+        bedSpace: pick('bedSpace', 'Bed Space', 'Bed'),
+        password: pick('Password', 'password', 'Password'),
       });
 
       if (result.success) {
@@ -576,8 +710,8 @@ export default function StudentsDirectory() {
 
     if (importedCount && !skippedCount) {
       showToast({
-        title: 'Student import completed',
-        description: `${importedCount} student record${importedCount === 1 ? '' : 's'} added successfully.`,
+        title: `${labels.learnerSingular} import completed`,
+        description: `${importedCount} ${labels.learnerSingular.toLowerCase()} record${importedCount === 1 ? '' : 's'} added successfully.`,
         variant: 'success',
       });
       return;
@@ -585,7 +719,7 @@ export default function StudentsDirectory() {
 
     if (importedCount) {
       showToast({
-        title: 'Student import completed with skips',
+        title: `${labels.learnerSingular} import completed with skips`,
         description: `${importedCount} imported and ${skippedCount} skipped.${duplicateMessages[0] ? ` ${duplicateMessages[0]}` : ''}`,
         variant: 'warning',
       });
@@ -593,8 +727,8 @@ export default function StudentsDirectory() {
     }
 
     showToast({
-      title: 'Student import blocked',
-      description: duplicateMessages[0] || 'No valid student records were imported.',
+      title: `${labels.learnerSingular} import blocked`,
+      description: duplicateMessages[0] || `No valid ${labels.learnerPlural.toLowerCase()} records were imported.`,
       variant: 'error',
     });
   };
@@ -623,6 +757,7 @@ export default function StudentsDirectory() {
 
   const handleOpenModal = (student?: Student) => {
     setFormErrors({});
+    setStudentPassword('');
 
     if (student) {
       setEditingStudent(student);
@@ -639,7 +774,7 @@ export default function StudentsDirectory() {
     setIsModalOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const fullName =
@@ -676,7 +811,7 @@ export default function StudentsDirectory() {
     if (Object.keys(validationErrors).length > 0) {
       setFormErrors(validationErrors);
       showToast({
-        title: 'Student record validation failed',
+        title: `${labels.learnerSingular} record validation failed`,
         description: 'Fix the highlighted fields before saving the admission record.',
         variant: 'error',
       });
@@ -689,16 +824,42 @@ export default function StudentsDirectory() {
 
     if (!result.success) {
       showToast({
-        title: editingStudent ? 'Student update blocked' : 'Student creation blocked',
-        description: result.error || 'Unable to save the student record right now.',
+        title: editingStudent ? `${labels.learnerSingular} update blocked` : `${labels.learnerSingular} creation blocked`,
+        description: result.error || `Unable to save the ${labels.learnerSingular.toLowerCase()} record right now.`,
         variant: 'error',
       });
       return;
     }
 
+    // If creating a new student with a password, also create their auth account
+    if (!editingStudent && studentPassword && formData.email) {
+      setCreatingAuthUser(true);
+      const authResult = await adminCreateUser(
+        formData.email,
+        studentPassword,
+        fullName,
+        'STUDENT',
+        labels.learnerSingular,
+        schoolProfile.name || user?.schoolName || '',
+        formData.phone,
+        activePortalLevel,
+      );
+      setCreatingAuthUser(false);
+
+      if (!authResult.success) {
+        showToast({
+          title: `${labels.learnerSingular} record created, but login account failed`,
+          description: authResult.error || 'The student record was saved but the login account could not be created.',
+          variant: 'warning',
+        });
+        closeModal();
+        return;
+      }
+    }
+
     showToast({
-      title: editingStudent ? 'Student record updated' : 'Student record created',
-      description: `${payload.name} has been ${editingStudent ? 'updated' : 'added to the admission directory'}.`,
+      title: editingStudent ? `${labels.learnerSingular} record updated` : `${labels.learnerSingular} record created`,
+      description: `${payload.name} has been ${editingStudent ? 'updated' : 'added to the admission directory'}${!editingStudent && studentPassword ? ' with login credentials' : ''}.`,
       variant: 'success',
     });
 
@@ -712,19 +873,57 @@ export default function StudentsDirectory() {
 
     if (!result.success) {
       showToast({
-        title: 'Student deletion blocked',
-        description: result.error || 'Unable to remove the student record right now.',
+        title: `${labels.learnerSingular} deletion blocked`,
+        description: result.error || `Unable to remove the ${labels.learnerSingular.toLowerCase()} record right now.`,
         variant: 'error',
       });
       return;
     }
 
     showToast({
-      title: 'Student record removed',
+      title: `${labels.learnerSingular} record removed`,
       description: `${studentToDelete.name} has been removed from the directory.`,
       variant: 'warning',
     });
     setStudentToDelete(null);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredStudents.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredStudents.map((s) => s.id)));
+    }
+  };
+
+  const toggleSelectOne = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkPortalLevel = () => {
+    if (selectedIds.size === 0) return;
+    const count = bulkUpdateStudentPortalLevel(Array.from(selectedIds), bulkPortalLevel);
+    showToast({
+      title: 'Portal level updated',
+      description: `${count} learner${count === 1 ? '' : 's'} updated to "${bulkPortalLevel}".`,
+      variant: 'success',
+    });
+    setSelectedIds(new Set());
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedIds.size === 0) return;
+    const count = bulkDeleteStudents(Array.from(selectedIds));
+    showToast({
+      title: 'Learners removed',
+      description: `${count} learner${count === 1 ? '' : 's'} deleted from the directory.`,
+      variant: 'warning',
+    });
+    setSelectedIds(new Set());
   };
 
   const renderField = (field: FieldConfig) => {
@@ -757,6 +956,9 @@ export default function StudentsDirectory() {
     }
 
     if (field.type === 'select') {
+      const options = field.name === 'academicSession'
+        ? academicSessions.map((s) => s.name)
+        : (field.options || []);
       return (
         <label key={String(field.name)} className={cn('space-y-1', colSpan)}>
           <span className="text-xs font-bold text-slate-500 uppercase">{field.label}</span>
@@ -766,7 +968,7 @@ export default function StudentsDirectory() {
             className={commonClassName}
           >
             <option value="">Select {field.label}</option>
-            {field.options?.map((option) => (
+            {options.map((option) => (
               <option key={option} value={option}>
                 {option}
               </option>
@@ -803,7 +1005,9 @@ export default function StudentsDirectory() {
   ]
     .map((section) => ({
       ...section,
-      fields: section.fields.filter((field) => enabledFieldSet.has(field.name as AdmissionFieldKey)),
+      fields: section.fields
+        .filter((field) => enabledFieldSet.has(field.name as AdmissionFieldKey))
+        .map((field) => field.name === 'termSemester' ? { ...field, label: labels.termLabel } : field),
     }))
     .filter((section) => section.fields.length > 0);
 
@@ -811,32 +1015,32 @@ export default function StudentsDirectory() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Students Directory</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{labels.learnerPlural} Directory</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-            Manage admissions for {schoolProfile.portalLevel.toLowerCase()} institutions and generate school-branded student ID cards.
+            Manage admissions for {schoolProfile.portalLevel.toLowerCase()} institutions and generate school-branded {labels.learnerSingular.toLowerCase()} ID cards.
           </p>
         </div>
         <div className="flex flex-nowrap items-center gap-3 shrink-0 self-start sm:self-auto">
           <ExcelImport
             onImport={handleImport}
-            templateName="Students"
-            expectedKeys={['name', 'regNo', 'admissionNumber', 'class', 'parentName', 'email', 'status']}
+           templateName={labels.learnerPlural}
+          expectedKeys={['name', 'regNo', 'admissionNumber', 'class', 'classDepartment', 'parentName', 'email', 'phone', 'gender', 'dateOfBirth', 'stateOfOrigin', 'lga', 'nationality', 'previousSchoolName', 'jambRegistrationNumber', 'jambScore', 'oLevelResults', 'faculty', 'department', 'programme', 'academicSession', 'semester', 'status', 'Password']}
           />
           <button
             onClick={() => handleOpenModal()}
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-blue-900/20"
           >
             <Plus className="w-4 h-4" />
-            Add Student
+            Add {labels.learnerSingular}
           </button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard title="Total Enrolled" value={stats.total.toString()} icon={Users} iconBgClass="bg-blue-50 dark:bg-blue-900/20" iconColorClass="text-blue-600 dark:text-blue-400" />
-        <KPICard title="Active Students" value={stats.active.toString()} icon={CheckCircle} iconBgClass="bg-emerald-50 dark:bg-emerald-900/20" iconColorClass="text-emerald-600 dark:text-emerald-400" />
+        <KPICard title={`Active ${labels.learnerPlural}`} value={stats.active.toString()} icon={CheckCircle} iconBgClass="bg-emerald-50 dark:bg-emerald-900/20" iconColorClass="text-emerald-600 dark:text-emerald-400" />
         <KPICard title="Other Statuses" value={stats.inactive.toString()} icon={AlertCircle} iconBgClass="bg-rose-50 dark:bg-rose-900/20" iconColorClass="text-rose-600 dark:text-rose-400" />
-        <KPICard title="Classes / Departments" value={stats.classes.toString()} icon={GraduationCap} iconBgClass="bg-indigo-50 dark:bg-indigo-900/20" iconColorClass="text-indigo-600 dark:text-indigo-400" />
+        <KPICard title={labels.structurePlural} value={stats.classes.toString()} icon={GraduationCap} iconBgClass="bg-indigo-50 dark:bg-indigo-900/20" iconColorClass="text-indigo-600 dark:text-indigo-400" />
       </div>
 
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
@@ -890,23 +1094,68 @@ export default function StudentsDirectory() {
 
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
             <p>
-              Showing <span className="font-bold text-slate-700 dark:text-slate-200">{filteredStudents.length}</span> of <span className="font-bold text-slate-700 dark:text-slate-200">{students.length}</span> students.
+              Showing <span className="font-bold text-slate-700 dark:text-slate-200">{filteredStudents.length}</span> of <span className="font-bold text-slate-700 dark:text-slate-200">{students.length}</span> {labels.learnerPlural.toLowerCase()}.
             </p>
             <p>
               Portal default: <span className="font-bold text-slate-700 dark:text-slate-200">{schoolProfile.portalLevel}</span>
               {activeFilterCount ? ` • ${activeFilterCount} active filter${activeFilterCount === 1 ? '' : 's'}` : ''}
             </p>
           </div>
-        </div>
+          </div>
+
+          {selectedIds.size > 0 && (
+            <div className="px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border-t border-blue-200 dark:border-blue-800 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <span className="text-sm font-bold text-blue-700 dark:text-blue-300">
+                {selectedIds.size} {labels.learnerSingular.toLowerCase()}{selectedIds.size === 1 ? '' : 's'} selected
+              </span>
+              <div className="flex items-center gap-2">
+                <select
+                  value={bulkPortalLevel}
+                  onChange={(e) => setBulkPortalLevel(e.target.value as PortalLevel)}
+                  className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-blue-300 dark:border-blue-700 rounded-lg text-sm focus:outline-none focus:border-blue-500 dark:text-white"
+                >
+                  {portalLevelOptions.map((lvl) => (
+                    <option key={lvl} value={lvl}>{lvl}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={handleBulkPortalLevel}
+                  className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold transition-colors shadow"
+                >
+                  Update Portal Level
+                </button>
+                <button
+                  onClick={handleBulkDelete}
+                  className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-bold transition-colors shadow"
+                >
+                  Delete Selected
+                </button>
+                <button
+                  onClick={() => setSelectedIds(new Set())}
+                  className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition-colors"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+          )}
 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[1100px]">
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-700 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest bg-slate-50/50 dark:bg-slate-800/30">
-                <th className="py-4 px-6">Student Information</th>
+                <th className="py-4 px-3 w-10">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.size === filteredStudents.length && filteredStudents.length > 0}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                </th>
+                <th className="py-4 px-6">{labels.learnerSingular} Information</th>
                 <th className="py-4 px-6">Admission No / Reg No</th>
                 <th className="py-4 px-6">Portal Level</th>
-                <th className="py-4 px-6">Class / Department</th>
+                <th className="py-4 px-6">{labels.structureSingular}</th>
                 <th className="py-4 px-6">Parent / Guardian</th>
                 <th className="py-4 px-6">Status</th>
                 <th className="py-4 px-6 text-center">Actions</th>
@@ -915,6 +1164,14 @@ export default function StudentsDirectory() {
             <tbody className="text-sm divide-y divide-slate-100 dark:divide-slate-800">
               {filteredStudents.map((student) => (
                 <tr key={student.id} className="hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors group">
+                  <td className="py-4 px-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(student.id)}
+                      onChange={() => toggleSelectOne(student.id)}
+                      className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    />
+                  </td>
                   <td className="py-4 px-6">
                     <div className="flex items-center gap-3">
                       <div className="relative">
@@ -978,14 +1235,14 @@ export default function StudentsDirectory() {
                       <button
                         onClick={() => handleOpenModal(student)}
                         className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
-                        title="Edit Student"
+                        title={`Edit ${labels.learnerSingular}`}
                       >
                         <Edit className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => setStudentToDelete(student)}
                         className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg transition-colors"
-                        title="Remove Student"
+                        title={`Remove ${labels.learnerSingular}`}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -998,7 +1255,7 @@ export default function StudentsDirectory() {
           {filteredStudents.length === 0 && (
             <div className="py-20 flex flex-col items-center justify-center text-slate-400 dark:text-slate-600">
               <Users className="w-12 h-12 mb-4 opacity-20" />
-              <p className="text-sm font-medium">No students found matching your current search and filters.</p>
+              <p className="text-sm font-medium">No {labels.learnerPlural.toLowerCase()} found matching your current search and filters.</p>
             </div>
           )}
         </div>
@@ -1008,7 +1265,7 @@ export default function StudentsDirectory() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" onClick={() => setStudentToDelete(null)}>
           <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl" onClick={(event) => event.stopPropagation()}>
             <div className="p-6 border-b border-slate-200 dark:border-slate-800">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Delete student record?</h2>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Delete {labels.learnerSingular.toLowerCase()} record?</h2>
               <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
                 This will remove <span className="font-bold text-slate-700 dark:text-slate-200">{studentToDelete.name}</span> from the admission directory.
               </p>
@@ -1026,7 +1283,7 @@ export default function StudentsDirectory() {
                 onClick={handleDeleteStudent}
                 className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-rose-900/20"
               >
-                Delete Student
+                Delete {labels.learnerSingular}
               </button>
             </div>
           </div>
@@ -1051,6 +1308,29 @@ export default function StudentsDirectory() {
             </div>
 
             <form onSubmit={handleSubmit} className="flex-1 min-h-0 flex flex-col overflow-hidden">
+              {!editingStudent && (
+                <div className="px-6 pt-4 pb-2 flex-shrink-0">
+                  <div className="rounded-2xl border-2 border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-900/10 p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <label className="space-y-1">
+                        <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase">Login Password</span>
+                        <input
+                          type="text"
+                          value={studentPassword}
+                          onChange={(e) => setStudentPassword(e.target.value)}
+                          placeholder="Set a default password for the student's login"
+                          className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-emerald-500 focus:ring-emerald-500/20 dark:text-white transition-all"
+                        />
+                      </label>
+                      <div className="flex items-end pb-2">
+                        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 leading-relaxed">
+                          The student will use their email and this password to log in. Leave blank to skip creating a login account.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
                 {sectionsToRender.map((section) => (
                   <section key={section.title} className="rounded-2xl border border-slate-200 dark:border-slate-800 p-5 bg-slate-50/40 dark:bg-slate-800/20">
@@ -1066,15 +1346,17 @@ export default function StudentsDirectory() {
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="w-full sm:w-auto px-4 py-2.5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                  disabled={creatingAuthUser}
+                  className="w-full sm:w-auto px-4 py-2.5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-900/20 transition-all"
+                  disabled={creatingAuthUser}
+                  className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-900/20 transition-all"
                 >
-                  {editingStudent ? 'Update Student Record' : 'Submit Registration'}
+                  {creatingAuthUser ? 'Creating Account...' : editingStudent ? `Update ${labels.learnerSingular} Record` : 'Submit Registration'}
                 </button>
               </div>
             </form>
@@ -1087,12 +1369,12 @@ export default function StudentsDirectory() {
         onClose={() => setIdCardStudent(null)}
         schoolProfile={schoolProfile}
         fullName={idCardStudent?.name || ''}
-        roleLabel="Student"
+        roleLabel={labels.learnerSingular}
         identifier={idCardStudent?.admissionNumber || idCardStudent?.regNo || ''}
         email={idCardStudent?.email}
         phone={idCardStudent?.phone}
         address={idCardStudent?.residentialAddress}
-        secondaryLabel={idCardStudent?.portalLevel === 'University' || idCardStudent?.portalLevel === 'College' ? 'Department' : 'Class'}
+        secondaryLabel={labels.structureSingular}
         secondaryValue={idCardStudent?.classDepartment || idCardStudent?.class}
         status={idCardStudent?.status}
         avatarUrl={idCardStudent?.passportUrl}

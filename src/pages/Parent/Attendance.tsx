@@ -48,11 +48,11 @@ export default function ChildrenAttendance() {
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-1.5">
                   <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                  <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Present: 22</span>
+                  <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Present: 0</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-                  <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Absent: 1</span>
+                  <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Absent: 0</span>
                 </div>
               </div>
             </div>

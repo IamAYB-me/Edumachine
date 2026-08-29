@@ -6,7 +6,7 @@ import { KPICard } from '@/components/ui/KPICard';
 import ExcelImport from '@/components/ui/ExcelImport';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { useAuthStore } from '@/store/useAuthStore';
-import { resolveSchoolProfile } from '@/utils/schoolProfile';
+import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
 import { PrintableIdCardModal } from '@/components/ui/PrintableIdCardModal';
 import { useToastStore } from '@/store/useToastStore';
 
@@ -84,7 +84,8 @@ export default function TeachersDirectory() {
         subject: row.Subject || row.subject,
         email: row.Email || row.email,
         phone: (row.Phone || row.phone || '').toString(),
-        status: (row.Status || row.status || 'Active') as 'Active' | 'Inactive'
+        status: (row.Status || row.status || 'Active') as 'Active' | 'Inactive',
+        password: row.Password || row.password || ''
       });
     });
   };
@@ -100,26 +101,27 @@ export default function TeachersDirectory() {
   };
 
   const schoolProfile = resolveSchoolProfile(user, schools);
+  const labels = getPortalLevelLabels(schoolProfile.portalLevel);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Teachers Directory</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Manage academic staff and their profiles.</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{labels.teacherPlural} Directory</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Manage {labels.teacherPlural.toLowerCase()} and their profiles.</p>
         </div>
         <div className="flex items-center gap-3">
           <ExcelImport 
             onImport={handleBulkImport} 
-            templateName="Teachers"
-            expectedKeys={['Name', 'Employee ID', 'Subject', 'Email', 'Phone', 'Status']}
+            templateName={labels.teacherPlural}
+            expectedKeys={['Name', 'Employee ID', 'Subject', 'Email', 'Phone', 'Status', 'Password']}
           />
           <button 
             onClick={() => handleOpenModal()}
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-blue-900/20"
           >
             <Plus className="w-4 h-4" />
-            Add Teacher
+            Add {labels.teacherSingular}
           </button>
         </div>
       </div>
@@ -127,7 +129,7 @@ export default function TeachersDirectory() {
       {/* Stats Widgets */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard 
-          title="Total Faculty" 
+          title={`Total ${labels.teacherPlural}`} 
           value={stats.total.toString()} 
           icon={Users} 
           iconBgClass="bg-blue-50 dark:bg-blue-900/20"
@@ -141,7 +143,7 @@ export default function TeachersDirectory() {
           iconColorClass="text-emerald-600 dark:text-emerald-400"
         />
         <KPICard 
-          title="Departments" 
+          title={labels.structurePlural} 
           value={stats.subjects.toString()} 
           icon={GraduationCap} 
           iconBgClass="bg-indigo-50 dark:bg-indigo-900/20"
@@ -183,9 +185,9 @@ export default function TeachersDirectory() {
             <table className="w-full text-left border-collapse min-w-[700px]">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-700 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest bg-slate-50/30 dark:bg-slate-800/10">
-                  <th className="py-4 px-6">Teacher Details</th>
+                  <th className="py-4 px-6">{labels.teacherSingular} Details</th>
                   <th className="py-4 px-6">ID</th>
-                  <th className="py-4 px-6">Main Subject</th>
+                  <th className="py-4 px-6">Main {labels.subjectSingular}</th>
                   <th className="py-4 px-6">Status</th>
                   <th className="py-4 px-6 text-center">Actions</th>
                 </tr>
@@ -251,7 +253,7 @@ export default function TeachersDirectory() {
           <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
              <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-6 flex items-center gap-2">
                 <GraduationCap className="w-4 h-4 text-blue-600" />
-                Department Mix
+                {labels.structurePlural} Mix
              </h3>
              <div className="h-[200px] relative">
                <ResponsiveContainer width="100%" height="100%">
@@ -313,7 +315,7 @@ export default function TeachersDirectory() {
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-md flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
               <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-                {editingTeacher ? 'Edit Teacher' : 'Add New Teacher'}
+                {editingTeacher ? `Edit ${labels.teacherSingular}` : `Add New ${labels.teacherSingular}`}
               </h2>
               <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors">
                 <X className="w-5 h-5 text-slate-500" />
@@ -343,7 +345,7 @@ export default function TeachersDirectory() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-500 uppercase">Subject</label>
+                    <label className="text-xs font-bold text-slate-500 uppercase">{labels.subjectSingular}</label>
                     <input 
                       type="text" 
                       required
@@ -399,7 +401,7 @@ export default function TeachersDirectory() {
                   type="submit"
                   className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-900/20 transition-all"
                 >
-                  {editingTeacher ? 'Save Changes' : 'Add Teacher'}
+                  {editingTeacher ? 'Save Changes' : `Add ${labels.teacherSingular}`}
                 </button>
               </div>
             </form>
@@ -412,11 +414,11 @@ export default function TeachersDirectory() {
         onClose={() => setIdCardTeacher(null)}
         schoolProfile={schoolProfile}
         fullName={idCardTeacher?.name || ''}
-        roleLabel="Teacher"
+        roleLabel={labels.teacherSingular}
         identifier={idCardTeacher?.employeeId || ''}
         email={idCardTeacher?.email}
         phone={idCardTeacher?.phone}
-        secondaryLabel="Subject"
+        secondaryLabel={labels.subjectSingular}
         secondaryValue={idCardTeacher?.subject}
         status={idCardTeacher?.status}
         accentClassName="from-indigo-600 to-violet-600"

@@ -4,14 +4,7 @@ import { cn } from '@/utils';
 import { useToastStore } from '@/store/useToastStore';
 import { downloadTextFile } from '@/utils/fileHelpers';
 
-const mockAttendance = [
-  { id: 'EMP-101', name: 'Dr. Emily Carter', role: 'Senior Lecturer', dept: 'CS', status: 'Present', checkIn: '08:45 AM', checkOut: '05:30 PM', workHours: '8h 45m' },
-  { id: 'EMP-102', name: 'Prof. Alan Turing', role: 'HOD', dept: 'CS', status: 'Present', checkIn: '09:00 AM', checkOut: '05:00 PM', workHours: '8h 00m' },
-  { id: 'EMP-145', name: 'Sarah Wilson', role: 'Accountant', dept: 'Finance', status: 'On Leave', checkIn: '-', checkOut: '-', workHours: '-' },
-  { id: 'EMP-156', name: 'Michael Brown', role: 'Transport', dept: 'Facilities', status: 'Present', checkIn: '07:30 AM', checkOut: '04:00 PM', workHours: '8h 30m' },
-  { id: 'EMP-189', name: 'Jessica Taylor', role: 'Librarian', dept: 'Library', status: 'Late', checkIn: '09:45 AM', checkOut: '06:00 PM', workHours: '8h 15m' },
-  { id: 'EMP-192', name: 'David Smith', role: 'Lab Asst', dept: 'CS', status: 'Absent', checkIn: '-', checkOut: '-', workHours: '-' },
-];
+const mockAttendance = [];
 
 export default function HRAttendance() {
   const [selectedDate, setSelectedDate] = useState('2025-10-24');

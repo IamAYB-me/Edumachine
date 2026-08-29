@@ -75,10 +75,16 @@ import LibraryMembers from './pages/Librarian/Members';
 import Profile from './pages/Profile';
 import Home from './pages/Home';
 import AdmissionApply from './pages/Admission/Apply';
+import AdmissionProgress from './pages/Admission/Progress';
 import AdminAdmissions from './pages/Admin/Admissions';
+import AdminActivityLogs from './pages/Admin/ActivityLogs';
+import AdminReportCard from './pages/Admin/ReportCard';
+import SuperAdminDeletionRequests from './pages/SuperAdmin/DeletionRequests';
+import SuperAdminSchoolUsers from './pages/SuperAdmin/SchoolUsers';
 
 export default function App() {
   const logoUrl = useSettingsStore((s) => s.globalSettings.logoUrl);
+  const user = useAuthStore((s) => s.user);
   const initAuthListener = useAuthStore((s) => s.initAuthListener);
   const initSettingsSubscription = useSettingsStore((s) => s.initSettingsSubscription);
   const initSubscriptions = useDataStore((s) => s.initSubscriptions);
@@ -86,8 +92,13 @@ export default function App() {
   useEffect(() => {
     initAuthListener();
     initSettingsSubscription();
-    initSubscriptions();
-  }, [initAuthListener, initSettingsSubscription, initSubscriptions]);
+  }, [initAuthListener, initSettingsSubscription]);
+
+  useEffect(() => {
+    if (user) {
+      initSubscriptions(user.role);
+    }
+  }, [user, initSubscriptions]);
 
   useEffect(() => {
     if (logoUrl) {
@@ -105,6 +116,7 @@ export default function App() {
       <Route path="/verify-email" element={<VerifyEmailPage />} />
 
       {/* Public Admission Application */}
+      <Route path="/admission/apply" element={<AdmissionApply />} />
       <Route path="/admissions/apply" element={<AdmissionApply />} />
 
       {/* Super Admin Routes */}
@@ -116,6 +128,8 @@ export default function App() {
         <Route path="/super-admin/payments" element={<PaymentsManagement />} />
         <Route path="/super-admin/settings" element={<GlobalSettings />} />
         <Route path="/super-admin/registration-fields" element={<RegistrationFields />} />
+        <Route path="/super-admin/deletion-requests" element={<SuperAdminDeletionRequests />} />
+        <Route path="/super-admin/school-users" element={<SuperAdminSchoolUsers />} />
       </Route>
 
       {/* Admin Routes */}
@@ -137,6 +151,8 @@ export default function App() {
         <Route path="/admin/payroll" element={<AccountantPayroll />} />
         <Route path="/admin/notices" element={<AdminNotices />} />
         <Route path="/admin/admissions" element={<AdminAdmissions />} />
+        <Route path="/admin/activity-logs" element={<AdminActivityLogs />} />
+        <Route path="/admin/report-cards" element={<AdminReportCard />} />
       </Route>
 
       {/* Teacher Routes */}
@@ -213,6 +229,11 @@ export default function App() {
       {/* Global Profile Route */}
       <Route element={<DashboardLayout />}>
         <Route path="/profile" element={<Profile />} />
+      </Route>
+
+      {/* Applicant Progress Route */}
+      <Route element={<DashboardLayout />}>
+        <Route path="/admission/progress" element={<AdmissionProgress />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

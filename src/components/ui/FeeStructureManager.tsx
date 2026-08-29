@@ -2,7 +2,10 @@ import React, { useMemo, useState } from 'react';
 import { BookOpen, Edit2, Plus, Trash2, Wallet, X } from 'lucide-react';
 import { cn } from '@/utils';
 import { FeeStructure, useDataStore } from '@/store/useDataStore';
+import { useAuthStore } from '@/store/useAuthStore';
 import { useToastStore } from '@/store/useToastStore';
+import { useCurrency } from '@/hooks/useCurrency';
+import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
 
 interface FeeStructureManagerProps {
   title?: string;
@@ -11,55 +14,71 @@ interface FeeStructureManagerProps {
 }
 
 export function FeeStructureManager({
-  title = 'Fee Categories By Class',
-  description = 'Set fee categories and payable amounts for each class.',
+  title,
+  description,
   className,
 }: FeeStructureManagerProps) {
   const { classes, feeStructures, addFeeStructure, updateFeeStructure, deleteFeeStructure } = useDataStore();
   const showToast = useToastStore((state) => state.showToast);
+  const { format } = useCurrency();
+  const schools = useDataStore((state) => state.schools);
+  const user = useAuthStore((state) => state.user);
+  const schoolProfile = resolveSchoolProfile(user, schools);
+  const labels = getPortalLevelLabels(schoolProfile.portalLevel);
+  const resolvedTitle = title ?? `Fee Categories By ${labels.structurePlural}`;
+  const resolvedDescription = description ?? `Set fee categories and payable amounts for each ${labels.structureSingular.toLowerCase()}.`;
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedClass, setSelectedClass] = useState('All Classes');
+  const [selectedClass, setSelectedClass] = useState(`All ${labels.structurePlural}`);
   const [editingStructure, setEditingStructure] = useState<FeeStructure | null>(null);
+  const [isUniversal, setIsUniversal] = useState(false);
   const [formData, setFormData] = useState<Omit<FeeStructure, 'id'>>({
     className: classes[0]?.name ?? '',
     category: '',
     amount: 0,
-    term: 'First Term',
+    term: labels.termOptions[0] || 'First Term',
     description: '',
     status: 'Active',
+    isUniversal: false,
   });
 
+  const universalFilterKey = `Universal (All ${labels.structurePlural})`;
+
   const filteredStructures = useMemo(() => {
-    return selectedClass === 'All Classes'
-      ? feeStructures
-      : feeStructures.filter((item) => item.className === selectedClass);
-  }, [feeStructures, selectedClass]);
+    if (selectedClass === `All ${labels.structurePlural}`) return feeStructures;
+    if (selectedClass === universalFilterKey) return feeStructures.filter((item) => item.isUniversal);
+    return feeStructures.filter((item) => item.className === selectedClass && !item.isUniversal);
+  }, [feeStructures, selectedClass, universalFilterKey, labels.structurePlural]);
 
   const totals = useMemo(() => {
     const activeStructures = feeStructures.filter((item) => item.status === 'Active');
     const totalAmount = filteredStructures.reduce((sum, item) => sum + item.amount, 0);
+    const classCount = new Set(
+      feeStructures.map((item) => (item.isUniversal ? universalFilterKey : item.className))
+    ).size;
     return {
       activeCount: activeStructures.length,
-      classCount: new Set(feeStructures.map((item) => item.className)).size,
+      classCount,
       totalAmount,
     };
-  }, [feeStructures, filteredStructures]);
+  }, [feeStructures, filteredStructures, universalFilterKey]);
 
   const resetForm = () => {
     setEditingStructure(null);
+    setIsUniversal(false);
     setFormData({
       className: classes[0]?.name ?? '',
       category: '',
       amount: 0,
-      term: 'First Term',
+      term: labels.termOptions[0] || 'First Term',
       description: '',
       status: 'Active',
+      isUniversal: false,
     });
   };
 
   const openCreateModal = () => {
     resetForm();
-    if (selectedClass !== 'All Classes') {
+    if (selectedClass !== `All ${labels.structurePlural}` && selectedClass !== universalFilterKey) {
       setFormData((current) => ({ ...current, className: selectedClass }));
     }
     setIsModalOpen(true);
@@ -67,6 +86,7 @@ export function FeeStructureManager({
 
   const openEditModal = (structure: FeeStructure) => {
     setEditingStructure(structure);
+    setIsUniversal(!!structure.isUniversal);
     setFormData({
       className: structure.className,
       category: structure.category,
@@ -74,25 +94,42 @@ export function FeeStructureManager({
       term: structure.term,
       description: structure.description ?? '',
       status: structure.status,
+      isUniversal: !!structure.isUniversal,
     });
     setIsModalOpen(true);
+  };
+
+  const toggleUniversal = (universal: boolean) => {
+    setIsUniversal(universal);
+    setFormData((current) => ({
+      ...current,
+      isUniversal: universal,
+      className: universal ? '' : classes[0]?.name ?? '',
+    }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    const payload = {
+      ...formData,
+      isUniversal,
+      className: isUniversal ? '' : formData.className,
+    };
+    const scopeName = isUniversal ? `all ${labels.structurePlural.toLowerCase()}` : formData.className;
+
     if (editingStructure) {
-      updateFeeStructure(editingStructure.id, formData);
+      updateFeeStructure(editingStructure.id, payload);
       showToast({
         title: 'Fee category updated',
-        description: `${formData.category} for ${formData.className} has been updated.`,
+        description: `${payload.category} for ${scopeName} has been updated.`,
         variant: 'success',
       });
     } else {
-      addFeeStructure(formData);
+      addFeeStructure(payload);
       showToast({
         title: 'Fee category added',
-        description: `${formData.category} has been created for ${formData.className}.`,
+        description: `${payload.category} has been created for ${scopeName}.`,
         variant: 'success',
       });
     }
@@ -101,11 +138,11 @@ export function FeeStructureManager({
     resetForm();
   };
 
-  const handleDelete = (id: string, category: string, feeClass: string) => {
+  const handleDelete = (id: string, category: string, feeClass: string, universal?: boolean) => {
     deleteFeeStructure(id);
     showToast({
       title: 'Fee category removed',
-      description: `${category} for ${feeClass} has been deleted from the fee setup.`,
+      description: `${category} for ${universal ? `all ${labels.structurePlural.toLowerCase()}` : feeClass} has been deleted from the fee setup.`,
       variant: 'warning',
     });
   };
@@ -121,7 +158,7 @@ export function FeeStructureManager({
                   {editingStructure ? 'Edit Fee Category' : 'Add Fee Category'}
                 </h2>
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  Assign a fee category and amount to a class.
+                  Assign a fee category and amount to a {labels.structureSingular.toLowerCase()}.
                 </p>
               </div>
               <button
@@ -136,32 +173,65 @@ export function FeeStructureManager({
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4 p-8">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Class</label>
-                  <select
-                    required
-                    value={formData.className}
-                    onChange={(e) => setFormData({ ...formData, className: e.target.value })}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                  >
-                    {classes.map((item) => (
-                      <option key={item.id} value={item.name}>
-                        {item.name}
-                      </option>
-                    ))}
-                  </select>
+              <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/60">
+                <div>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">Apply to all {labels.structurePlural.toLowerCase()}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Universal fee that every {labels.structureSingular.toLowerCase()} pays.</p>
                 </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={isUniversal}
+                  onClick={() => toggleUniversal(!isUniversal)}
+                  className={cn(
+                    'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors',
+                    isUniversal ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform',
+                      isUniversal ? 'translate-x-6' : 'translate-x-1'
+                    )}
+                  />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {!isUniversal ? (
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{labels.structureSingular}</label>
+                    <select
+                      required
+                      value={formData.className}
+                      onChange={(e) => setFormData({ ...formData, className: e.target.value })}
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    >
+                      {classes.map((item) => (
+                        <option key={item.id} value={item.name}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{labels.structureSingular}</label>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-400 dark:border-slate-700 dark:bg-slate-800">
+                      All {labels.structurePlural}
+                    </div>
+                  </div>
+                )}
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Term</label>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{labels.termLabel}</label>
                   <select
                     value={formData.term}
                     onChange={(e) => setFormData({ ...formData, term: e.target.value })}
                     className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                   >
-                    <option>First Term</option>
-                    <option>Second Term</option>
-                    <option>Third Term</option>
+                    {labels.termOptions.map((t) => (
+                      <option key={t}>{t}</option>
+                    ))}
                     <option>Full Session</option>
                   </select>
                 </div>
@@ -242,8 +312,8 @@ export function FeeStructureManager({
 
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white">{title}</h3>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{description}</p>
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white">{resolvedTitle}</h3>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{resolvedDescription}</p>
         </div>
         <button
           onClick={openCreateModal}
@@ -260,26 +330,27 @@ export function FeeStructureManager({
           <p className="mt-2 text-2xl font-black text-slate-900 dark:text-white">{totals.activeCount}</p>
         </div>
         <div className="rounded-3xl bg-slate-50 p-5 dark:bg-slate-800/60">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Classes Covered</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{labels.structurePlural} Covered</p>
           <p className="mt-2 text-2xl font-black text-slate-900 dark:text-white">{totals.classCount}</p>
         </div>
         <div className="rounded-3xl bg-slate-50 p-5 dark:bg-slate-800/60">
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Visible Setup Total</p>
-          <p className="mt-2 text-2xl font-black text-slate-900 dark:text-white">{totals.totalAmount.toLocaleString()}</p>
+          <p className="mt-2 text-2xl font-black text-slate-900 dark:text-white">{format(totals.totalAmount)}</p>
         </div>
       </div>
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="inline-flex items-center gap-2 rounded-2xl bg-blue-50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
           <BookOpen className="h-4 w-4" />
-          Class Fee Setup
+          {labels.structureSingular} Fee Setup
         </div>
         <select
           value={selectedClass}
           onChange={(e) => setSelectedClass(e.target.value)}
           className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-900 outline-none transition-all focus:border-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
         >
-          <option>All Classes</option>
+          <option>All {labels.structurePlural}</option>
+          <option>{universalFilterKey}</option>
           {classes.map((item) => (
             <option key={item.id} value={item.name}>
               {item.name}
@@ -293,7 +364,7 @@ export function FeeStructureManager({
           <div className="rounded-3xl border border-dashed border-slate-200 px-6 py-12 text-center dark:border-slate-700">
             <Wallet className="mx-auto h-10 w-10 text-slate-300 dark:text-slate-600" />
             <p className="mt-4 text-sm font-bold text-slate-900 dark:text-white">No fee categories configured yet.</p>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Use the button above to assign fee categories and amounts to each class.</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Use the button above to assign fee categories and amounts to each {labels.structureSingular.toLowerCase()}.</p>
           </div>
         ) : (
           filteredStructures.map((item) => (
@@ -304,11 +375,16 @@ export function FeeStructureManager({
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded-xl bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                    {item.className}
+                    {item.isUniversal ? `All ${labels.structurePlural}` : item.className}
                   </span>
                   <span className="rounded-xl bg-blue-50 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
                     {item.term}
                   </span>
+                  {item.isUniversal ? (
+                    <span className="rounded-xl bg-violet-50 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+                      Universal
+                    </span>
+                  ) : null}
                   <span
                     className={cn(
                       'rounded-xl px-3 py-1 text-[10px] font-bold uppercase tracking-wider',
@@ -329,7 +405,7 @@ export function FeeStructureManager({
               <div className="flex items-center justify-between gap-4 lg:justify-end">
                 <div className="text-right">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Amount</p>
-                  <p className="text-xl font-black text-slate-900 dark:text-white">{item.amount.toLocaleString()}</p>
+                  <p className="text-xl font-black text-slate-900 dark:text-white">{format(item.amount)}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -339,7 +415,7 @@ export function FeeStructureManager({
                     <Edit2 className="h-4 w-4" />
                   </button>
                   <button
-                    onClick={() => handleDelete(item.id, item.category, item.className)}
+                    onClick={() => handleDelete(item.id, item.category, item.className, item.isUniversal)}
                     className="rounded-2xl p-3 text-slate-400 transition-all hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-900/30"
                   >
                     <Trash2 className="h-4 w-4" />

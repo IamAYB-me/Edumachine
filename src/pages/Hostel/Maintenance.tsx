@@ -15,12 +15,7 @@ export default function HostelMaintenance() {
   });
   const showToast = useToastStore((state) => state.showToast);
 
-  const [requests, setRequests] = useState([
-    { id: 'MNT-401', room: 'Block A - 105', title: 'Leaking Tap', priority: 'High', status: 'In Progress', date: '2026-07-06' },
-    { id: 'MNT-402', room: 'Block B - 212', title: 'Fan Not Working', priority: 'Medium', status: 'Pending', date: '2026-07-07' },
-    { id: 'MNT-403', room: 'Block A - 301', title: 'Broken Window Pane', priority: 'High', status: 'Completed', date: '2026-07-05' },
-    { id: 'MNT-404', room: 'Block C - 102', title: 'Light Bulb Replacement', priority: 'Low', status: 'Pending', date: '2026-07-07' },
-  ]);
+  const [requests, setRequests] = useState([]);
 
   const filteredRequests = requests.filter((request) => {
     const matchesSearch =

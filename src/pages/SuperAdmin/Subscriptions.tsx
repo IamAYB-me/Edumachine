@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { Check, Zap, Shield, Rocket, Building2, Users, X } from 'lucide-react';
 import { cn } from '@/utils';
 import { useDataStore } from '@/store/useDataStore';
@@ -6,17 +6,20 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { useToastStore } from '@/store/useToastStore';
 
 export default function SubscriptionPlans() {
-  const { plans, updatePlan } = useDataStore();
+  const plans = useDataStore((s) => s.plans);
+  const updatePlan = useDataStore((s) => s.updatePlan);
   const { format } = useCurrency();
   const showToast = useToastStore((s) => s.showToast);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingPlanId, setEditingPlanId] = useState<string>('');
   const [editName, setEditName] = useState<string>('');
   const [editPrice, setEditPrice] = useState<number>(0);
   const [editStudentsLimit, setEditStudentsLimit] = useState<number>(0);
   const [editFeatures, setEditFeatures] = useState<string>('');
 
   const handleOpenEdit = (plan: typeof plans[number]) => {
+    setEditingPlanId(plan.id);
     setEditName(plan.name);
     setEditPrice(plan.price);
     setEditStudentsLimit(plan.studentsLimit);
@@ -24,19 +27,16 @@ export default function SubscriptionPlans() {
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
-    const plan = plans.find((p) => p.name === editName);
-    if (!plan) return;
-
-    updatePlan(plan.id, {
+  const handleSave = useCallback(() => {
+    if (!editingPlanId) return;
+    updatePlan(editingPlanId, {
       price: editPrice,
       studentsLimit: editStudentsLimit,
       features: editFeatures.split('\n').map((f) => f.trim()).filter(Boolean),
     });
-
     showToast({ title: 'Plan Updated', description: `${editName} plan has been updated successfully.`, variant: 'success' });
     setIsModalOpen(false);
-  };
+  }, [editingPlanId, editPrice, editStudentsLimit, editFeatures, editName, updatePlan, showToast]);
 
   return (
     <div className="space-y-6">
@@ -78,7 +78,7 @@ export default function SubscriptionPlans() {
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">{plan.name}</h3>
               <div className="mt-2 flex items-baseline gap-1">
                 <span className="text-3xl font-bold text-slate-900 dark:text-white">{format(plan.price)}</span>
-                <span className="text-slate-500 text-sm">/month</span>
+                <span className="text-slate-500 text-sm">/year</span>
               </div>
             </div>
 
@@ -138,7 +138,7 @@ export default function SubscriptionPlans() {
 
             <div className="p-6 space-y-5 overflow-y-auto">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-500 uppercase">Monthly Price</label>
+                <label className="text-xs font-bold text-slate-500 uppercase">Yearly Price</label>
                 <input
                   type="number"
                   min="0"

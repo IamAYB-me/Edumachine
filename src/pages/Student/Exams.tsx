@@ -28,7 +28,7 @@ export default function ExamSession() {
     () => students.find((student) => student.id === user?.id || student.email === user?.email || student.name === user?.name),
     [students, user?.email, user?.id, user?.name]
   );
-  const studentClass = currentStudent?.class ?? 'Grade 10 - A';
+  const studentClass = currentStudent?.class ?? '';
   const schoolProfile = resolveSchoolProfile(user ?? null, schools);
   const labels = getPortalLevelLabels(schoolProfile.portalLevel);
 

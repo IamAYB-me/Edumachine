@@ -1,6 +1,8 @@
 import { create } from 'zustand';
-import { addDocument, updateDocument, deleteDocument, subscribeToCollection, generateId } from '@/services/firestoreService';
+import { addDocumentWithId, updateDocument, deleteDocument, clearCollection, subscribeToCollection, generateId } from '@/services/firestoreService';
+import { logActivity, type ActivityAction } from '@/utils/activityLogger';
 import type { Unsubscribe } from 'firebase/firestore';
+import { useAuthStore, type Role } from './useAuthStore';
 
 export type PortalLevel = 'Primary' | 'Secondary' | 'College' | 'University';
 
@@ -178,6 +180,7 @@ export interface Student {
   acceptanceLetter?: string;
   guarantorForm?: string;
   passportDocument?: string;
+  password?: string;
 }
 
 export interface Parent {
@@ -187,6 +190,7 @@ export interface Parent {
   phone: string;
   children: string[];
   occupation: string;
+  password?: string;
 }
 
 export interface Staff {
@@ -198,6 +202,7 @@ export interface Staff {
   phone: string;
   status: 'Active' | 'Inactive';
   joinDate: string;
+  password?: string;
 }
 
 export interface SchoolPaymentGatewayConfig {
@@ -310,6 +315,7 @@ export interface Teacher {
   email: string;
   phone: string;
   status: 'Active' | 'Inactive';
+  password?: string;
 }
 
 export interface Class {
@@ -319,6 +325,8 @@ export interface Class {
   teacherName: string;
   studentsCount: number;
   room: string;
+  facultyId?: string;
+  departmentId?: string;
 }
 
 export interface Faculty {
@@ -326,6 +334,19 @@ export interface Faculty {
   name: string;
   headName: string;
   code: string;
+}
+
+export interface Department {
+  id: string;
+  name: string;
+  code: string;
+  headName: string;
+  facultyId: string;
+}
+
+export interface AcademicSession {
+  id: string;
+  name: string;
 }
 
 export interface Subject {
@@ -337,6 +358,8 @@ export interface Subject {
   term?: string;
   session?: string;
   assignedClasses?: string[];
+  facultyId?: string;
+  departmentId?: string;
 }
 
 export interface FeeRecord {
@@ -360,6 +383,7 @@ export interface FeeStructure {
   term: string;
   description?: string;
   status: 'Active' | 'Inactive';
+  isUniversal?: boolean;
 }
 
 export interface Expense {
@@ -469,17 +493,12 @@ export interface AdmissionApplication {
   // Course Choices
   firstChoiceCourse?: string;
   secondChoiceCourse?: string;
-  thirdChoiceCourse?: string;
-
-  // Class Applying For
-  classApplyingFor: string;
 
   // Sponsor Information
   sponsorFullName?: string;
   sponsorAddress?: string;
   sponsorPhone?: string;
   sponsorSignatureUrl?: string;
-  sponsorDate?: string;
 
   // Next of Kin
   nextOfKinName?: string;
@@ -552,6 +571,80 @@ export interface StudentMutationResult {
   student?: Student;
 }
 
+export interface Notification {
+  id: string;
+  userId: string;
+  title: string;
+  description: string;
+  time: string;
+  read: boolean;
+  type?: 'info' | 'success' | 'warning' | 'error';
+  link?: string;
+}
+
+export interface PlatformUser {
+  id: string;
+  uid?: string;
+  name: string;
+  email: string;
+  role: string;
+  roleLabel?: string;
+  schoolName?: string;
+  phone?: string;
+  status?: 'Active' | 'Inactive';
+  avatarUrl?: string;
+  createdAt?: unknown;
+}
+
+export interface Notice {
+  id: string;
+  title: string;
+  content: string;
+  date: string;
+  targetAudience: 'All' | 'Students' | 'Teachers' | 'Parents';
+  priority: 'High' | 'Medium' | 'Low';
+  author: string;
+}
+
+export interface TimetableEntry {
+  id: string;
+  classId: string;
+  className: string;
+  day: string;
+  periodIndex: number;
+  subject: string;
+  teacherId: string;
+  teacherName: string;
+  room?: string;
+}
+
+export type { ActivityAction };
+
+export interface ActivityLog {
+  id: string;
+  createdAt: unknown;
+  userId: string;
+  userName: string;
+  userRole: Role;
+  action: ActivityAction;
+  module: string;
+  description: string;
+  targetId?: string;
+  targetName?: string;
+  metadata?: Record<string, unknown>;
+  deletionRequested: boolean;
+  deletionRequestedBy?: string;
+  deletionRequestedByName?: string;
+  deletionRequestedAt?: unknown;
+  deletionApproved: boolean;
+  deletionApprovedBy?: string;
+  deletionApprovedAt?: unknown;
+  deletionRejected: boolean;
+  deletionRejectedBy?: string;
+  deletionRejectedAt?: unknown;
+  deletionRejectionReason?: string;
+}
+
 const normalizeStudentIdentityValue = (value?: string) => value?.trim().toLowerCase() ?? '';
 
 const getDuplicateStudentError = (
@@ -602,6 +695,8 @@ interface DataState {
   teachers: Teacher[];
   classes: Class[];
   faculties: Faculty[];
+  departments: Department[];
+  academicSessions: AcademicSession[];
   subjects: Subject[];
   exams: Exam[];
   examResults: ExamResult[];
@@ -611,14 +706,24 @@ interface DataState {
   payroll: Payroll[];
   registrationConfigs: SchoolRegistrationConfig[];
   admissionApplications: AdmissionApplication[];
+  notifications: Notification[];
+  platformUsers: PlatformUser[];
+  notices: Notice[];
+  timetable: TimetableEntry[];
+  activityLogs: ActivityLog[];
   _hasHydrated: boolean;
   setHasHydrated: (value: boolean) => void;
-  initSubscriptions: () => void;
+  initSubscriptions: (role?: Role) => void;
 
   // Student Actions
   addStudent: (student: Omit<Student, 'id'>) => StudentMutationResult;
   updateStudent: (id: string, student: Partial<Student>) => StudentMutationResult;
   deleteStudent: (id: string) => StudentMutationResult;
+  bulkUpdateStudentPortalLevel: (ids: string[], portalLevel: PortalLevel) => number;
+  bulkDeleteStudents: (ids: string[]) => number;
+  clearStudents: () => Promise<number>;
+  clearStaff: () => Promise<number>;
+  clearSchools: () => Promise<number>;
   
   // Parent Actions
   addParent: (parent: Omit<Parent, 'id'>) => void;
@@ -661,6 +766,16 @@ interface DataState {
   updateFaculty: (id: string, faculty: Partial<Faculty>) => void;
   deleteFaculty: (id: string) => void;
 
+  // Department Actions
+  addDepartment: (dept: Omit<Department, 'id'>) => void;
+  updateDepartment: (id: string, dept: Partial<Department>) => void;
+  deleteDepartment: (id: string) => void;
+
+  // Academic Session Actions
+  addAcademicSession: (session: Omit<AcademicSession, 'id'>) => void;
+  updateAcademicSession: (id: string, session: Partial<AcademicSession>) => void;
+  deleteAcademicSession: (id: string) => void;
+
   // Subject Actions
   addSubject: (subject: Omit<Subject, 'id'>) => void;
   updateSubject: (id: string, subject: Partial<Subject>) => void;
@@ -700,6 +815,33 @@ interface DataState {
   addAdmissionApplication: (app: Omit<AdmissionApplication, 'id'>) => void;
   updateAdmissionApplication: (id: string, app: Partial<AdmissionApplication>) => void;
   deleteAdmissionApplication: (id: string) => void;
+
+  // Notification Actions
+  markNotificationRead: (id: string) => void;
+  markAllNotificationsRead: () => void;
+  addNotification: (notif: Omit<Notification, 'id'>) => void;
+  deleteNotification: (id: string) => void;
+  notifyUsers: (userIds: string[], title: string, description: string, type?: 'info' | 'success' | 'warning' | 'error', link?: string) => void;
+
+  // Platform User Actions
+  deletePlatformUser: (id: string) => void;
+  updatePlatformUser: (id: string, updates: Partial<PlatformUser>) => void;
+
+  // Notice Actions
+  addNotice: (notice: Omit<Notice, 'id'>) => void;
+  updateNotice: (id: string, notice: Partial<Notice>) => void;
+  deleteNotice: (id: string) => void;
+
+  // Timetable Actions
+  addTimetableEntry: (entry: Omit<TimetableEntry, 'id'>) => void;
+  updateTimetableEntry: (id: string, entry: Partial<TimetableEntry>) => void;
+  deleteTimetableEntry: (id: string) => void;
+
+  // Activity Log Actions
+  requestLogDeletion: (id: string) => void;
+  approveLogDeletion: (id: string) => void;
+  rejectLogDeletion: (id: string, reason: string) => void;
+  purgeOldLogs: () => Promise<number>;
 }
 
 const defaultPlans: SubscriptionPlan[] = [
@@ -723,7 +865,8 @@ export const useDataStore = create<DataState>()((set, get) => ({
   teachers: [],
   classes: [],
   faculties: [],
-  subjects: [],
+  departments: [],
+  academicSessions: [],  subjects: [],
   exams: [],
   examResults: [],
   examTimetable: [],
@@ -732,34 +875,80 @@ export const useDataStore = create<DataState>()((set, get) => ({
   payroll: [],
   registrationConfigs: [],
   admissionApplications: [],
+  notifications: [],
+  platformUsers: [],
+  notices: [],
+  timetable: [],
+  activityLogs: [],
 
   _hasHydrated: true,
   setHasHydrated: (_value) => {},
 
-  initSubscriptions: () => {
+  initSubscriptions: (role?: Role) => {
     if (subscriptions.length > 0) return;
 
-    subscriptions.push(
-      subscribeToCollection('students', (data) => set({ students: data as unknown as Student[] })),
-      subscribeToCollection('parents', (data) => set({ parents: data as unknown as Parent[] })),
-      subscribeToCollection('staff', (data) => set({ staff: data as unknown as Staff[] })),
-      subscribeToCollection('teachers', (data) => set({ teachers: data as unknown as Teacher[] })),
-      subscribeToCollection('classes', (data) => set({ classes: data as unknown as Class[] })),
-      subscribeToCollection('faculties', (data) => set({ faculties: data as unknown as Faculty[] })),
-      subscribeToCollection('subjects', (data) => set({ subjects: data as unknown as Subject[] })),
-      subscribeToCollection('feeRecords', (data) => set({ feeRecords: data as unknown as FeeRecord[] })),
-      subscribeToCollection('feeStructures', (data) => set({ feeStructures: data as unknown as FeeStructure[] })),
-      subscribeToCollection('schools', (data) => set({ schools: data as unknown as School[] })),
-      subscribeToCollection('delegatedAccess', (data) => set({ delegatedAccess: data as unknown as DelegatedPortalAccess[] })),
-      subscribeToCollection('exams', (data) => set({ exams: data as unknown as Exam[] })),
-      subscribeToCollection('examResults', (data) => set({ examResults: data as unknown as ExamResult[] })),
-      subscribeToCollection('examTimetable', (data) => set({ examTimetable: data as unknown as ExamTimetableEntry[] })),
-      subscribeToCollection('attendance', (data) => set({ attendance: data as unknown as AttendanceRecord[] })),
-      subscribeToCollection('expenses', (data) => set({ expenses: data as unknown as Expense[] })),
-      subscribeToCollection('payroll', (data) => set({ payroll: data as unknown as Payroll[] })),
-      subscribeToCollection('registrationConfigs', (data) => set({ registrationConfigs: data as unknown as SchoolRegistrationConfig[] })),
-      subscribeToCollection('admissionApplications', (data) => set({ admissionApplications: data as unknown as AdmissionApplication[] })),
-    );
+    const ROLE_COLLECTIONS: Partial<Record<Role, string[]>> = {
+      SUPER_ADMIN: ['schools', 'users', 'plans', 'delegatedAccess', 'registrationConfigs', 'admissionApplications', 'settings', 'notifications', 'activityLogs', 'students', 'teachers', 'parents', 'staff', 'classes', 'feeRecords', 'exams', 'examResults', 'attendance', 'expenses', 'payroll', 'subjects', 'faculties', 'departments', 'notices', 'timetable'],
+      ADMIN: ['students', 'teachers', 'parents', 'staff', 'classes', 'faculties', 'departments', 'subjects', 'feeRecords', 'feeStructures', 'exams', 'examResults', 'examTimetable', 'attendance', 'expenses', 'payroll', 'delegatedAccess', 'admissionApplications', 'notifications', 'notices', 'timetable', 'schools', 'activityLogs'],
+      TEACHER: ['students', 'classes', 'faculties', 'departments', 'subjects', 'exams', 'examResults', 'attendance', 'notifications', 'notices', 'timetable', 'schools'],
+      STUDENT: ['classes', 'faculties', 'departments', 'subjects', 'exams', 'examResults', 'examTimetable', 'attendance', 'feeRecords', 'feeStructures', 'notifications', 'notices', 'timetable', 'schools'],
+      PARENT: ['students', 'attendance', 'feeRecords', 'notifications', 'notices', 'schools'],
+      HR: ['staff', 'attendance', 'payroll', 'notifications', 'notices', 'schools'],
+      WARDEN: ['students', 'notifications', 'schools'],
+      ACCOUNTANT: ['feeRecords', 'feeStructures', 'expenses', 'payroll', 'notifications', 'schools'],
+      TRANSPORT: ['students', 'notifications', 'schools'],
+      LIBRARIAN: ['students', 'notifications', 'schools'],
+      APPLICANT: ['admissionApplications', 'notifications'],
+    };
+
+    const COLLECTION_STORE_MAP: Record<string, string> = {
+      students: 'students',
+      parents: 'parents',
+      staff: 'staff',
+      teachers: 'teachers',
+      classes: 'classes',
+      faculties: 'faculties',
+      departments: 'departments',
+      academicSessions: 'academicSessions',      subjects: 'subjects',
+      feeRecords: 'feeRecords',
+      feeStructures: 'feeStructures',
+      schools: 'schools',
+      delegatedAccess: 'delegatedAccess',
+      exams: 'exams',
+      examResults: 'examResults',
+      examTimetable: 'examTimetable',
+      attendance: 'attendance',
+      expenses: 'expenses',
+      payroll: 'payroll',
+      registrationConfigs: 'registrationConfigs',
+      admissionApplications: 'admissionApplications',
+      notifications: 'notifications',
+      notices: 'notices',
+      timetable: 'timetable',
+      users: 'platformUsers',
+      plans: 'plans',
+      activityLogs: 'activityLogs',
+    };
+
+    const allowedCollections = role ? (ROLE_COLLECTIONS[role] ?? Object.keys(COLLECTION_STORE_MAP)) : Object.keys(COLLECTION_STORE_MAP);
+
+    allowedCollections.forEach((col) => {
+      const storeKey = COLLECTION_STORE_MAP[col];
+      if (storeKey) {
+        subscriptions.push(
+          subscribeToCollection(col, (data) => {
+            if (storeKey === 'plans' && data.length === 0) {
+              defaultPlans.forEach((plan) => {
+                addDocumentWithId('plans', plan.id, { ...plan }).catch(console.error);
+              });
+              set({ plans: defaultPlans } as Partial<DataState>);
+            } else {
+              set({ [storeKey]: data } as Partial<DataState>);
+            }
+          }),
+        );
+      }
+    });
   },
 
   addStudent: (student) => {
@@ -776,7 +965,15 @@ export const useDataStore = create<DataState>()((set, get) => ({
       const createdStudent: Student = { ...student, id };
 
       result = { success: true, student: createdStudent };
-      addDocument('students', { ...createdStudent, id }).catch(console.error);
+      addDocumentWithId('students', id, { ...createdStudent, id }).catch(console.error);
+      logActivity({ action: 'CREATE', module: 'students', description: `Created student ${createdStudent.name}`, targetId: id, targetName: createdStudent.name }).catch(console.error);
+      // Notify the new student
+      if (createdStudent.email) {
+        const now = new Date().toLocaleString();
+        const nid = generateId();
+        const notif = { id: nid, userId: id, title: 'Welcome to the Portal', description: `Hello ${createdStudent.name}, your student account has been created.`, time: now, read: false, type: 'success' as const, link: '/student' };
+        addDocumentWithId('notifications', nid, notif).catch(console.error);
+      }
       return { students: [...state.students, createdStudent] };
     });
 
@@ -803,6 +1000,7 @@ export const useDataStore = create<DataState>()((set, get) => ({
 
       result = { success: true, student: mergedStudent };
       updateDocument('students', id, updatedStudent as Record<string, unknown>).catch(console.error);
+      logActivity({ action: 'UPDATE', module: 'students', description: `Updated student ${mergedStudent.name}`, targetId: id, targetName: mergedStudent.name }).catch(console.error);
       return { students: state.students.map((s) => (s.id === id ? mergedStudent : s)) };
     });
 
@@ -821,85 +1019,159 @@ export const useDataStore = create<DataState>()((set, get) => ({
 
       result = { success: true, student: existingStudent };
       deleteDocument('students', id).catch(console.error);
+      logActivity({ action: 'DELETE', module: 'students', description: `Deleted student ${existingStudent.name}`, targetId: id, targetName: existingStudent.name }).catch(console.error);
       return { students: state.students.filter((s) => s.id !== id) };
     });
 
     return result;
   },
 
+  bulkUpdateStudentPortalLevel: (ids, portalLevel) => {
+    let count = 0;
+    set((state) => {
+      const updated = state.students.map((s) => {
+        if (ids.includes(s.id)) {
+          count += 1;
+          const patched = { ...s, portalLevel };
+          updateDocument('students', s.id, { portalLevel } as Record<string, unknown>).catch(console.error);
+          return patched;
+        }
+        return s;
+      });
+      return { students: updated };
+    });
+    return count;
+  },
+
+  bulkDeleteStudents: (ids) => {
+    let count = 0;
+    set((state) => {
+      const remaining = state.students.filter((s) => {
+        if (ids.includes(s.id)) {
+          count += 1;
+          deleteDocument('students', s.id).catch(console.error);
+          return false;
+        }
+        return true;
+      });
+      return { students: remaining };
+    });
+    return count;
+  },
+
+  clearStudents: async () => {
+    const count = await clearCollection('students');
+    set({ students: [] });
+    return count;
+  },
+
+  clearStaff: async () => {
+    const count = await clearCollection('staff');
+    set({ staff: [] });
+    return count;
+  },
+
+  clearSchools: async () => {
+    const count = await clearCollection('schools');
+    set({ schools: [] });
+    return count;
+  },
+
   addParent: (parent) => {
     const id = generateId();
     const record = { ...parent, id };
     set((state) => ({ parents: [...state.parents, record] }));
-    addDocument('parents', record).catch(console.error);
+    addDocumentWithId('parents', id, record).catch(console.error);
+    logActivity({ action: 'CREATE', module: 'parents', description: `Created parent ${parent.name}`, targetId: id, targetName: parent.name }).catch(console.error);
   },
   updateParent: (id, updatedParent) => {
     set((state) => ({ parents: state.parents.map((p) => (p.id === id ? { ...p, ...updatedParent } : p)) }));
     updateDocument('parents', id, updatedParent as Record<string, unknown>).catch(console.error);
+    logActivity({ action: 'UPDATE', module: 'parents', description: `Updated parent record`, targetId: id }).catch(console.error);
   },
   deleteParent: (id) => {
     set((state) => ({ parents: state.parents.filter((p) => p.id !== id) }));
     deleteDocument('parents', id).catch(console.error);
+    logActivity({ action: 'DELETE', module: 'parents', description: `Deleted parent record`, targetId: id }).catch(console.error);
   },
 
   addStaff: (staff) => {
     const id = generateId();
     const record = { ...staff, id };
     set((state) => ({ staff: [...state.staff, record] }));
-    addDocument('staff', record).catch(console.error);
+    addDocumentWithId('staff', id, record).catch(console.error);
+    logActivity({ action: 'CREATE', module: 'staff', description: `Created staff ${staff.name}`, targetId: id, targetName: staff.name }).catch(console.error);
   },
   updateStaff: (id, updatedStaff) => {
     set((state) => ({ staff: state.staff.map((s) => (s.id === id ? { ...s, ...updatedStaff } : s)) }));
     updateDocument('staff', id, updatedStaff as Record<string, unknown>).catch(console.error);
+    logActivity({ action: 'UPDATE', module: 'staff', description: `Updated staff record`, targetId: id }).catch(console.error);
   },
   deleteStaff: (id) => {
     set((state) => ({ staff: state.staff.filter((s) => s.id !== id) }));
     deleteDocument('staff', id).catch(console.error);
+    logActivity({ action: 'DELETE', module: 'staff', description: `Deleted staff record`, targetId: id }).catch(console.error);
   },
 
   addFeeRecord: (record) => {
     const id = generateId();
     const entry = { ...record, id };
     set((state) => ({ feeRecords: [...state.feeRecords, entry] }));
-    addDocument('feeRecords', entry).catch(console.error);
+    addDocumentWithId('feeRecords', id, entry).catch(console.error);
+    logActivity({ action: 'CREATE', module: 'fees', description: `Created fee record for ${record.studentName || 'student'}`, targetId: id, targetName: record.studentName }).catch(console.error);
+    // Notify the student
+    if (record.studentId) {
+      const now = new Date().toLocaleString();
+      const nid = generateId();
+      const notif = { id: nid, userId: record.studentId, title: 'New Fee Record', description: `A new fee record has been created for you. Amount: ${record.amount || 'N/A'}`, time: now, read: false, type: 'info' as const, link: '/student/fees' };
+      addDocumentWithId('notifications', nid, notif).catch(console.error);
+    }
   },
   updateFeeRecord: (id, updatedRecord) => {
     set((state) => ({ feeRecords: state.feeRecords.map((r) => (r.id === id ? { ...r, ...updatedRecord } : r)) }));
     updateDocument('feeRecords', id, updatedRecord as Record<string, unknown>).catch(console.error);
+    logActivity({ action: 'UPDATE', module: 'fees', description: `Updated fee record`, targetId: id }).catch(console.error);
   },
   deleteFeeRecord: (id) => {
     set((state) => ({ feeRecords: state.feeRecords.filter((r) => r.id !== id) }));
     deleteDocument('feeRecords', id).catch(console.error);
+    logActivity({ action: 'DELETE', module: 'fees', description: `Deleted fee record`, targetId: id }).catch(console.error);
   },
 
   addFeeStructure: (structure) => {
     const id = `FS-${generateId()}`;
     const entry = { ...structure, id };
     set((state) => ({ feeStructures: [...state.feeStructures, entry] }));
-    addDocument('feeStructures', entry).catch(console.error);
+    addDocumentWithId('feeStructures', id, entry).catch(console.error);
+    logActivity({ action: 'CREATE', module: 'feeStructures', description: structure.isUniversal ? `Created universal fee structure for all ${structure.className || 'classes'}` : `Created fee structure for ${structure.className}`, targetId: id, targetName: structure.isUniversal ? 'Universal' : structure.className }).catch(console.error);
   },
   updateFeeStructure: (id, updatedStructure) => {
     set((state) => ({ feeStructures: state.feeStructures.map((item) => (item.id === id ? { ...item, ...updatedStructure } : item)) }));
     updateDocument('feeStructures', id, updatedStructure as Record<string, unknown>).catch(console.error);
+    logActivity({ action: 'UPDATE', module: 'feeStructures', description: `Updated fee structure`, targetId: id }).catch(console.error);
   },
   deleteFeeStructure: (id) => {
     set((state) => ({ feeStructures: state.feeStructures.filter((item) => item.id !== id) }));
     deleteDocument('feeStructures', id).catch(console.error);
+    logActivity({ action: 'DELETE', module: 'feeStructures', description: `Deleted fee structure`, targetId: id }).catch(console.error);
   },
 
   addSchool: (school) => {
     const id = generateId();
     const record = { ...school, id };
     set((state) => ({ schools: [...state.schools, record] }));
-    addDocument('schools', record).catch(console.error);
+    addDocumentWithId('schools', id, record).catch(console.error);
+    logActivity({ action: 'CREATE', module: 'schools', description: `Created school ${school.name}`, targetId: id, targetName: school.name }).catch(console.error);
   },
   updateSchool: (id, updatedSchool) => {
     set((state) => ({ schools: state.schools.map((s) => (s.id === id ? { ...s, ...updatedSchool } : s)) }));
     updateDocument('schools', id, updatedSchool as Record<string, unknown>).catch(console.error);
+    logActivity({ action: 'UPDATE', module: 'schools', description: `Updated school record`, targetId: id }).catch(console.error);
   },
   deleteSchool: (id) => {
     set((state) => ({ schools: state.schools.filter((s) => s.id !== id) }));
     deleteDocument('schools', id).catch(console.error);
+    logActivity({ action: 'DELETE', module: 'schools', description: `Deleted school record`, targetId: id }).catch(console.error);
   },
 
   addDelegatedAccess: (access) => {
@@ -907,7 +1179,16 @@ export const useDataStore = create<DataState>()((set, get) => ({
     const updatedAt = new Date().toISOString().split('T')[0];
     const record = { ...access, id, updatedAt };
     set((state) => ({ delegatedAccess: [...state.delegatedAccess, record] }));
-    addDocument('delegatedAccess', record).catch(console.error);
+    addDocumentWithId('delegatedAccess', id, record).catch(console.error);
+    logActivity({ action: 'CREATE', module: 'delegatedAccess', description: `Granted delegated access to ${access.userName || 'user'}`, targetId: id, targetName: access.userName }).catch(console.error);
+    // Notify the user who received delegated access
+    if (access.userEmail) {
+      const now = new Date().toLocaleString();
+      const nid = generateId();
+      const privs = access.privileges?.join(', ') || 'portal access';
+      const notif = { id: nid, userId: access.userEmail, title: 'Delegated Access Granted', description: `You have been granted delegated access: ${privs}`, time: now, read: false, type: 'info' as const };
+      addDocumentWithId('notifications', nid, notif).catch(console.error);
+    }
   },
   updateDelegatedAccess: (id, updatedAccess) => {
     const updatedAt = new Date().toISOString().split('T')[0];
@@ -916,104 +1197,169 @@ export const useDataStore = create<DataState>()((set, get) => ({
       delegatedAccess: state.delegatedAccess.map((item) => (item.id === id ? { ...item, ...patch } : item)),
     }));
     updateDocument('delegatedAccess', id, patch as Record<string, unknown>).catch(console.error);
+    logActivity({ action: 'UPDATE', module: 'delegatedAccess', description: `Updated delegated access`, targetId: id }).catch(console.error);
   },
   deleteDelegatedAccess: (id) => {
     set((state) => ({ delegatedAccess: state.delegatedAccess.filter((item) => item.id !== id) }));
     deleteDocument('delegatedAccess', id).catch(console.error);
+    logActivity({ action: 'DELETE', module: 'delegatedAccess', description: `Revoked delegated access`, targetId: id }).catch(console.error);
   },
 
   addTeacher: (teacher) => {
     const id = generateId();
     const record = { ...teacher, id };
     set((state) => ({ teachers: [...state.teachers, record] }));
-    addDocument('teachers', record).catch(console.error);
+    addDocumentWithId('teachers', id, record).catch(console.error);
+    logActivity({ action: 'CREATE', module: 'teachers', description: `Created teacher ${teacher.name}`, targetId: id, targetName: teacher.name }).catch(console.error);
+    // Notify the new teacher
+    if (teacher.email) {
+      const now = new Date().toLocaleString();
+      const nid = generateId();
+      const notif = { id: nid, userId: id, title: 'Welcome to the Portal', description: `Hello ${teacher.name}, your teacher account has been created.`, time: now, read: false, type: 'success' as const, link: '/teacher' };
+      addDocumentWithId('notifications', nid, notif).catch(console.error);
+    }
   },
   updateTeacher: (id, updatedTeacher) => {
     set((state) => ({ teachers: state.teachers.map((t) => (t.id === id ? { ...t, ...updatedTeacher } : t)) }));
     updateDocument('teachers', id, updatedTeacher as Record<string, unknown>).catch(console.error);
+    logActivity({ action: 'UPDATE', module: 'teachers', description: `Updated teacher record`, targetId: id }).catch(console.error);
   },
   deleteTeacher: (id) => {
     set((state) => ({ teachers: state.teachers.filter((t) => t.id !== id) }));
     deleteDocument('teachers', id).catch(console.error);
+    logActivity({ action: 'DELETE', module: 'teachers', description: `Deleted teacher record`, targetId: id }).catch(console.error);
   },
 
   addClass: (cls) => {
     const id = generateId();
     const record = { ...cls, id };
     set((state) => ({ classes: [...state.classes, record] }));
-    addDocument('classes', record).catch(console.error);
+    addDocumentWithId('classes', id, record).catch(console.error);
+    logActivity({ action: 'CREATE', module: 'classes', description: `Created class ${cls.name}`, targetId: id, targetName: cls.name }).catch(console.error);
   },
   updateClass: (id, updatedCls) => {
     set((state) => ({ classes: state.classes.map((c) => (c.id === id ? { ...c, ...updatedCls } : c)) }));
     updateDocument('classes', id, updatedCls as Record<string, unknown>).catch(console.error);
+    logActivity({ action: 'UPDATE', module: 'classes', description: `Updated class record`, targetId: id }).catch(console.error);
   },
   deleteClass: (id) => {
     set((state) => ({ classes: state.classes.filter((c) => c.id !== id) }));
     deleteDocument('classes', id).catch(console.error);
+    logActivity({ action: 'DELETE', module: 'classes', description: `Deleted class record`, targetId: id }).catch(console.error);
   },
 
   addFaculty: (faculty) => {
     const id = generateId();
     const record = { ...faculty, id };
     set((state) => ({ faculties: [...state.faculties, record] }));
-    addDocument('faculties', record).catch(console.error);
+    addDocumentWithId('faculties', id, record).catch(console.error);
+    logActivity({ action: 'CREATE', module: 'faculties', description: `Created faculty ${faculty.name}`, targetId: id, targetName: faculty.name }).catch(console.error);
   },
   updateFaculty: (id, updatedFaculty) => {
     set((state) => ({ faculties: state.faculties.map((f) => (f.id === id ? { ...f, ...updatedFaculty } : f)) }));
     updateDocument('faculties', id, updatedFaculty as Record<string, unknown>).catch(console.error);
+    logActivity({ action: 'UPDATE', module: 'faculties', description: `Updated faculty record`, targetId: id }).catch(console.error);
   },
   deleteFaculty: (id) => {
     set((state) => ({ faculties: state.faculties.filter((f) => f.id !== id) }));
     deleteDocument('faculties', id).catch(console.error);
+    logActivity({ action: 'DELETE', module: 'faculties', description: `Deleted faculty record`, targetId: id }).catch(console.error);
+  },
+
+  addDepartment: (dept) => {
+    const id = generateId();
+    const record = { ...dept, id };
+    set((state) => ({ departments: [...state.departments, record] }));
+    addDocumentWithId('departments', id, record).catch(console.error);
+    logActivity({ action: 'CREATE', module: 'departments', description: `Created department ${dept.name}`, targetId: id, targetName: dept.name }).catch(console.error);
+  },
+  updateDepartment: (id, updatedDept) => {
+    set((state) => ({ departments: state.departments.map((d) => (d.id === id ? { ...d, ...updatedDept } : d)) }));
+    updateDocument('departments', id, updatedDept as Record<string, unknown>).catch(console.error);
+    logActivity({ action: 'UPDATE', module: 'departments', description: `Updated department record`, targetId: id }).catch(console.error);
+  },
+  deleteDepartment: (id) => {
+    set((state) => ({ departments: state.departments.filter((d) => d.id !== id) }));
+    deleteDocument('departments', id).catch(console.error);
+    logActivity({ action: 'DELETE', module: 'departments', description: `Deleted department record`, targetId: id }).catch(console.error);
+  },
+
+  addAcademicSession: (session) => {
+    const id = generateId();
+    const record = { ...session, id };
+    set((state) => ({ academicSessions: [...state.academicSessions, record] }));
+    addDocumentWithId('academicSessions', id, record).catch(console.error);
+    logActivity({ action: 'CREATE', module: 'academicSessions', description: `Created academic session ${session.name}`, targetId: id, targetName: session.name }).catch(console.error);
+  },
+  updateAcademicSession: (id, updatedSession) => {
+    set((state) => ({ academicSessions: state.academicSessions.map((s) => (s.id === id ? { ...s, ...updatedSession } : s)) }));
+    updateDocument('academicSessions', id, updatedSession as Record<string, unknown>).catch(console.error);
+    logActivity({ action: 'UPDATE', module: 'academicSessions', description: `Updated academic session`, targetId: id }).catch(console.error);
+  },
+  deleteAcademicSession: (id) => {
+    set((state) => ({ academicSessions: state.academicSessions.filter((s) => s.id !== id) }));
+    deleteDocument('academicSessions', id).catch(console.error);
+    logActivity({ action: 'DELETE', module: 'academicSessions', description: `Deleted academic session`, targetId: id }).catch(console.error);
   },
 
   addSubject: (subject) => {
     const id = generateId();
     const record = { ...subject, id };
     set((state) => ({ subjects: [...state.subjects, record] }));
-    addDocument('subjects', record).catch(console.error);
+    addDocumentWithId('subjects', id, record).catch(console.error);
+    logActivity({ action: 'CREATE', module: 'subjects', description: `Created subject ${subject.name}`, targetId: id, targetName: subject.name }).catch(console.error);
   },
   updateSubject: (id, updatedSubject) => {
     set((state) => ({ subjects: state.subjects.map((s) => (s.id === id ? { ...s, ...updatedSubject } : s)) }));
     updateDocument('subjects', id, updatedSubject as Record<string, unknown>).catch(console.error);
+    logActivity({ action: 'UPDATE', module: 'subjects', description: `Updated subject record`, targetId: id }).catch(console.error);
   },
   deleteSubject: (id) => {
     set((state) => ({ subjects: state.subjects.filter((s) => s.id !== id) }));
     deleteDocument('subjects', id).catch(console.error);
+    logActivity({ action: 'DELETE', module: 'subjects', description: `Deleted subject record`, targetId: id }).catch(console.error);
   },
 
   updatePlan: (id, updatedPlan) => {
     set((state) => ({ plans: state.plans.map((p) => (p.id === id ? { ...p, ...updatedPlan } : p)) }));
+    updateDocument('plans', id, updatedPlan as Record<string, unknown>).catch(console.error);
+    logActivity({ action: 'UPDATE', module: 'plans', description: `Updated plan record`, targetId: id }).catch(console.error);
   },
 
   addExam: (exam) => {
     const id = generateId();
     const record = { ...exam, id };
     set((state) => ({ exams: [...state.exams, record] }));
-    addDocument('exams', record).catch(console.error);
+    addDocumentWithId('exams', id, record).catch(console.error);
+    logActivity({ action: 'CREATE', module: 'exams', description: `Created exam ${exam.title}`, targetId: id, targetName: exam.title }).catch(console.error);
   },
   updateExam: (id, updatedExam) => {
     set((state) => ({ exams: state.exams.map((e) => (e.id === id ? { ...e, ...updatedExam } : e)) }));
     updateDocument('exams', id, updatedExam as Record<string, unknown>).catch(console.error);
+    logActivity({ action: 'UPDATE', module: 'exams', description: `Updated exam record`, targetId: id }).catch(console.error);
   },
   deleteExam: (id) => {
     set((state) => ({ exams: state.exams.filter((e) => e.id !== id) }));
     deleteDocument('exams', id).catch(console.error);
+    logActivity({ action: 'DELETE', module: 'exams', description: `Deleted exam record`, targetId: id }).catch(console.error);
   },
 
   addExamResult: (result) => {
     const id = generateId();
     const record = { ...result, id };
     set((state) => ({ examResults: [...state.examResults, record] }));
-    addDocument('examResults', record).catch(console.error);
+    addDocumentWithId('examResults', id, record).catch(console.error);
+    logActivity({ action: 'CREATE', module: 'examResults', description: `Recorded result for ${result.studentName}`, targetId: id, targetName: result.studentName }).catch(console.error);
   },
   updateExamResult: (id, updated) => {
     set((state) => ({ examResults: state.examResults.map((r) => (r.id === id ? { ...r, ...updated } : r)) }));
     updateDocument('examResults', id, updated as Record<string, unknown>).catch(console.error);
+    logActivity({ action: 'UPDATE', module: 'examResults', description: `Updated exam result`, targetId: id }).catch(console.error);
   },
   deleteExamResult: (id) => {
     set((state) => ({ examResults: state.examResults.filter((r) => r.id !== id) }));
     deleteDocument('examResults', id).catch(console.error);
+    logActivity({ action: 'DELETE', module: 'examResults', description: `Deleted exam result`, targetId: id }).catch(console.error);
   },
 
   setExamTimetable: (timetable) => set({ examTimetable: timetable }),
@@ -1022,7 +1368,8 @@ export const useDataStore = create<DataState>()((set, get) => ({
     const id = generateId();
     const record = { ...entry, id };
     set((state) => ({ examTimetable: [...state.examTimetable, record] }));
-    addDocument('examTimetable', record).catch(console.error);
+    addDocumentWithId('examTimetable', id, record).catch(console.error);
+    logActivity({ action: 'CREATE', module: 'examTimetable', description: `Added exam timetable entry: ${entry.subject} (${entry.day})`, targetId: id, targetName: entry.subject }).catch(console.error);
   },
 
   markAttendance: (records) => {
@@ -1034,63 +1381,275 @@ export const useDataStore = create<DataState>()((set, get) => ({
       return { attendance: [...filteredAttendance, ...newRecords] };
     });
     newRecords.forEach((record) => {
-      addDocument('attendance', record).catch(console.error);
+      addDocumentWithId('attendance', record.id, record).catch(console.error);
     });
+    const present = records.filter((r) => r.status === 'Present').length;
+    const absent = records.filter((r) => r.status === 'Absent').length;
+    const late = records.filter((r) => r.status === 'Late').length;
+    const excused = records.filter((r) => r.status === 'Excused').length;
+    logActivity({ action: 'CREATE', module: 'attendance', description: `Marked attendance for ${records.length} ${records[0]?.type?.toLowerCase() || 'records'} (${present} present, ${absent} absent, ${late} late, ${excused} excused)` }).catch(console.error);
   },
 
   addExpense: (expense) => {
     const id = `EXP-${generateId()}`;
     const record = { ...expense, id };
     set((state) => ({ expenses: [...state.expenses, record] }));
-    addDocument('expenses', record).catch(console.error);
+    addDocumentWithId('expenses', id, record).catch(console.error);
+    logActivity({ action: 'CREATE', module: 'expenses', description: `Recorded expense: ${expense.title}`, targetId: id, targetName: expense.title }).catch(console.error);
   },
   updateExpense: (id, updatedExpense) => {
     set((state) => ({ expenses: state.expenses.map((e) => (e.id === id ? { ...e, ...updatedExpense } : e)) }));
     updateDocument('expenses', id, updatedExpense as Record<string, unknown>).catch(console.error);
+    logActivity({ action: 'UPDATE', module: 'expenses', description: `Updated expense record`, targetId: id }).catch(console.error);
   },
   deleteExpense: (id) => {
     set((state) => ({ expenses: state.expenses.filter((e) => e.id !== id) }));
     deleteDocument('expenses', id).catch(console.error);
+    logActivity({ action: 'DELETE', module: 'expenses', description: `Deleted expense record`, targetId: id }).catch(console.error);
   },
 
   addPayroll: (payroll) => {
     const id = `PAY-${generateId()}`;
     const record = { ...payroll, id };
     set((state) => ({ payroll: [...state.payroll, record] }));
-    addDocument('payroll', record).catch(console.error);
+    addDocumentWithId('payroll', id, record).catch(console.error);
+    logActivity({ action: 'CREATE', module: 'payroll', description: `Created payroll for ${payroll.staffName}`, targetId: id, targetName: payroll.staffName }).catch(console.error);
   },
   updatePayroll: (id, updatedPayroll) => {
     set((state) => ({ payroll: state.payroll.map((p) => (p.id === id ? { ...p, ...updatedPayroll } : p)) }));
     updateDocument('payroll', id, updatedPayroll as Record<string, unknown>).catch(console.error);
+    logActivity({ action: 'UPDATE', module: 'payroll', description: `Updated payroll record`, targetId: id }).catch(console.error);
   },
 
   addRegistrationConfig: (config) => {
     const id = `RC-${generateId()}`;
     const record = { ...config, id };
     set((state) => ({ registrationConfigs: [...state.registrationConfigs, record] }));
-    addDocument('registrationConfigs', record).catch(console.error);
+    addDocumentWithId('registrationConfigs', id, record).catch(console.error);
+    logActivity({ action: 'CREATE', module: 'registrationConfigs', description: `Created registration config`, targetId: id }).catch(console.error);
   },
   updateRegistrationConfig: (id, updated) => {
     set((state) => ({ registrationConfigs: state.registrationConfigs.map((c) => (c.id === id ? { ...c, ...updated } : c)) }));
     updateDocument('registrationConfigs', id, updated as Record<string, unknown>).catch(console.error);
+    logActivity({ action: 'UPDATE', module: 'registrationConfigs', description: `Updated registration config`, targetId: id }).catch(console.error);
   },
   deleteRegistrationConfig: (id) => {
     set((state) => ({ registrationConfigs: state.registrationConfigs.filter((c) => c.id !== id) }));
     deleteDocument('registrationConfigs', id).catch(console.error);
+    logActivity({ action: 'DELETE', module: 'registrationConfigs', description: `Deleted registration config`, targetId: id }).catch(console.error);
   },
 
   addAdmissionApplication: (app) => {
     const id = `ADM-${generateId()}`;
     const record = { ...app, id };
     set((state) => ({ admissionApplications: [...state.admissionApplications, record] }));
-    addDocument('admissionApplications', record).catch(console.error);
+    addDocumentWithId('admissionApplications', id, record).catch(console.error);
+    logActivity({ action: 'CREATE', module: 'admissions', description: `New admission application from ${app.surname || app.firstName || 'applicant'}`, targetId: id, targetName: `${app.surname || ''} ${app.firstName || ''}`.trim() }).catch(console.error);
   },
   updateAdmissionApplication: (id, updated) => {
-    set((state) => ({ admissionApplications: state.admissionApplications.map((a) => (a.id === id ? { ...a, ...updated } : a)) }));
-    updateDocument('admissionApplications', id, updated as Record<string, unknown>).catch(console.error);
+    set((state) => {
+      const existing = state.admissionApplications.find((a) => a.id === id);
+      updateDocument('admissionApplications', id, updated as Record<string, unknown>).catch(console.error);
+      logActivity({ action: 'UPDATE', module: 'admissions', description: `Updated admission application`, targetId: id }).catch(console.error);
+      if (existing && updated.applicationStatus && updated.applicationStatus !== existing.applicationStatus) {
+        const now = new Date().toLocaleString();
+        const nid = generateId();
+        const s = updated.applicationStatus;
+        const label = s === 'Approved' || s === 'Admitted' ? 'Accepted' : s === 'Rejected' ? 'Rejected' : s;
+        const notifType = s === 'Approved' || s === 'Admitted' ? 'success' as const : s === 'Rejected' ? 'error' as const : 'info' as const;
+        const notif = { id: nid, userId: existing.id, title: `Admission ${label}`, description: `Your admission application has been ${label.toLowerCase()}.`, time: now, read: false, type: notifType, link: '/admin/admissions' };
+        addDocumentWithId('notifications', nid, notif).catch(console.error);
+      }
+      return { admissionApplications: state.admissionApplications.map((a) => (a.id === id ? { ...a, ...updated } : a)) };
+    });
   },
   deleteAdmissionApplication: (id) => {
     set((state) => ({ admissionApplications: state.admissionApplications.filter((a) => a.id !== id) }));
     deleteDocument('admissionApplications', id).catch(console.error);
+    logActivity({ action: 'DELETE', module: 'admissions', description: `Deleted admission application`, targetId: id }).catch(console.error);
+  },
+
+  markNotificationRead: (id) => {
+    set((state) => ({
+      notifications: state.notifications.map((n) => (n.id === id ? { ...n, read: true } : n)),
+    }));
+    updateDocument('notifications', id, { read: true }).catch(console.error);
+  },
+
+  markAllNotificationsRead: () => {
+    const current = get();
+    set((state) => ({
+      notifications: state.notifications.map((n) => ({ ...n, read: true })),
+    }));
+    current.notifications.forEach((n) => {
+      if (!n.read) {
+        updateDocument('notifications', n.id, { read: true }).catch(console.error);
+      }
+    });
+    logActivity({ action: 'UPDATE', module: 'notifications', description: `Marked all notifications as read` }).catch(console.error);
+  },
+
+  addNotification: (notif) => {
+    const id = generateId();
+    const record = { ...notif, id };
+    set((state) => ({ notifications: [record, ...state.notifications] }));
+    addDocumentWithId('notifications', id, record).catch(console.error);
+  },
+
+  deleteNotification: (id) => {
+    set((state) => ({ notifications: state.notifications.filter((n) => n.id !== id) }));
+    deleteDocument('notifications', id).catch(console.error);
+  },
+
+  notifyUsers: (userIds, title, description, type, link) => {
+    const now = new Date().toLocaleString();
+    userIds.forEach((uid) => {
+      const id = generateId();
+      const record = { id, userId: uid, title, description, time: now, read: false, type, link };
+      addDocumentWithId('notifications', id, record).catch(console.error);
+    });
+  },
+
+  deletePlatformUser: (id) => {
+    set((state) => ({ platformUsers: state.platformUsers.filter((u) => u.id !== id) }));
+    deleteDocument('users', id).catch(console.error);
+    logActivity({ action: 'DELETE', module: 'platformUsers', description: `Deleted platform user`, targetId: id }).catch(console.error);
+  },
+
+  updatePlatformUser: (id, updates) => {
+    set((state) => ({ platformUsers: state.platformUsers.map((u) => (u.id === id ? { ...u, ...updates } : u)) }));
+    updateDocument('users', id, updates as Record<string, unknown>).catch(console.error);
+    logActivity({ action: 'UPDATE', module: 'platformUsers', description: `Updated platform user`, targetId: id }).catch(console.error);
+  },
+
+  addNotice: (notice) => {
+    const id = generateId();
+    const record = { ...notice, id };
+    set((state) => ({ notices: [record, ...state.notices] }));
+    addDocumentWithId('notices', id, record).catch(console.error);
+    logActivity({ action: 'CREATE', module: 'notices', description: `Posted notice: ${notice.title}`, targetId: id, targetName: notice.title }).catch(console.error);
+    // Notify all students, teachers, and parents
+    const state = get();
+    const userIds = [
+      ...state.students.map((s) => s.id),
+      ...state.teachers.map((t) => t.id),
+      ...state.parents.map((p) => p.id),
+    ].filter(Boolean);
+    if (userIds.length > 0) {
+      const now = new Date().toLocaleString();
+      userIds.forEach((uid) => {
+        const nid = generateId();
+        const record = { id: nid, userId: uid, title: `New Notice: ${notice.title}`, description: notice.content.slice(0, 100) + (notice.content.length > 100 ? '...' : ''), time: now, read: false, type: notice.priority === 'High' ? 'warning' as const : 'info' as const, link: '/admin/notices' };
+        addDocumentWithId('notifications', nid, record).catch(console.error);
+      });
+    }
+  },
+  updateNotice: (id, updatedNotice) => {
+    set((state) => ({ notices: state.notices.map((n) => (n.id === id ? { ...n, ...updatedNotice } : n)) }));
+    updateDocument('notices', id, updatedNotice as Record<string, unknown>).catch(console.error);
+    logActivity({ action: 'UPDATE', module: 'notices', description: `Updated notice`, targetId: id }).catch(console.error);
+  },
+  deleteNotice: (id) => {
+    set((state) => ({ notices: state.notices.filter((n) => n.id !== id) }));
+    deleteDocument('notices', id).catch(console.error);
+    logActivity({ action: 'DELETE', module: 'notices', description: `Deleted notice`, targetId: id }).catch(console.error);
+  },
+
+  addTimetableEntry: (entry) => {
+    const id = generateId();
+    const record = { ...entry, id };
+    set((state) => ({ timetable: [...state.timetable, record] }));
+    addDocumentWithId('timetable', id, record).catch(console.error);
+    logActivity({ action: 'CREATE', module: 'timetable', description: `Added timetable entry for ${entry.subject || 'class'}`, targetId: id }).catch(console.error);
+  },
+  updateTimetableEntry: (id, updatedEntry) => {
+    set((state) => ({ timetable: state.timetable.map((t) => (t.id === id ? { ...t, ...updatedEntry } : t)) }));
+    updateDocument('timetable', id, updatedEntry as Record<string, unknown>).catch(console.error);
+    logActivity({ action: 'UPDATE', module: 'timetable', description: `Updated timetable entry`, targetId: id }).catch(console.error);
+  },
+  deleteTimetableEntry: (id) => {
+    set((state) => ({ timetable: state.timetable.filter((t) => t.id !== id) }));
+    deleteDocument('timetable', id).catch(console.error);
+    logActivity({ action: 'DELETE', module: 'timetable', description: `Deleted timetable entry`, targetId: id }).catch(console.error);
+  },
+
+  // Activity Log Actions
+  requestLogDeletion: (id) => {
+    const user = useAuthStore.getState().user;
+    if (!user) return;
+    const now = new Date().toISOString();
+    set((state) => ({
+      activityLogs: state.activityLogs.map((log) =>
+        log.id === id
+          ? { ...log, deletionRequested: true, deletionRequestedBy: user.id, deletionRequestedByName: user.name, deletionRequestedAt: now }
+          : log,
+      ),
+    }));
+    updateDocument('activityLogs', id, {
+      deletionRequested: true,
+      deletionRequestedBy: user.id,
+      deletionRequestedByName: user.name,
+      deletionRequestedAt: now,
+    }).catch(console.error);
+  },
+
+  approveLogDeletion: (id) => {
+    const user = useAuthStore.getState().user;
+    if (!user) return;
+    const now = new Date().toISOString();
+    set((state) => ({
+      activityLogs: state.activityLogs.filter((log) => log.id !== id),
+    }));
+    deleteDocument('activityLogs', id).catch(console.error);
+  },
+
+  rejectLogDeletion: (id, reason) => {
+    const user = useAuthStore.getState().user;
+    if (!user) return;
+    const now = new Date().toISOString();
+    set((state) => ({
+      activityLogs: state.activityLogs.map((log) =>
+        log.id === id
+          ? { ...log, deletionRejected: true, deletionRejectedBy: user.id, deletionRejectedAt: now, deletionRejectionReason: reason }
+          : log,
+      ),
+    }));
+    updateDocument('activityLogs', id, {
+      deletionRejected: true,
+      deletionRejectedBy: user.id,
+      deletionRejectedAt: now,
+      deletionRejectionReason: reason,
+    }).catch(console.error);
+  },
+
+  purgeOldLogs: async () => {
+    const twelveMonthsAgo = new Date();
+    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+    const cutoff = twelveMonthsAgo.getTime();
+    const isOld = (log: ActivityLog) => {
+      const v = log.createdAt;
+      if (typeof v === 'string') {
+        const t = new Date(v).getTime();
+        return !Number.isNaN(t) && t < cutoff;
+      }
+      if (v && typeof v === 'object') {
+        const obj = v as { toMillis?: () => number; seconds?: number };
+        if (typeof obj.toMillis === 'function') return obj.toMillis() < cutoff;
+        if (typeof obj.seconds === 'number') return obj.seconds * 1000 < cutoff;
+      }
+      return false;
+    };
+    let count = 0;
+    set((state) => ({
+      activityLogs: state.activityLogs.filter((log) => {
+        if (isOld(log)) {
+          count++;
+          deleteDocument('activityLogs', log.id).catch(console.error);
+          return false;
+        }
+        return true;
+      }),
+    }));
+    return count;
   },
 }));

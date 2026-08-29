@@ -13,13 +13,7 @@ interface Room {
   status: 'Available' | 'Full' | 'Maintenance';
 }
 
-const INITIAL_ROOMS: Room[] = [
-  { id: '1', roomNo: '101', hostel: 'Maple Hostel', type: 'Double', capacity: 2, occupied: 2, status: 'Full' },
-  { id: '2', roomNo: '102', hostel: 'Maple Hostel', type: 'Double', capacity: 2, occupied: 1, status: 'Available' },
-  { id: '3', roomNo: '201', hostel: 'Oak Hostel', type: 'Single', capacity: 1, occupied: 0, status: 'Available' },
-  { id: '4', roomNo: '305', hostel: 'Pine Hostel', type: 'Quad', capacity: 4, occupied: 4, status: 'Full' },
-  { id: '5', roomNo: '110', hostel: 'Cedar Hostel', type: 'Triple', capacity: 3, occupied: 0, status: 'Maintenance' },
-];
+const INITIAL_ROOMS: Room[] = [];
 
 export default function RoomsManagement() {
   const [rooms, setRooms] = useState<Room[]>(INITIAL_ROOMS);
@@ -29,7 +23,7 @@ export default function RoomsManagement() {
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     roomNo: '',
-    hostel: 'Maple Hostel',
+    hostel: '',
     type: 'Double' as Room['type'],
     capacity: 2,
     occupied: 0,

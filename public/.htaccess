@@ -1,8 +1,15 @@
 RewriteEngine On
+RewriteBase /
 
-# Handle requests that don't match existing files or directories
+# Handle assets (CSS, JS, images)
+RewriteRule ^assets/ - [L]
+
+# Handle favicon
+RewriteRule ^favicon\.svg$ - [L]
+
+# Serve existing files/directories
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 
-# Rewrite everything else to index.html for SPA routing
-RewriteRule ^ index.html [QSA,L]
+# All other routes -> index.html (SPA)
+RewriteRule ^ index.html [L]

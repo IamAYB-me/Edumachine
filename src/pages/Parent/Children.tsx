@@ -5,9 +5,16 @@ import { GraduationCap, BookOpen, Calendar, Award, User, ChevronRight, X, BadgeC
 import { cn } from '@/utils';
 import { useLocation } from 'react-router-dom';
 import { useToastStore } from '@/store/useToastStore';
+import { useAuthStore } from '@/store/useAuthStore';
+import { useCurrency } from '@/hooks/useCurrency';
+import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
 
 export default function MyChildren() {
-  const { students } = useDataStore();
+  const { students, schools } = useDataStore();
+  const user = useAuthStore((state) => state.user);
+  const { format } = useCurrency();
+  const schoolProfile = resolveSchoolProfile(user, schools);
+  const labels = getPortalLevelLabels(schoolProfile.portalLevel ?? 'Secondary');
   const location = useLocation();
   const showToast = useToastStore((state) => state.showToast);
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
@@ -120,7 +127,7 @@ export default function MyChildren() {
                   <div className="rounded-3xl border border-slate-200 p-5 dark:border-slate-800">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Fees Balance</p>
                     <p className="mt-2 text-3xl font-black text-rose-600">
-                      {selectedChild.id === '4' ? '$120' : '$0'}
+                      {selectedChild.id === '4' ? format(120) : format(0)}
                     </p>
                   </div>
                   {[
@@ -192,7 +199,7 @@ export default function MyChildren() {
                     iconColorClass="text-purple-600"
                   />
                   <KPICard 
-                    title="Subjects" 
+                    title={labels.subjectPlural} 
                     value="8" 
                     icon={BookOpen}
                     iconBgClass="bg-amber-50"

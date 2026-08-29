@@ -64,7 +64,8 @@ export default function HREmployees() {
         email: item.email || item.Email || '',
         phone: item.phone || item.Phone || '',
         status: (item.status || item.Status || 'Active') as 'Active' | 'Inactive',
-        joinDate: item.joinDate || item['Join Date'] || new Date().toISOString().split('T')[0]
+        joinDate: item.joinDate || item['Join Date'] || new Date().toISOString().split('T')[0],
+        password: item.Password || item.password || ''
       });
     });
     showToast({
@@ -171,7 +172,7 @@ export default function HREmployees() {
           <ExcelImport 
             onImport={handleImport} 
             templateName="Staff" 
-            expectedKeys={['name', 'role', 'email', 'phone', 'status', 'joinDate']} 
+            expectedKeys={['name', 'role', 'email', 'phone', 'status', 'joinDate', 'Password']} 
           />
           <button 
             onClick={() => handleOpenModal()}

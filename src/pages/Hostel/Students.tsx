@@ -4,9 +4,14 @@ import { cn } from '@/utils';
 import { KPICard } from '@/components/ui/KPICard';
 import { useDataStore } from '@/store/useDataStore';
 import { useToastStore } from '@/store/useToastStore';
+import { useAuthStore } from '@/store/useAuthStore';
+import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
 
 export default function WardenStudents() {
-  const { students } = useDataStore();
+  const { students, schools } = useDataStore();
+  const user = useAuthStore((state) => state.user);
+  const schoolProfile = resolveSchoolProfile(user, schools);
+  const labels = getPortalLevelLabels(schoolProfile.portalLevel);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBlock, setSelectedBlock] = useState<'All Blocks' | 'Block A' | 'Block B' | 'Block C'>('All Blocks');
   const showToast = useToastStore((state) => state.showToast);
@@ -73,7 +78,7 @@ export default function WardenStudents() {
 
   const handleViewStudent = (studentName: string, room: string, feesStatus: string) => {
     showToast({
-      title: 'Student profile',
+      title: `${labels.learnerSingular} profile`,
       description: `Viewing detailed profile for ${studentName}.`,
       variant: 'info',
     });
@@ -84,7 +89,7 @@ export default function WardenStudents() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Hostel Residents</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Manage student boarding records and safety status.</p>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Manage {labels.learnerSingular.toLowerCase()} boarding records and safety status.</p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -156,7 +161,7 @@ export default function WardenStudents() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                <th className="py-4 px-6">Student Name</th>
+                <th className="py-4 px-6">{labels.learnerSingular} Name</th>
                 <th className="py-4 px-6">Class</th>
                 <th className="py-4 px-6">Room / Block</th>
                 <th className="py-4 px-6">Fee Status</th>

@@ -16,12 +16,7 @@ type StudentAssignment = {
   grade?: string;
 };
 
-const initialAssignments: StudentAssignment[] = [
-  { id: 'ASG-001', title: 'Binary Trees Implementation', course: 'Data Structures', dueDate: '2025-10-30', status: 'Pending', points: '100', difficulty: 'Hard' },
-  { id: 'ASG-002', title: 'SQL Query Optimization', course: 'Database Systems', dueDate: '2025-10-28', status: 'Submitted', points: '50', difficulty: 'Medium', submittedDate: '2025-10-24' },
-  { id: 'ASG-004', title: 'Network Protocol Simulation', course: 'Computer Networks', dueDate: '2025-10-20', status: 'Graded', points: '100', grade: '95/100', difficulty: 'Hard' },
-  { id: 'ASG-005', title: 'Process Scheduling Lab', course: 'Operating Systems', dueDate: '2025-11-02', status: 'Active', points: '75', difficulty: 'Medium' },
-];
+const initialAssignments: StudentAssignment[] = [];
 
 export default function StudentAssignments() {
   const showToast = useToastStore((state) => state.showToast);
@@ -225,19 +220,19 @@ export default function StudentAssignments() {
           <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl relative overflow-hidden">
             <div className="relative z-10">
               <h3 className="text-lg font-bold mb-2">Upcoming Deadline</h3>
-              <p className="text-slate-400 text-sm mb-6">Binary Trees Implementation</p>
+              <p className="text-slate-400 text-sm mb-6">No pending assignments</p>
               
               <div className="grid grid-cols-3 gap-4 mb-6">
                 <div className="text-center">
-                  <div className="text-2xl font-bold">02</div>
+                  <div className="text-2xl font-bold">00</div>
                   <div className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Days</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold">14</div>
+                  <div className="text-2xl font-bold">00</div>
                   <div className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Hours</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold">35</div>
+                  <div className="text-2xl font-bold">00</div>
                   <div className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Mins</div>
                 </div>
               </div>
@@ -253,23 +248,7 @@ export default function StudentAssignments() {
           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
             <h3 className="text-lg font-semibold text-slate-900 mb-4">Resources</h3>
             <div className="space-y-3">
-              {[
-                { name: 'Assignment Guidelines.pdf', size: '1.2 MB' },
-                { name: 'Template Project.zip', size: '4.5 MB' },
-                { name: 'Reference Papers.pdf', size: '8.4 MB' },
-              ].map((res, i) => (
-                <div key={i} onClick={() => { const blob = new Blob(['Demo file content'], { type: 'application/octet-stream' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = res.name; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); showToast({ title: 'Download started', description: `${res.name} (${res.size}) is being downloaded.`, variant: 'success' }); }} className="flex items-center justify-between p-3 border border-slate-100 rounded-lg group cursor-pointer hover:border-blue-200 hover:bg-blue-50/30 transition-all">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-slate-50 text-slate-400 group-hover:text-blue-600 group-hover:bg-blue-50 rounded-lg transition-colors">
-                      <Download className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-slate-700 group-hover:text-slate-900 transition-colors">{res.name}</p>
-                      <p className="text-[10px] text-slate-400">{res.size}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
+              <p className="text-sm text-slate-400 text-center py-4">No resources available</p>
             </div>
           </div>
         </div>

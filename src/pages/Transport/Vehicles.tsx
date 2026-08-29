@@ -18,12 +18,7 @@ export default function TransportVehicles() {
   });
   const showToast = useToastStore((state) => state.showToast);
 
-  const [vehicles, setVehicles] = useState([
-    { id: 'BUS-001', name: 'School Bus 01', plate: 'ABC-123-XY', driver: 'Robert Brown', status: 'Active', fuel: '75%', nextService: '2026-08-15' },
-    { id: 'BUS-002', name: 'School Bus 02', plate: 'XYZ-789-AB', driver: 'Sarah Jenkins', status: 'Active', fuel: '40%', nextService: '2026-08-20' },
-    { id: 'BUS-003', name: 'Mini Van 01', plate: 'LMN-456-CD', driver: 'Mike Tyson', status: 'Maintenance', fuel: '10%', nextService: '2026-07-10' },
-    { id: 'BUS-004', name: 'Staff Bus 01', plate: 'PQR-321-EF', driver: 'John Wick', status: 'Active', fuel: '90%', nextService: '2026-09-01' },
-  ]);
+  const [vehicles, setVehicles] = useState([]);
 
   const filteredVehicles = vehicles.filter((vehicle) => {
     const matchesSearch =

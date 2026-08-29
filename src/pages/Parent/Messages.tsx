@@ -19,43 +19,7 @@ interface Chat {
   messages: ChatMessage[];
 }
 
-const initialChats: Chat[] = [
-  {
-    id: 1,
-    name: 'Dr. Emily Carter',
-    role: 'Mathematics Teacher',
-    lastMsg: 'Emma is doing great in her recent quiz!',
-    time: '10:30 AM',
-    unread: true,
-    messages: [
-      { id: '1', sender: 'teacher', text: 'Hello Mrs. Johnson! I wanted to let you know that Emma scored 18/20 in her Mathematics quiz today. She\'s showing great improvement in Algebra.', time: '10:25 AM' },
-      { id: '2', sender: 'parent', text: "That's wonderful news! Thank you for the update, Dr. Carter. She has been studying very hard at home.", time: '10:30 AM' },
-      { id: '3', sender: 'teacher', text: 'Emma is doing great in her recent quiz!', time: '10:32 AM' },
-    ],
-  },
-  {
-    id: 2,
-    name: 'School Admin',
-    role: 'Administration',
-    lastMsg: 'The new school calendar is out.',
-    time: 'Yesterday',
-    unread: false,
-    messages: [
-      { id: '1', sender: 'teacher', text: 'The new school calendar is out. Please check the parent portal for important dates.', time: 'Yesterday' },
-    ],
-  },
-  {
-    id: 3,
-    name: 'Hostel Warden',
-    role: 'Residential Life',
-    lastMsg: 'Liam has settled in well for the term.',
-    time: '2 days ago',
-    unread: false,
-    messages: [
-      { id: '1', sender: 'teacher', text: 'Liam has settled in well for the term. He is participating in all activities.', time: '2 days ago' },
-    ],
-  },
-];
+const initialChats: Chat[] = [];
 
 export default function ParentMessages() {
   const [chats] = useState<Chat[]>(initialChats);

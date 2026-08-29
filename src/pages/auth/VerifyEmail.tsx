@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { GraduationCap, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { applyActionCode } from 'firebase/auth';
 import { auth } from '@/config/firebase';
@@ -10,6 +10,7 @@ type VerifyState = 'loading' | 'success' | 'error';
 export default function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
   const { globalSettings } = useSettingsStore();
+  const navigate = useNavigate();
   const [state, setState] = useState<VerifyState>('loading');
   const [errorMessage, setErrorMessage] = useState('');
   const hasVerified = useRef(false);
@@ -28,6 +29,7 @@ export default function VerifyEmailPage() {
     applyActionCode(auth, oobCode)
       .then(() => {
         setState('success');
+        setTimeout(() => navigate('/login'), 4000);
       })
       .catch((error: { message?: string }) => {
         setState('error');
@@ -67,7 +69,7 @@ export default function VerifyEmailPage() {
               </div>
               <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Email Verified!</h2>
               <p className="text-sm text-slate-500 dark:text-slate-400 mb-8">
-                Your email has been successfully verified. You can now sign in to your account.
+                Your email has been successfully verified. Redirecting to sign in...
               </p>
               <Link
                 to="/login"

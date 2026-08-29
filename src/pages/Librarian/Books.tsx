@@ -14,13 +14,7 @@ interface BookItem {
   status: 'In Stock' | 'Low Stock' | 'Out of Stock';
 }
 
-const INITIAL_BOOKS: BookItem[] = [
-  { id: '1', title: 'Advanced Mathematics', author: 'Dr. John Doe', isbn: '978-3-16-148410-0', category: 'Science', copies: 10, available: 8, status: 'In Stock' },
-  { id: '2', title: 'Modern World History', author: 'Jane Smith', isbn: '978-1-23-456789-0', category: 'History', copies: 5, available: 1, status: 'Low Stock' },
-  { id: '3', title: 'English Literature Vol 1', author: 'William Shakespeare', isbn: '978-0-98-765432-1', category: 'Literature', copies: 15, available: 15, status: 'In Stock' },
-  { id: '4', title: 'Physics for Beginners', author: 'Albert Einstein', isbn: '978-5-43-210987-6', category: 'Science', copies: 3, available: 0, status: 'Out of Stock' },
-  { id: '5', title: 'Introduction to Psychology', author: 'Sigmund Freud', isbn: '978-8-76-543210-9', category: 'Social Science', copies: 8, available: 5, status: 'In Stock' },
-];
+const INITIAL_BOOKS: BookItem[] = [];
 
 export default function BooksCatalog() {
   const [books, setBooks] = useState<BookItem[]>(INITIAL_BOOKS);

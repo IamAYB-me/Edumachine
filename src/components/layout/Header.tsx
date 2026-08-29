@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, Search, Menu, Moon, Sun, X } from 'lucide-react';
+import { Bell, Search, Menu, Moon, Sun, X, CheckCheck, LogOut } from 'lucide-react';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useDataStore } from '@/store/useDataStore';
 import { Link, useNavigate } from 'react-router-dom';
 
 interface HeaderProps {
@@ -13,22 +14,23 @@ interface HeaderProps {
 }
 
 const currencies = [
+  { code: 'NGN', symbol: '₦' },
   { code: 'USD', symbol: '$' },
   { code: 'EUR', symbol: '€' },
   { code: 'GBP', symbol: '£' },
-  { code: 'NGN', symbol: '₦' },
-];
-
-const mockNotifications = [
-  { id: '1', title: 'New student enrolled', description: 'Adeola Ogunlami has been registered.', time: '2 min ago', read: false },
-  { id: '2', title: 'Fee payment received', description: '₦120,000 payment from John Obi.', time: '15 min ago', read: false },
-  { id: '3', title: 'Exam schedule published', description: 'Mid-term exam timetable is now live.', time: '1 hr ago', read: true },
-  { id: '4', title: 'Teacher on leave', description: 'Mrs. Balogun requested sick leave.', time: '3 hrs ago', read: true },
+  { code: 'GHS', symbol: 'GH₵' },
+  { code: 'KES', symbol: 'KSh' },
+  { code: 'ZAR', symbol: 'R' },
+  { code: 'JPY', symbol: '¥' },
 ];
 
 export default function Header({ userName, userRole, schoolName, avatarUrl, onMenuToggle }: HeaderProps) {
   const { theme, toggleTheme, currency, setCurrency, globalSettings } = useSettingsStore();
   const { user } = useAuthStore();
+  const logout = useAuthStore((state) => state.logout);
+  const notifications = useDataStore((s) => s.notifications);
+  const markNotificationRead = useDataStore((s) => s.markNotificationRead);
+  const markAllNotificationsRead = useDataStore((s) => s.markAllNotificationsRead);
   const navigate = useNavigate();
   const [searchValue, setSearchValue] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
@@ -36,7 +38,7 @@ export default function Header({ userName, userRole, schoolName, avatarUrl, onMe
 
   const showCurrencySwitcher = user && ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT', 'PARENT', 'STUDENT', 'WARDEN'].includes(user.role);
   const displayName = user?.role === 'SUPER_ADMIN' ? globalSettings.appName : schoolName;
-  const unreadCount = mockNotifications.filter((n) => !n.read).length;
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -146,27 +148,56 @@ export default function Header({ userName, userRole, schoolName, avatarUrl, onMe
             <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden z-50">
               <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">Notifications</h3>
-                <button onClick={() => setShowNotifications(false)} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
-                  <X className="w-4 h-4 text-slate-400" />
-                </button>
+                <div className="flex items-center gap-1">
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={() => markAllNotificationsRead()}
+                      className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-blue-600 dark:text-blue-400"
+                      title="Mark all as read"
+                    >
+                      <CheckCheck className="w-4 h-4" />
+                    </button>
+                  )}
+                  <button onClick={() => setShowNotifications(false)} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
+                    <X className="w-4 h-4 text-slate-400" />
+                  </button>
+                </div>
               </div>
               <div className="max-h-80 overflow-y-auto">
-                {mockNotifications.map((notif) => (
-                  <div key={notif.id} className={`px-4 py-3 border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${!notif.read ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
-                    <div className="flex items-start gap-3">
-                      {!notif.read && <div className="w-2 h-2 rounded-full bg-blue-600 mt-1.5 flex-shrink-0" />}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-slate-900 dark:text-white">{notif.title}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">{notif.description}</p>
-                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">{notif.time}</p>
+                {notifications.length === 0 ? (
+                  <div className="px-4 py-8 text-center">
+                    <p className="text-sm text-slate-400 dark:text-slate-500">No notifications yet</p>
+                  </div>
+                ) : (
+                  notifications.slice(0, 20).map((notif) => (
+                    <div
+                      key={notif.id}
+                      onClick={() => !notif.read && markNotificationRead(notif.id)}
+                      className={`px-4 py-3 border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer ${!notif.read ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
+                    >
+                      <div className="flex items-start gap-3">
+                        {!notif.read && <div className="w-2 h-2 rounded-full bg-blue-600 mt-1.5 flex-shrink-0" />}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-slate-900 dark:text-white">{notif.title}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">{notif.description}</p>
+                          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">{notif.time}</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           )}
         </div>
+
+        <button
+          onClick={logout}
+          className="lg:hidden p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+          title="Logout"
+        >
+          <LogOut className="w-5 h-5" />
+        </button>
 
         <Link
           to="/profile"

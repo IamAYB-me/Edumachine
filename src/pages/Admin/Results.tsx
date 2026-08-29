@@ -31,9 +31,9 @@ export default function ResultSheet() {
 
   const stats = {
     totalResults: roleResults.length,
-    avgPercentage: Math.round(roleResults.reduce((acc, r) => acc + (r.score / r.totalMarks * 100), 0) / (roleResults.length || 1)),
-    passed: roleResults.filter(r => (r.score / r.totalMarks) >= 0.5).length,
-    distinctions: roleResults.filter(r => (r.score / r.totalMarks) >= 0.8).length
+    avgPercentage: Math.round(roleResults.reduce((acc, r) => acc + (r.totalMarks > 0 ? (r.score / r.totalMarks * 100) : 0), 0) / (roleResults.length || 1)),
+    passed: roleResults.filter(r => r.totalMarks > 0 && (r.score / r.totalMarks) >= 0.5).length,
+    distinctions: roleResults.filter(r => r.totalMarks > 0 && (r.score / r.totalMarks) >= 0.8).length
   };
 
   const uniqueSubjects = [...new Set(roleResults.map(r => r.subject).filter(Boolean))];
@@ -51,6 +51,7 @@ export default function ResultSheet() {
   });
 
   const getGrade = (score: number, total: number) => {
+    if (!total || total <= 0) return { label: 'N/A', color: 'text-slate-400', bg: 'bg-slate-50' };
     const percentage = (score / total) * 100;
     if (percentage >= 80) return { label: 'A', color: 'text-emerald-600', bg: 'bg-emerald-50' };
     if (percentage >= 70) return { label: 'B', color: 'text-blue-600', bg: 'bg-blue-50' };
@@ -65,9 +66,10 @@ export default function ResultSheet() {
     const index = sorted.findIndex(r => r.score === score);
     const pos = index + 1;
     
-    if (pos === 1) return '1st';
-    if (pos === 2) return '2nd';
-    if (pos === 3) return '3rd';
+    if (pos % 100 >= 11 && pos % 100 <= 13) return `${pos}th`;
+    if (pos % 10 === 1) return `${pos}st`;
+    if (pos % 10 === 2) return `${pos}nd`;
+    if (pos % 10 === 3) return `${pos}rd`;
     return `${pos}th`;
   };
 
@@ -77,7 +79,7 @@ export default function ResultSheet() {
 
   const handleExportCsv = () => {
     const csvRows = [
-      ['Student Name', 'Reg No', 'Exam', 'Subject', 'Type', 'Score', 'Total Marks', 'Percentage', 'Grade', 'Date'],
+      ['Student Name', 'Reg No', 'Exam', labels.subjectSingular, 'Type', 'Score', 'Total Marks', 'Percentage', 'Grade', 'Date'],
       ...filteredResults.map((result) => {
         const percentage = Math.round((result.score / result.totalMarks) * 100);
         const grade = getGrade(result.score, result.totalMarks).label;
@@ -358,18 +360,18 @@ export default function ResultSheet() {
         <div className="grid gap-4 border-t border-slate-200 px-6 py-6 md:grid-cols-3 print:px-0">
           {[
             {
-              label: schoolProfile.portalLevel === 'Primary' || schoolProfile.portalLevel === 'Secondary' ? 'Class Teacher' : 'Course Adviser',
-              name: schoolProfile.teacherSignatoryName || 'Teacher Signatory',
+              label: labels.teacherSignatoryLabel,
+              name: schoolProfile.teacherSignatoryName || `${labels.teacherSingular} Signatory`,
               signatureUrl: schoolProfile.teacherSignatureUrl,
             },
             {
-              label: schoolProfile.portalLevel === 'Primary' ? 'Head Teacher' : schoolProfile.portalLevel === 'Secondary' ? 'Head of Department' : 'Dean / Head of Department',
+              label: labels.hodSignatoryLabel,
               name: schoolProfile.hodSignatoryName || 'HOD Signatory',
               signatureUrl: schoolProfile.hodSignatureUrl,
             },
             {
-              label: schoolProfile.portalLevel === 'University' ? 'Registrar / Provost' : schoolProfile.portalLevel === 'College' ? 'Rector / Provost' : 'Principal',
-              name: schoolProfile.principalSignatoryName || 'Principal Signatory',
+              label: labels.headSignatoryLabel,
+              name: schoolProfile.principalSignatoryName || `${labels.headSignatoryLabel} Signatory`,
               signatureUrl: schoolProfile.principalSignatureUrl,
             },
           ].map((signatory) => (

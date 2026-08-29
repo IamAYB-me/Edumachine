@@ -140,6 +140,15 @@ dist
 
 # Build output
 dist/
+dist.zip
+dist-fresh.zip
+
+# Firebase local cache
+.firebase/
+
+# Firebase functions env files (keep tracked placeholder)
+functions/.env.*
+!functions/.env.example
 
 # Embedded git repo clone
 Edumachine/

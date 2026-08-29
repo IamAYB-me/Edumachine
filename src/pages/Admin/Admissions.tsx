@@ -9,13 +9,19 @@ import { useDataStore, AdmissionApplication } from '@/store/useDataStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useToastStore } from '@/store/useToastStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { useCurrency } from '@/hooks/useCurrency';
 import { KPICard } from '@/components/ui/KPICard';
+import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
 
 export default function AdmissionsManagement() {
-  const { admissionApplications, updateAdmissionApplication, deleteAdmissionApplication, addStudent } = useDataStore();
+  const { admissionApplications, updateAdmissionApplication, deleteAdmissionApplication, addStudent, schools } = useDataStore();
   const user = useAuthStore((state) => state.user);
   const showToast = useToastStore((state) => state.showToast);
   const { globalSettings, updateGlobalSettings } = useSettingsStore();
+  const { format } = useCurrency();
+
+  const schoolProfile = resolveSchoolProfile(user ?? null, schools);
+  const labels = getPortalLevelLabels(schoolProfile.portalLevel);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -24,6 +30,7 @@ export default function AdmissionsManagement() {
   const [showSettings, setShowSettings] = useState(false);
   const [editingFee, setEditingFee] = useState(String(globalSettings.admissionFee || 5000));
   const [editingPrefix, setEditingPrefix] = useState(globalSettings.admissionFormPrefix || 'EMS');
+  const [editingSequence, setEditingSequence] = useState(String(globalSettings.admissionFormNextSequence || 1));
   const [copiedLink, setCopiedLink] = useState(false);
 
   const filtered = useMemo(() => {
@@ -36,7 +43,7 @@ export default function AdmissionsManagement() {
       result = result.filter((a) =>
         `${a.surname} ${a.firstName}`.toLowerCase().includes(t) ||
         a.email.toLowerCase().includes(t) ||
-        a.classApplyingFor.toLowerCase().includes(t) ||
+        (a.courseOfStudy || '').toLowerCase().includes(t) ||
         (a.applicationFormNumber || '').toLowerCase().includes(t)
       );
     }
@@ -74,7 +81,7 @@ export default function AdmissionsManagement() {
       email: app.email,
       regNo: 'REG-' + Date.now().toString(36).toUpperCase(),
       admissionNumber: '',
-      class: app.classApplyingFor,
+      class: app.courseOfStudy || '',
       parentName: app.sponsorFullName || app.parentName || '',
       status: 'Active',
       phone: app.phone,
@@ -94,7 +101,7 @@ export default function AdmissionsManagement() {
       sponsorPhone: app.sponsorPhone,
     });
     updateAdmissionApplication(app.id, { applicationStatus: 'Admitted' });
-    showToast({ title: 'Student admitted', description: `${app.surname} ${app.firstName} has been added to the student directory.`, variant: 'success' });
+    showToast({ title: `${labels.learnerSingular} admitted`, description: `${app.surname} ${app.firstName} has been added to the ${labels.learnerPlural.toLowerCase()} directory.`, variant: 'success' });
     setSelectedApp(null);
     setAdmitting(false);
   };
@@ -107,7 +114,7 @@ export default function AdmissionsManagement() {
   );
 
   const publicAdmissionUrl = `${window.location.origin}/admissions/apply`;
-  const previewFormNumber = `${editingPrefix.toUpperCase()}/${new Date().getFullYear()}/${String(globalSettings.admissionFormNextSequence || 1).padStart(4, '0')}`;
+  const previewFormNumber = `${editingPrefix.toUpperCase()}/${new Date().getFullYear()}/${String(parseInt(editingSequence) || 1).padStart(4, '0')}`;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(publicAdmissionUrl);
@@ -127,7 +134,12 @@ export default function AdmissionsManagement() {
       showToast({ title: 'Please enter a form prefix', variant: 'warning' });
       return;
     }
-    updateGlobalSettings({ admissionFee: fee, admissionFormPrefix: prefix.toUpperCase() });
+    const seq = parseInt(editingSequence, 10);
+    if (isNaN(seq) || seq < 1) {
+      showToast({ title: 'Please enter a valid starting sequence number', variant: 'warning' });
+      return;
+    }
+    updateGlobalSettings({ admissionFee: fee, admissionFormPrefix: prefix.toUpperCase(), admissionFormNextSequence: seq });
     showToast({ title: 'Admission form settings saved', variant: 'success' });
   };
 
@@ -199,6 +211,37 @@ export default function AdmissionsManagement() {
                   </button>
                 </div>
                 <p className="text-[11px] text-slate-400">Share this link — no login required.</p>
+                {/* Admissions Toggle */}
+                <div className="flex items-center gap-3 mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                  <button
+                    onClick={() => updateGlobalSettings({ admissionsEnabled: !globalSettings.admissionsEnabled })}
+                    className={cn(
+                      "relative w-11 h-6 rounded-full transition-colors flex-shrink-0",
+                      globalSettings.admissionsEnabled ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-600"
+                    )}
+                  >
+                    <div className={cn(
+                      "absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform",
+                      globalSettings.admissionsEnabled ? "translate-x-[22px]" : "translate-x-0.5"
+                    )} />
+                  </button>
+                  <div>
+                    <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                      {globalSettings.admissionsEnabled ? 'Admissions Active' : 'Admissions Closed'}
+                    </span>
+                    <span className={cn(
+                      "ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold",
+                      globalSettings.admissionsEnabled
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                        : "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
+                    )}>
+                      {globalSettings.admissionsEnabled ? 'ON' : 'OFF'}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  {globalSettings.admissionsEnabled ? 'Public can access the apply link.' : 'Public apply link is hidden. Only admins can process admissions.'}
+                </p>
               </div>
 
               {/* Admission Fee */}
@@ -223,8 +266,8 @@ export default function AdmissionsManagement() {
               </div>
             </div>
 
-            {/* Row 2: Form Prefix + Preview */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Row 2: Form Prefix + Starting Sequence + Preview */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Form Prefix */}
               <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-2">
@@ -240,6 +283,22 @@ export default function AdmissionsManagement() {
                   className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold font-mono uppercase focus:outline-none focus:border-blue-500 dark:text-white"
                 />
                 <p className="text-[11px] text-slate-400">School code/initials used as the start of every application number.</p>
+              </div>
+
+              {/* Starting Sequence */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-2">
+                  <Hash className="w-3.5 h-3.5" />
+                  Starting Sequence Number
+                </label>
+                <input
+                  type="number"
+                  value={editingSequence}
+                  onChange={(e) => setEditingSequence(e.target.value)}
+                  min="1"
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold font-mono focus:outline-none focus:border-blue-500 dark:text-white"
+                />
+                <p className="text-[11px] text-slate-400">The next application number will start from this sequence.</p>
               </div>
 
               {/* Form Number Preview */}
@@ -311,7 +370,7 @@ export default function AdmissionsManagement() {
               <tr className="border-b border-slate-200 dark:border-slate-700 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                 <th className="py-3 px-4">Applicant</th>
                 <th className="py-3 px-4">Form Number</th>
-                <th className="py-3 px-4">Class</th>
+                <th className="py-3 px-4">{labels.structureSingular}</th>
                 <th className="py-3 px-4">Sponsor</th>
                 <th className="py-3 px-4">Payment</th>
                 <th className="py-3 px-4">Status</th>
@@ -342,7 +401,7 @@ export default function AdmissionsManagement() {
                       {app.applicationFormNumber || '—'}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-slate-600 dark:text-slate-400 font-medium">{app.classApplyingFor}</td>
+                  <td className="py-3 px-4 text-slate-600 dark:text-slate-400 font-medium">{app.courseOfStudy || '—'}</td>
                   <td className="py-3 px-4 text-xs text-slate-600 dark:text-slate-400">{app.sponsorFullName || '—'}</td>
                   <td className="py-3 px-4">
                     <span className={cn("px-2.5 py-1 rounded-full text-[10px] font-bold",
@@ -383,7 +442,7 @@ export default function AdmissionsManagement() {
                 <tr><td colSpan={8} className="py-16 text-center text-slate-400">
                   <GraduationCap className="w-12 h-12 mx-auto mb-3 opacity-20" />
                   <p className="text-sm font-medium">No admission applications found.</p>
-                  <p className="text-xs text-slate-400 mt-1">Applications will appear here once students submit the form.</p>
+                  <p className="text-xs text-slate-400 mt-1">Applications will appear here once {labels.learnerPlural.toLowerCase()} submit the form.</p>
                 </td></tr>
               )}
             </tbody>
@@ -419,7 +478,7 @@ export default function AdmissionsManagement() {
             </div>
             <div className="p-6 overflow-y-auto space-y-5">
               {/* Student Personal Info */}
-              <Section title="Student Information">
+              <Section title={`${labels.learnerSingular} Information`}>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   <DetailRow label="Surname" value={selectedApp.surname} />
                   <DetailRow label="First Name" value={selectedApp.firstName} />
@@ -433,16 +492,15 @@ export default function AdmissionsManagement() {
                   <DetailRow label="Phone" value={selectedApp.phone} />
                   <DetailRow label="Email" value={selectedApp.email} />
                   <DetailRow label="Marital Status" value={selectedApp.maritalStatus} />
-                  <DetailRow label="Class Applying For" value={selectedApp.classApplyingFor} />
+                  <DetailRow label={`${labels.structureSingular} Applying For`} value={selectedApp.courseOfStudy} />
                 </div>
               </Section>
 
               {/* Course Choices */}
-              <Section title="Course Choices">
-                <div className="grid grid-cols-3 gap-4">
+              <Section title={`${labels.subjectSingular} Choices`}>
+                <div className="grid grid-cols-2 gap-4">
                   <DetailRow label="1st Choice" value={selectedApp.firstChoiceCourse} />
                   <DetailRow label="2nd Choice" value={selectedApp.secondChoiceCourse} />
-                  <DetailRow label="3rd Choice" value={selectedApp.thirdChoiceCourse} />
                 </div>
               </Section>
 
@@ -505,7 +563,7 @@ export default function AdmissionsManagement() {
               {/* Payment */}
               <Section title="Payment">
                 <div className="grid grid-cols-3 gap-4">
-                  <DetailRow label="Amount" value={`₦${selectedApp.admissionFee.toLocaleString()}`} />
+                  <DetailRow label="Amount" value={format(selectedApp.admissionFee)} />
                   <div>
                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Status</p>
                     <span className={cn("px-2.5 py-1 rounded-full text-[10px] font-bold",
@@ -535,7 +593,7 @@ export default function AdmissionsManagement() {
                 {selectedApp.applicationStatus === 'Approved' && selectedApp.paymentStatus === 'Paid' && (
                   <button onClick={() => handleAdmit(selectedApp)} disabled={admitting}
                     className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2">
-                    <UserCheck className="w-4 h-4" /> {admitting ? 'Admitting...' : 'Admit as Student'}
+                    <UserCheck className="w-4 h-4" /> {admitting ? 'Admitting...' : `Admit as ${labels.learnerSingular}`}
                   </button>
                 )}
               </div>

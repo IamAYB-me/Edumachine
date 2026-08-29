@@ -5,9 +5,14 @@ import { KPICard } from '@/components/ui/KPICard';
 import { useDataStore } from '@/store/useDataStore';
 import { useToastStore } from '@/store/useToastStore';
 import { downloadTextFile } from '@/utils/fileHelpers';
+import { useAuthStore } from '@/store/useAuthStore';
+import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
 
 export default function LibraryMembers() {
-  const { students } = useDataStore();
+  const { students, schools } = useDataStore();
+  const authUser = useAuthStore((state) => state.user);
+  const schoolProfile = resolveSchoolProfile(authUser, schools);
+  const labels = getPortalLevelLabels(schoolProfile.portalLevel);
   const [searchTerm, setSearchTerm] = useState('');
   const [memberTypeFilter, setMemberTypeFilter] = useState<'All Members' | 'Student' | 'Staff'>('All Members');
   const [showModal, setShowModal] = useState(false);
@@ -80,7 +85,7 @@ export default function LibraryMembers() {
     }
 
     const content = [
-      'EduPlatform Library Members Export',
+      'BROCHEST Portal Library Members Export',
       `Generated: ${new Date().toLocaleString()}`,
       `Filter: ${memberTypeFilter}`,
       '',
@@ -341,7 +346,7 @@ export default function LibraryMembers() {
                     }
                     className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition focus:border-blue-500"
                   >
-                    <option>Student</option>
+                    <option>{labels.learnerSingular}</option>
                     <option>Staff</option>
                   </select>
                 </label>

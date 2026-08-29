@@ -3,18 +3,20 @@ import { Plus, Search, FileText, Calendar, Users, Clock, Filter, Award, MoreVert
 import { cn } from '@/utils';
 import { KPICard } from '@/components/ui/KPICard';
 import { useToastStore } from '@/store/useToastStore';
+import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
+import { useDataStore } from '@/store/useDataStore';
+import { useAuthStore } from '@/store/useAuthStore';
 
-const mockAssignments = [
-  { id: 'ASG-001', title: 'Binary Trees Implementation', course: 'Mathematics', class: 'Grade 10-A', dueDate: '2026-07-15', submissions: 25, totalStudents: 32, status: 'Active', priority: 'High' },
-  { id: 'ASG-002', title: 'Calculus Principles Quiz', course: 'Further Math', class: 'Grade 12-Science', dueDate: '2026-07-12', submissions: 30, totalStudents: 30, status: 'Grading', priority: 'Medium' },
-  { id: 'ASG-003', title: 'Geometry Project', course: 'Basic Math', class: 'Grade 8-B', dueDate: '2026-07-20', submissions: 5, totalStudents: 28, status: 'Active', priority: 'Low' },
-  { id: 'ASG-004', title: 'Statistical Analysis Report', course: 'Mathematics', class: 'Grade 11-A', dueDate: '2026-07-05', submissions: 22, totalStudents: 22, status: 'Completed', priority: 'High' },
-];
+const mockAssignments: { id: string; title: string; course: string; class: string; dueDate: string; submissions: number; totalStudents: number; status: string; priority: string }[] = [];
 
 export default function TeacherAssignments() {
   const [searchTerm, setSearchTerm] = useState('');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const showToast = useToastStore((state) => state.showToast);
+  const schools = useDataStore((state) => state.schools);
+  const user = useAuthStore((state) => state.user);
+  const schoolProfile = resolveSchoolProfile(user, schools);
+  const labels = getPortalLevelLabels(schoolProfile.portalLevel);
   const [assignments, setAssignments] = useState(mockAssignments);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAssignmentId, setEditingAssignmentId] = useState<string | null>(null);
@@ -168,7 +170,7 @@ export default function TeacherAssignments() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Total Students</label>
+                   <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Total {labels.learnerPlural}</label>
                   <input
                     type="number"
                     min="1"
@@ -283,7 +285,7 @@ export default function TeacherAssignments() {
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-700 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest bg-slate-50/50 dark:bg-slate-800/30">
                 <th className="py-4 px-6">Assignment Details</th>
-                <th className="py-4 px-6">Class & Subject</th>
+                <th className="py-4 px-6">{labels.structureSingular} & {labels.subjectSingular}</th>
                 <th className="py-4 px-6">Due Date</th>
                 <th className="py-4 px-6">Submission Status</th>
                 <th className="py-4 px-6">Status</th>

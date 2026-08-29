@@ -5,10 +5,13 @@ import { Search, Calendar, CheckCircle, XCircle, AlertCircle, Clock, Save, Users
 import { cn } from '@/utils';
 import { KPICard } from '@/components/ui/KPICard';
 import { useToastStore } from '@/store/useToastStore';
+import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
 
 export default function MarkAttendance() {
-  const { classes, students, markAttendance } = useDataStore();
-  const { user } = useAuthStore();
+  const { classes, students, markAttendance, schools } = useDataStore();
+  const user = useAuthStore((state) => state.user);
+  const schoolProfile = resolveSchoolProfile(user, schools);
+  const labels = getPortalLevelLabels(schoolProfile.portalLevel ?? 'Secondary');
   const showToast = useToastStore((state) => state.showToast);
   
   const [selectedClass, setSelectedClass] = useState<string>(classes[0]?.id || '');
@@ -65,7 +68,7 @@ export default function MarkAttendance() {
     markAttendance(records);
     showToast({
       title: 'Attendance saved',
-      description: `${records.length} student records captured for ${currentClass.name} on ${date}.`,
+      description: `${records.length} ${labels.learnerSingular.toLowerCase()} records captured for ${currentClass.name} on ${date}.`,
       variant: 'success',
     });
   };
@@ -75,7 +78,7 @@ export default function MarkAttendance() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Daily Attendance</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Mark and track student attendance for your classes.</p>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Mark and track {labels.learnerSingular.toLowerCase()} attendance for your classes.</p>
         </div>
         <button 
           onClick={handleSave}
@@ -89,7 +92,7 @@ export default function MarkAttendance() {
       {/* Stats Widgets */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard 
-          title="Total Students" 
+          title={`Total ${labels.learnerPlural}`} 
           value={stats.total.toString()} 
           icon={Users} 
           iconBgClass="bg-blue-50 dark:bg-blue-900/20"
@@ -164,7 +167,7 @@ export default function MarkAttendance() {
           <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex justify-between items-center">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
               <UserCheck className="w-4 h-4 text-blue-600" />
-              Student List ({filteredStudents.length})
+              {labels.learnerSingular} List ({filteredStudents.length})
             </h3>
             <div className="relative w-64">
                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -182,7 +185,7 @@ export default function MarkAttendance() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-700 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest bg-slate-50/30 dark:bg-slate-800/10">
-                  <th className="py-4 px-6">Student Information</th>
+                  <th className="py-4 px-6">{labels.learnerSingular} Information</th>
                   <th className="py-4 px-6">Roll No</th>
                   <th className="py-4 px-6 text-center">Status</th>
                 </tr>

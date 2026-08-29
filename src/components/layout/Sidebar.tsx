@@ -6,7 +6,7 @@ import {
   Settings, LogOut, Home, Key, BedDouble,
   FileText, ClipboardCheck, Award, Users2, Clock, Calendar,
   ChevronDown, ChevronRight, Briefcase, Landmark, ShieldCheck,
-  Truck, Library, Layers, ClipboardList, UserPlus
+  Truck, Library, Layers, ClipboardList, UserPlus, ScrollText, ShieldAlert
 } from 'lucide-react';
 import { cn } from '@/utils';
 import { useAuthStore, Role } from '@/store/useAuthStore';
@@ -53,9 +53,11 @@ const roleNavLinks: Record<Role, NavItem[]> = {
         { name: 'Payments', path: '/super-admin/payments', icon: DollarSign },
       ]
     },
-    { name: 'User Management', icon: Users, path: '/super-admin/users' },
+    { name: 'Platform Admins', icon: Users, path: '/super-admin/users' },
+    { name: 'School Users', icon: Users2, path: '/super-admin/school-users' },
     { name: 'Registration Fields', icon: ClipboardList, path: '/super-admin/registration-fields' },
     { name: 'System Settings', icon: Settings, path: '/super-admin/settings' },
+    { name: 'Deletion Requests', icon: ShieldAlert, path: '/super-admin/deletion-requests' },
   ],
   ADMIN: [
     { name: 'Dashboard', icon: LayoutDashboard, path: '/admin' },
@@ -74,9 +76,9 @@ const roleNavLinks: Record<Role, NavItem[]> = {
       name: 'Academic Hub', 
       icon: GraduationCap, 
       subItems: [
-        { name: 'Classes', path: '/admin/classes', icon: GraduationCap },
+        { name: 'Programmes', path: '/admin/academic', icon: BookOpen },
+        { name: 'Department', path: '/admin/classes', icon: GraduationCap },
         { name: 'Timetable', path: '/admin/timetable', icon: Clock },
-        { name: 'Curriculum', path: '/admin/academic', icon: BookOpen },
         { name: 'Notices', path: '/admin/notices', icon: Bell },
       ]
     },
@@ -87,6 +89,7 @@ const roleNavLinks: Record<Role, NavItem[]> = {
         { name: 'CBT Builder', path: '/admin/exams', icon: ClipboardCheck },
         { name: 'Exam Timetable', path: '/admin/exam-timetable', icon: Calendar },
         { name: 'Result Sheets', path: '/admin/results', icon: Award },
+        { name: 'Report Cards', path: '/admin/report-cards', icon: ScrollText },
       ]
     },
     { 
@@ -98,6 +101,7 @@ const roleNavLinks: Record<Role, NavItem[]> = {
       ]
     },
     { name: 'Admissions', icon: UserPlus, path: '/admin/admissions' },
+    { name: 'Activity Logs', icon: ScrollText, path: '/admin/activity-logs' },
   ],
   TEACHER: [
     { name: 'Dashboard', icon: LayoutDashboard, path: '/teacher' },
@@ -136,6 +140,7 @@ const roleNavLinks: Record<Role, NavItem[]> = {
         { name: 'Assignments', path: '/student/assignments', icon: FileText },
         { name: 'Take Exams', path: '/student/exams', icon: ClipboardCheck },
         { name: 'My Results', path: '/admin/results', icon: Award },
+        { name: 'Report Card', path: '/admin/report-cards', icon: ScrollText },
       ]
     },
     { name: 'My Fees', icon: DollarSign, path: '/student/fees' },
@@ -151,6 +156,7 @@ const roleNavLinks: Record<Role, NavItem[]> = {
       ]
     },
     { name: 'Fees & Payments', icon: DollarSign, path: '/parent/fees' },
+    { name: 'Report Cards', icon: ScrollText, path: '/admin/report-cards' },
     { name: 'Messages', icon: MessageSquare, path: '/parent/messages' },
   ],
   HR: [
@@ -215,6 +221,10 @@ const roleNavLinks: Record<Role, NavItem[]> = {
     },
     { name: 'Members', icon: Users, path: '/librarian/members' },
   ],
+  APPLICANT: [
+    { name: 'My Application', icon: LayoutDashboard, path: '/admission/progress' },
+    { name: 'New Application', icon: UserPlus, path: '/admissions/apply' },
+  ],
 };
 
 const roleColors: Record<Role, string> = {
@@ -228,6 +238,7 @@ const roleColors: Record<Role, string> = {
   ACCOUNTANT: "bg-slate-700 shadow-slate-900/40",
   TRANSPORT: "bg-amber-600 shadow-amber-900/40",
   LIBRARIAN: "bg-rose-600 shadow-rose-900/40",
+  APPLICANT: "bg-cyan-600 shadow-cyan-900/40",
 };
 
 interface SidebarProps {
@@ -266,6 +277,8 @@ export default function Sidebar({ role, open, onClose }: SidebarProps) {
           subItems: link.subItems.map((subItem) =>
             subItem.path === '/admin/students'
               ? { ...subItem, name: labels.learnerPlural }
+              : subItem.path === '/admin/teachers'
+              ? { ...subItem, name: labels.teacherPlural }
               : subItem
           ),
         };
@@ -351,7 +364,17 @@ export default function Sidebar({ role, open, onClose }: SidebarProps) {
 
     if (role !== 'SUPER_ADMIN' && role !== 'ADMIN' && userDelegation?.privileges.length) {
       const privilegeItems = userDelegation.privileges
-        .map((privilege) => delegatedPrivilegeLinks[privilege])
+        .map((privilege) => {
+          const link = delegatedPrivilegeLinks[privilege];
+          if (!link) return null;
+          const nameOverride: Record<string, string> = {
+            manage_students: labels.learnerPlural,
+            manage_teachers: labels.teacherPlural,
+            manage_classes: labels.structurePlural,
+            manage_curriculum: labels.curriculumLabel,
+          };
+          return { ...link, name: nameOverride[privilege] || link.name };
+        })
         .filter(Boolean)
         .filter((item, index, source) => source.findIndex((entry) => entry.path === item.path) === index);
 
@@ -389,7 +412,7 @@ export default function Sidebar({ role, open, onClose }: SidebarProps) {
 
   return (
     <aside className={cn(
-      "w-64 bg-slate-900 text-slate-300 flex flex-col h-screen transition-colors border-r border-slate-800/50 shadow-2xl z-40",
+      "w-64 bg-slate-900 text-slate-300 flex flex-col h-full max-h-screen transition-colors border-r border-slate-800/50 shadow-2xl z-40",
       "fixed inset-y-0 left-0 lg:sticky lg:top-0",
       open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
     )}>
@@ -404,7 +427,7 @@ export default function Sidebar({ role, open, onClose }: SidebarProps) {
             </div>
           )}
           <span className="font-bold text-white text-lg tracking-tight truncate max-w-[140px]">
-            {globalSettings?.appName?.split(' ')[0] || 'EduPlatform'}
+            {globalSettings?.appName?.split(' ')[0] || 'BROCHEST Portal'}
           </span>
         </Link>
       </div>
@@ -512,7 +535,7 @@ export default function Sidebar({ role, open, onClose }: SidebarProps) {
       </div>
 
       {/* Logout */}
-      <div className="p-4 border-t border-slate-800">
+      <div className="p-4 border-t border-slate-800 mt-auto">
         <button 
           onClick={logout}
           className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition-all w-full"

@@ -10,6 +10,8 @@ type PortalLevelLabels = {
   studyLabel: string;
   subjectSingular: string;
   subjectPlural: string;
+  teacherSingular: string;
+  teacherPlural: string;
   creditLabel: string;
   termOptions: string[];
   resultsLabel: string;
@@ -24,6 +26,9 @@ type PortalLevelLabels = {
   topStructureLabel: string;
   performanceByLabel: string;
   hallPassLabel: string;
+  teacherSignatoryLabel: string;
+  hodSignatoryLabel: string;
+  headSignatoryLabel: string;
   courseList: { name: string; code: string; grade: string }[];
   scheduleList: { time: string; course: string; room: string; type: string }[];
 };
@@ -38,6 +43,8 @@ const portalLevelLabels: Record<PortalLevel, PortalLevelLabels> = {
     studyLabel: 'My Subjects',
     subjectSingular: 'Subject',
     subjectPlural: 'Subjects',
+    teacherSingular: 'Teacher',
+    teacherPlural: 'Teachers',
     creditLabel: '',
     termOptions: ['First Term', 'Second Term', 'Third Term'],
     resultsLabel: 'Report Cards',
@@ -52,20 +59,11 @@ const portalLevelLabels: Record<PortalLevel, PortalLevelLabels> = {
     topStructureLabel: 'Top Performing Classes',
     performanceByLabel: 'Performance by Class',
     hallPassLabel: 'Exam Slip',
-    courseList: [
-      { name: 'English Language', code: 'ENG 501', grade: 'A' },
-      { name: 'Mathematics', code: 'MTH 501', grade: 'A-' },
-      { name: 'Basic Science', code: 'SCI 501', grade: 'B+' },
-      { name: 'Social Studies', code: 'SOS 501', grade: 'A' },
-      { name: 'Civic Education', code: 'CVE 501', grade: 'B+' },
-    ],
-    scheduleList: [
-      { time: '09:00 AM', course: 'English Language', room: 'Class 5 Gold', type: 'Lesson' },
-      { time: '10:00 AM', course: 'Mathematics', room: 'Class 5 Gold', type: 'Lesson' },
-      { time: '11:30 AM', course: 'Basic Science', room: 'Science Corner', type: 'Practical' },
-      { time: '01:00 PM', course: 'Social Studies', room: 'Class 5 Gold', type: 'Lesson' },
-      { time: '02:00 PM', course: 'Civic Education', room: 'Class 5 Gold', type: 'Lesson' },
-    ],
+    teacherSignatoryLabel: 'Class Teacher',
+    hodSignatoryLabel: 'Head Teacher',
+    headSignatoryLabel: 'Principal',
+    courseList: [],
+    scheduleList: [],
   },
   Secondary: {
     learnerSingular: 'Student',
@@ -76,6 +74,8 @@ const portalLevelLabels: Record<PortalLevel, PortalLevelLabels> = {
     studyLabel: 'My Subjects',
     subjectSingular: 'Subject',
     subjectPlural: 'Subjects',
+    teacherSingular: 'Teacher',
+    teacherPlural: 'Teachers',
     creditLabel: '',
     termOptions: ['First Term', 'Second Term', 'Third Term'],
     resultsLabel: 'Result Sheets',
@@ -90,20 +90,11 @@ const portalLevelLabels: Record<PortalLevel, PortalLevelLabels> = {
     topStructureLabel: 'Top Performing Classes',
     performanceByLabel: 'Performance by Grade',
     hallPassLabel: 'Exam Slip',
-    courseList: [
-      { name: 'Mathematics', code: 'MTH 201', grade: 'A' },
-      { name: 'English Language', code: 'ENG 201', grade: 'A-' },
-      { name: 'Chemistry', code: 'CHM 201', grade: 'B+' },
-      { name: 'Physics', code: 'PHY 201', grade: 'A' },
-      { name: 'Biology', code: 'BIO 201', grade: 'B' },
-    ],
-    scheduleList: [
-      { time: '09:00 AM', course: 'Mathematics', room: 'Room 201', type: 'Lesson' },
-      { time: '11:00 AM', course: 'Chemistry', room: 'Lab 1', type: 'Practical' },
-      { time: '01:00 PM', course: 'English Language', room: 'Room 201', type: 'Lesson' },
-      { time: '03:00 PM', course: 'Physics', room: 'Lab 2', type: 'Practical' },
-      { time: '04:00 PM', course: 'Biology', room: 'Room 204', type: 'Lesson' },
-    ],
+    teacherSignatoryLabel: 'Class Teacher',
+    hodSignatoryLabel: 'Head of Department',
+    headSignatoryLabel: 'Principal',
+    courseList: [],
+    scheduleList: [],
   },
   College: {
     learnerSingular: 'Student',
@@ -114,6 +105,8 @@ const portalLevelLabels: Record<PortalLevel, PortalLevelLabels> = {
     studyLabel: 'My Courses',
     subjectSingular: 'Course',
     subjectPlural: 'Courses',
+    teacherSingular: 'Lecturer',
+    teacherPlural: 'Lecturers',
     creditLabel: 'Credit Hours',
     termOptions: ['First Semester', 'Second Semester'],
     resultsLabel: 'Academic Results',
@@ -128,20 +121,11 @@ const portalLevelLabels: Record<PortalLevel, PortalLevelLabels> = {
     topStructureLabel: 'Top Performing Departments',
     performanceByLabel: 'Performance by Department',
     hallPassLabel: 'Hall Ticket',
-    courseList: [
-      { name: 'Database Systems', code: 'COM 221', grade: 'A' },
-      { name: 'Systems Analysis', code: 'COM 223', grade: 'B+' },
-      { name: 'Web Development', code: 'COM 225', grade: 'A-' },
-      { name: 'Statistics', code: 'STA 211', grade: 'B' },
-      { name: 'Entrepreneurship', code: 'GST 221', grade: 'A' },
-    ],
-    scheduleList: [
-      { time: '09:00 AM', course: 'Database Systems', room: 'Lecture Hall B', type: 'Lecture' },
-      { time: '11:00 AM', course: 'Systems Analysis', room: 'Room ICT 4', type: 'Lecture' },
-      { time: '01:00 PM', course: 'Web Development', room: 'Lab B', type: 'Practical' },
-      { time: '03:30 PM', course: 'Statistics', room: 'Room G12', type: 'Tutorial' },
-      { time: '04:30 PM', course: 'Entrepreneurship', room: 'Hall C', type: 'Seminar' },
-    ],
+    teacherSignatoryLabel: 'Course Adviser',
+    hodSignatoryLabel: 'Dean / Head of Department',
+    headSignatoryLabel: 'Rector / Provost',
+    courseList: [],
+    scheduleList: [],
   },
   University: {
     learnerSingular: 'Student',
@@ -152,6 +136,8 @@ const portalLevelLabels: Record<PortalLevel, PortalLevelLabels> = {
     studyLabel: 'My Courses',
     subjectSingular: 'Course',
     subjectPlural: 'Courses',
+    teacherSingular: 'Lecturer',
+    teacherPlural: 'Lecturers',
     creditLabel: 'Credit Units',
     termOptions: ['First Semester', 'Second Semester'],
     resultsLabel: 'Results & Transcripts',
@@ -166,20 +152,11 @@ const portalLevelLabels: Record<PortalLevel, PortalLevelLabels> = {
     topStructureLabel: 'Top Performing Departments',
     performanceByLabel: 'Performance by Department',
     hallPassLabel: 'Hall Ticket',
-    courseList: [
-      { name: 'Data Structures & Algorithms', code: 'CSE 401', grade: 'A' },
-      { name: 'Database Management Systems', code: 'CSE 400', grade: 'A-' },
-      { name: 'Software Engineering', code: 'CSE 410', grade: 'B+' },
-      { name: 'Computer Networks', code: 'CSE 414', grade: 'A' },
-      { name: 'Operating Systems', code: 'CSE 406', grade: 'B' },
-    ],
-    scheduleList: [
-      { time: '09:00 AM', course: 'Data Structures', room: 'Room 201', type: 'Lecture' },
-      { time: '11:00 AM', course: 'Database Systems', room: 'Room 203', type: 'Lecture' },
-      { time: '01:00 PM', course: 'Software Engineering', room: 'Room 204', type: 'Lab' },
-      { time: '03:30 PM', course: 'Computer Networks', room: 'Lab 3', type: 'Lab' },
-      { time: '04:00 PM', course: 'Operating Systems', room: 'Room 205', type: 'Lecture' },
-    ],
+    teacherSignatoryLabel: 'Course Adviser',
+    hodSignatoryLabel: 'Dean / Head of Department',
+    headSignatoryLabel: 'Registrar / Provost',
+    courseList: [],
+    scheduleList: [],
   },
 };
 
@@ -206,7 +183,7 @@ export function resolveSchoolProfile(user: User | null, schools: School[]): Scho
       emailApi: { enabled: false, provider: '', fromEmail: '', apiKey: '', domain: '' },
       otherApi: { enabled: false, label: '', apiKey: '', apiUrl: '', notes: '' },
     },
-    portalLevel: school?.portalLevel || 'Secondary',
+    portalLevel: school?.portalLevel || (user?.portalLevel as School['portalLevel']) || 'Secondary',
     status: school?.status || 'Active',
     subscriptionPlan: school?.subscriptionPlan || 'Standard',
     expiryDate: school?.expiryDate || '',

@@ -4,6 +4,7 @@ import { cn } from '@/utils';
 
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useToastStore } from '@/store/useToastStore';
+import { useDataStore } from '@/store/useDataStore';
 
 export default function GlobalSettings() {
   const [activeSection, setActiveSection] = useState<string | null>(null);
@@ -19,16 +20,24 @@ export default function GlobalSettings() {
     { id: 'notifications', title: 'System Notifications', icon: Bell, desc: 'Configure global broadcast messages.' },
   ];
 
-  const handleMaintenanceToggle = () => {
+  const handleMaintenanceToggle = async () => {
     const nextMode = !maintenanceMode;
-    updateGlobalSettings({ maintenanceMode: nextMode });
-    showToast({
-      title: nextMode ? 'Maintenance mode enabled' : 'Maintenance mode disabled',
-      description: nextMode
-        ? 'School portals are now restricted to Super Admin access for platform maintenance.'
-        : 'All portals are live again for staff, parents, and students.',
-      variant: nextMode ? 'warning' : 'success',
-    });
+    try {
+      await updateGlobalSettings({ maintenanceMode: nextMode });
+      showToast({
+        title: nextMode ? 'Maintenance mode enabled' : 'Maintenance mode disabled',
+        description: nextMode
+          ? 'School portals are now restricted to Super Admin access for platform maintenance.'
+          : 'All portals are live again for staff, parents, and students.',
+        variant: nextMode ? 'warning' : 'success',
+      });
+    } catch {
+      showToast({
+        title: 'Save failed',
+        description: 'Could not update maintenance mode. Please try again.',
+        variant: 'error',
+      });
+    }
   };
 
   const renderActiveSection = () => {
@@ -156,11 +165,20 @@ function GeneralSettingsView({ settings, onUpdate }: { settings: any, onUpdate: 
       return;
     }
 
+    const maxSize = type === 'logo' ? 200 : 64;
     const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = () => reject(new Error('read_failed'));
-      reader.readAsDataURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.6));
+      };
+      img.onerror = () => reject(new Error('img_load_failed'));
+      img.src = URL.createObjectURL(file);
     }).catch(() => null);
 
     if (!dataUrl) {
@@ -183,17 +201,24 @@ function GeneralSettingsView({ settings, onUpdate }: { settings: any, onUpdate: 
     });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true);
-    setTimeout(() => {
-      onUpdate(formData);
-      setIsSaving(false);
+    try {
+      await onUpdate(formData);
       showToast({
         title: 'General settings updated',
         description: `${formData.appName} branding and localization preferences have been saved.`,
         variant: 'success',
       });
-    }, 800);
+    } catch (err) {
+      showToast({
+        title: 'Save failed',
+        description: 'Could not save settings to the server. Please try again.',
+        variant: 'error',
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -364,17 +389,24 @@ function SecuritySettingsView({ settings, onUpdate }: { settings: any, onUpdate:
     setFormData(newFormData);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true);
-    setTimeout(() => {
-      onUpdate(formData);
-      setIsSaving(false);
+    try {
+      await onUpdate(formData);
       showToast({
         title: 'Security settings updated',
         description: 'Authentication policies and protection controls are now applied platform-wide.',
         variant: 'success',
       });
-    }, 800);
+    } catch {
+      showToast({
+        title: 'Save failed',
+        description: 'Could not save settings. Please try again.',
+        variant: 'error',
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -458,17 +490,24 @@ function EmailSettingsView({ settings, onUpdate }: { settings: any, onUpdate: an
   const [isTesting, setIsTesting] = useState(false);
   const showToast = useToastStore((state) => state.showToast);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true);
-    setTimeout(() => {
-      onUpdate(formData);
-      setIsSaving(false);
+    try {
+      await onUpdate(formData);
       showToast({
         title: 'Email settings updated',
         description: `SMTP configuration for ${formData.smtpSettings.host} has been saved.`,
         variant: 'success',
       });
-    }, 800);
+    } catch {
+      showToast({
+        title: 'Save failed',
+        description: 'Could not save settings. Please try again.',
+        variant: 'error',
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleTestConnection = () => {
@@ -536,10 +575,36 @@ function EmailSettingsView({ settings, onUpdate }: { settings: any, onUpdate: an
                   className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:text-white" 
                 />
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-500 uppercase px-1">Password</label>
-                <input type="password" placeholder="••••••••••••••••" className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:text-white" />
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
+                <p className="text-xs font-bold text-amber-800 dark:text-amber-300 mb-1">SMTP Password</p>
+                <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
+                  For security, the SMTP password is stored server-side, not in the portal. Set it once from the command line:
+                </p>
+                <code className="block mt-2 px-3 py-2 bg-white dark:bg-slate-800 rounded-lg text-[11px] font-mono text-amber-900 dark:text-amber-200">
+                  firebase functions:config:set smtp.password="YOUR_API_KEY"
+                </code>
               </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-500 uppercase px-1">From Email</label>
+                <input 
+                  type="email" 
+                  value={formData.smtpSettings.fromEmail}
+                  onChange={(e) => setFormData({...formData, smtpSettings: {...formData.smtpSettings, fromEmail: e.target.value}})}
+                  placeholder="noreply@yourdomain.com"
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:text-white" 
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-500 uppercase px-1">Admissions Recipient Email</label>
+                <input 
+                  type="email" 
+                  value={formData.admissionsEmail}
+                  onChange={(e) => setFormData({...formData, admissionsEmail: e.target.value})}
+                  placeholder="admissions@yourdomain.com"
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:text-white" 
+                />
+              </div>
+              <p className="text-[11px] text-slate-400">New admission submissions are emailed to the recipient above.</p>
             </div>
           </div>
         </div>
@@ -569,8 +634,10 @@ function EmailSettingsView({ settings, onUpdate }: { settings: any, onUpdate: an
 function DatabaseSettingsView() {
   const [autoBackupEnabled, setAutoBackupEnabled] = useState(true);
   const [isBackingUp, setIsBackingUp] = useState(false);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [clearTarget, setClearTarget] = useState<'students' | 'staff' | 'schools' | 'all' | null>(null);
+  const [isClearing, setIsClearing] = useState(false);
   const showToast = useToastStore((state) => state.showToast);
+  const { students, staff, schools, clearStudents, clearStaff, clearSchools } = useDataStore();
 
   const handleBackupToggle = () => {
     const nextState = !autoBackupEnabled;
@@ -654,48 +721,104 @@ function DatabaseSettingsView() {
       <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border-2 border-red-200 dark:border-red-900/50 shadow-sm">
         <h3 className="text-sm font-bold text-red-500 uppercase tracking-widest mb-4 flex items-center gap-2">
           <AlertCircle className="w-4 h-4" />
-          Danger Zone
+          Danger Zone — Clear Data
         </h3>
         <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
-          Permanently delete all platform data including students, staff, fees, exams, settings, and registered accounts. This action cannot be undone.
+          Permanently delete data from Firestore. This cannot be undone. Use with caution.
         </p>
-        <button
-          onClick={() => setShowResetConfirm(true)}
-          className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-2xl text-sm font-bold transition-all shadow-lg shadow-red-900/20 flex items-center gap-2"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Reset All Data
-        </button>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <button
+            onClick={() => setClearTarget('students')}
+            className="px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-700 dark:text-red-400 rounded-2xl text-sm font-bold transition-all flex flex-col items-center gap-1"
+          >
+            <span>Clear Students</span>
+            <span className="text-xs font-normal opacity-70">{students.length} records</span>
+          </button>
+          <button
+            onClick={() => setClearTarget('staff')}
+            className="px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-700 dark:text-red-400 rounded-2xl text-sm font-bold transition-all flex flex-col items-center gap-1"
+          >
+            <span>Clear Staff</span>
+            <span className="text-xs font-normal opacity-70">{staff.length} records</span>
+          </button>
+          <button
+            onClick={() => setClearTarget('schools')}
+            className="px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-700 dark:text-red-400 rounded-2xl text-sm font-bold transition-all flex flex-col items-center gap-1"
+          >
+            <span>Clear Schools</span>
+            <span className="text-xs font-normal opacity-70">{schools.length} records</span>
+          </button>
+        </div>
+        <div className="mt-4 pt-4 border-t border-red-100 dark:border-red-900/30">
+          <button
+            onClick={() => setClearTarget('all')}
+            className="w-full px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-2xl text-sm font-bold transition-all shadow-lg shadow-red-900/20 flex items-center justify-center gap-2"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Clear All Students, Staff & Schools
+          </button>
+        </div>
       </div>
 
-      {/* Reset Confirmation Modal */}
-      {showResetConfirm && (
+      {/* Clear Confirmation Modal */}
+      {clearTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-md overflow-hidden">
             <div className="p-8 text-center">
               <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
                 <AlertCircle className="w-8 h-8 text-red-600" />
               </div>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Reset All Data?</h2>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+                {clearTarget === 'all' ? 'Clear All Data?' : `Clear ${clearTarget === 'students' ? 'Students' : clearTarget === 'staff' ? 'Staff' : 'Schools'}?`}
+              </h2>
               <p className="text-sm text-slate-500 mb-8">
-                This will permanently erase all students, staff, fees, exams, admission applications, settings, and registered accounts. You will be logged out.
+                {clearTarget === 'all'
+                  ? `This will permanently delete all ${students.length} students, ${staff.length} staff, and ${schools.length} school records from Firestore. This cannot be undone.`
+                  : clearTarget === 'students'
+                    ? `This will permanently delete all ${students.length} student records from Firestore. This cannot be undone.`
+                    : clearTarget === 'staff'
+                      ? `This will permanently delete all ${staff.length} staff records from Firestore. This cannot be undone.`
+                      : `This will permanently delete all ${schools.length} school records from Firestore. This cannot be undone.`
+                }
               </p>
               <div className="flex gap-3">
                 <button
-                  onClick={() => setShowResetConfirm(false)}
-                  className="flex-1 px-6 py-3 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                  onClick={() => setClearTarget(null)}
+                  disabled={isClearing}
+                  className="flex-1 px-6 py-3 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={() => {
-                    localStorage.clear();
-                    showToast({ title: 'All data erased', description: 'Platform has been reset. Reloading...', variant: 'success' });
-                    setTimeout(() => { window.location.href = '/login'; }, 800);
+                  onClick={async () => {
+                    setIsClearing(true);
+                    try {
+                      if (clearTarget === 'students') {
+                        const count = await clearStudents();
+                        showToast({ title: 'Students cleared', description: `${count} student records deleted.`, variant: 'success' });
+                      } else if (clearTarget === 'staff') {
+                        const count = await clearStaff();
+                        showToast({ title: 'Staff cleared', description: `${count} staff records deleted.`, variant: 'success' });
+                      } else if (clearTarget === 'schools') {
+                        const count = await clearSchools();
+                        showToast({ title: 'Schools cleared', description: `${count} school records deleted.`, variant: 'success' });
+                      } else {
+                        const s = await clearStudents();
+                        const st = await clearStaff();
+                        const sc = await clearSchools();
+                        showToast({ title: 'All data cleared', description: `${s} students, ${st} staff, ${sc} schools deleted.`, variant: 'success' });
+                      }
+                    } catch {
+                      showToast({ title: 'Clear failed', description: 'An error occurred while deleting records.', variant: 'error' });
+                    } finally {
+                      setIsClearing(false);
+                      setClearTarget(null);
+                    }
                   }}
-                  className="flex-1 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-2xl text-sm font-bold transition-all shadow-lg shadow-red-900/20"
+                  disabled={isClearing}
+                  className="flex-1 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-2xl text-sm font-bold transition-all shadow-lg shadow-red-900/20 disabled:opacity-50"
                 >
-                  Yes, Reset Everything
+                  {isClearing ? 'Deleting...' : 'Yes, Delete'}
                 </button>
               </div>
             </div>
