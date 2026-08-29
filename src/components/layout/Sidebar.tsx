@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { NavLink, useLocation, Link } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, UserCheck, GraduationCap, 
   BookOpen, DollarSign, Bell, MessageSquare, 
@@ -418,7 +418,7 @@ export default function Sidebar({ role, open, onClose }: SidebarProps) {
     )}>
       {/* Logo Area */}
       <div className="h-16 flex items-center px-6 bg-slate-950/50 border-b border-slate-800">
-        <Link to="/" className="flex items-center gap-2 group">
+        <a href="https://www.brochest.com.ng" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 group" title="Visit brochest.com.ng">
           {globalSettings?.logoUrl ? (
             <img src={globalSettings.logoUrl} alt="Logo" className="w-8 h-8 rounded-lg object-contain shadow-lg transition-transform group-hover:scale-110" />
           ) : (
@@ -429,7 +429,7 @@ export default function Sidebar({ role, open, onClose }: SidebarProps) {
           <span className="font-bold text-white text-lg tracking-tight truncate max-w-[140px]">
             {globalSettings?.appName?.split(' ')[0] || 'BROCHEST Portal'}
           </span>
-        </Link>
+        </a>
       </div>
 
       {/* Navigation */}
