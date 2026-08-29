@@ -82,9 +82,13 @@ service cloud.firestore {
     }
 
     // ─── Teachers ─────────────────────────────────────────────────────
+    // A self-registered teacher may create/update only their own record
+    // (the teachers doc id equals their auth uid).
     match /teachers/{teacherId} {
       allow read: if isAuth();
-      allow write: if isAdmin() || hasRole('SUPER_ADMIN');
+      allow create: if isAdmin() || hasRole('SUPER_ADMIN') || request.auth.uid == teacherId;
+      allow update: if isAdmin() || hasRole('SUPER_ADMIN') || request.auth.uid == teacherId;
+      allow delete: if isAdmin() || hasRole('SUPER_ADMIN');
     }
 
     // ─── Parents ──────────────────────────────────────────────────────
@@ -120,7 +124,7 @@ service cloud.firestore {
     // ─── Subjects ─────────────────────────────────────────────────────
     match /subjects/{subjectId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isAdmin() || hasRole('TEACHER');
     }
 
     // ─── Fee Records ──────────────────────────────────────────────────

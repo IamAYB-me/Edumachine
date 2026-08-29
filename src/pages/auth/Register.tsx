@@ -4,6 +4,7 @@ import { GraduationCap, Eye, EyeOff, UserPlus, CheckCircle } from 'lucide-react'
 import { useAuthStore, Role } from '@/store/useAuthStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useDataStore } from '@/store/useDataStore';
+import { getPortalLevelLabels } from '@/utils/schoolProfile';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 
@@ -65,6 +66,9 @@ export default function RegisterPage() {
     return source.sort();
   }, [schools, publicSchools]);
 
+  const selectedSchool = schools.find((s) => s.name === schoolName);
+  const teacherLabel = getPortalLevelLabels(selectedSchool?.portalLevel ?? 'Secondary').teacherSingular;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -89,8 +93,9 @@ export default function RegisterPage() {
 
     const selectedSchool = schools.find((s) => s.name === schoolName);
     const effectivePortalLevel = isCreator ? portalLevel : (selectedSchool?.portalLevel || '');
+    const roleLabel = role === 'TEACHER' ? teacherLabel : undefined;
 
-    const result = await register({ name, email, password, role, schoolName, phone, portalLevel: effectivePortalLevel });
+    const result = await register({ name, email, password, role, schoolName, phone, portalLevel: effectivePortalLevel, roleLabel });
 
     if (!result.success) {
       setError(result.error || 'Registration failed. Please try again.');
@@ -231,7 +236,7 @@ export default function RegisterPage() {
                   className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:border-blue-500 dark:text-white transition-all"
                 >
                   {ROLE_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    <option key={opt.value} value={opt.value}>{opt.value === 'TEACHER' ? teacherLabel : opt.label}</option>
                   ))}
                 </select>
               </div>

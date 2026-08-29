@@ -99,6 +99,20 @@ export async function registerUser(
       );
     }
 
+    if (role === 'TEACHER') {
+      await writeDocWithRetry(() =>
+        setDoc(doc(db, 'teachers', createdUser!.uid), {
+          id: createdUser!.uid,
+          name,
+          email,
+          phone: phone || '',
+          employeeId: '',
+          subject: '',
+          status: 'Active',
+        }),
+      );
+    }
+
     try {
       await sendEmailVerification(createdUser!);
     } catch (mailError: unknown) {

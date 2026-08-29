@@ -104,7 +104,7 @@ interface AuthState {
   setHasHydrated: (value: boolean) => void;
   initAuthListener: () => void;
   loginWithCredentials: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  register: (data: { name: string; email: string; password: string; role: Role; schoolName: string; phone?: string; portalLevel?: string }) => Promise<{ success: boolean; error?: string }>;
+  register: (data: { name: string; email: string; password: string; role: Role; schoolName: string; phone?: string; portalLevel?: string; roleLabel?: string }) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   updateProfile: (updates: Partial<User>) => Promise<void>;
 }
@@ -149,7 +149,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       data.password,
       data.name,
       data.role,
-      ROLE_LABELS[data.role],
+      data.roleLabel || ROLE_LABELS[data.role],
       data.schoolName,
       data.phone,
       data.portalLevel,
