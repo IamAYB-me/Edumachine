@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   Search, Users, GraduationCap, UserCheck, UserMinus, Plus,
-  Trash2, X, Edit, Filter, Download, UserCog,
+  Trash2, X, Edit, Filter, Download, UserCog, RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/utils';
 import { useDataStore, Student, Teacher, Parent, Staff, PlatformUser } from '@/store/useDataStore';
@@ -9,6 +9,7 @@ import { useToastStore } from '@/store/useToastStore';
 import { KPICard } from '@/components/ui/KPICard';
 import { logActivity } from '@/utils/activityLogger';
 import { getPortalLevelLabels } from '@/utils/schoolProfile';
+import { addDocumentWithId } from '@/services/firestoreService';
 
 type Tab = 'students' | 'teachers' | 'parents' | 'staff' | 'users';
 
@@ -38,6 +39,7 @@ export default function SchoolUsers() {
   const [deleteTarget, setDeleteTarget] = useState<{ type: Tab; item: Student | Teacher | Parent | Staff | PlatformUser } | null>(null);
   const [editTarget, setEditTarget] = useState<{ type: Tab; item: Student | Teacher | Parent | Staff } | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const allSchoolNames = useMemo(() => {
     const names = new Set(schools.map((s) => s.name));
@@ -141,6 +143,51 @@ export default function SchoolUsers() {
     return list.sort((a, b) => a.role.localeCompare(b.role) || a.name.localeCompare(b.name));
   }, [platformUsers, searchTerm]);
 
+  const pendingStudentUsers = useMemo(() => {
+    const existing = new Set(students.map((s) => s.id));
+    return platformUsers.filter((u) => {
+      if ((u.role || '').toUpperCase() !== 'STUDENT') return false;
+      const uid = u.uid || u.id;
+      return Boolean(uid) && !existing.has(uid);
+    });
+  }, [platformUsers, students]);
+
+  const handleSyncStudents = async () => {
+    if (pendingStudentUsers.length === 0 || isSyncing) return;
+    setIsSyncing(true);
+    let created = 0;
+    let failed = 0;
+    for (const u of pendingStudentUsers) {
+      const uid = u.uid || u.id;
+      if (!uid) continue;
+      const school = schools.find((s) => s.name === u.schoolName);
+      try {
+        await addDocumentWithId('students', uid, {
+          name: u.name,
+          email: u.email || '',
+          phone: u.phone || '',
+          regNo: '',
+          class: '',
+          parentName: '',
+          status: 'Active',
+          portalLevel: school?.portalLevel || 'Secondary',
+        });
+        created += 1;
+      } catch (error) {
+        failed += 1;
+        console.error('Failed to sync portal student:', uid, error);
+      }
+    }
+    setIsSyncing(false);
+    if (created > 0) {
+      showToast({ title: 'Students synced', description: `${created} registered ${termsLabels.learnerPlural.toLowerCase()} added to the ${termsLabels.learnerPlural.toLowerCase()} directory.`, variant: 'success' });
+      logActivity({ action: 'CREATE', module: 'students', description: `Backfilled ${created} registered students from portal users`, targetId: 'bulk' }).catch(console.error);
+    }
+    if (failed > 0) {
+      showToast({ title: 'Partial sync', description: `${failed} record(s) could not be synced.`, variant: 'warning' });
+    }
+  };
+
   const getFiltered = () => {
     switch (activeTab) {
       case 'students': return filteredStudents;
@@ -195,6 +242,16 @@ export default function SchoolUsers() {
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">View and manage all users across registered schools.</p>
         </div>
         <div className="flex items-center gap-2">
+          {activeTab === 'users' && (
+            <button
+              onClick={handleSyncStudents}
+              disabled={pendingStudentUsers.length === 0 || isSyncing}
+              className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
+            >
+              <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
+              {isSyncing ? 'Syncing...' : `Sync Students (${pendingStudentUsers.length})`}
+            </button>
+          )}
           <button onClick={handleExport} className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
             <Download className="w-4 h-4" /> Export
           </button>
