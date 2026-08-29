@@ -158,11 +158,13 @@ export default function App() {
       {/* Teacher Routes */}
       <Route element={<DashboardLayout />}>
         <Route path="/teacher" element={<TeacherDashboard />} />
-        <Route path="/teacher/classes" element={<TeacherClasses />} />
-        <Route path="/teacher/subjects" element={<TeacherSubjects />} />
+        <Route path="/teacher/departments" element={<TeacherClasses />} />
+        <Route path="/teacher/courses" element={<TeacherSubjects />} />
         <Route path="/teacher/assignments" element={<TeacherAssignments />} />
         <Route path="/teacher/exams" element={<TeacherExams />} />
         <Route path="/teacher/attendance" element={<MarkAttendance />} />
+        <Route path="/teacher/classes" element={<Navigate to="/teacher/departments" replace />} />
+        <Route path="/teacher/subjects" element={<Navigate to="/teacher/courses" replace />} />
       </Route>
 
       {/* Student Routes */}

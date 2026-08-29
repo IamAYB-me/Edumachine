@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Plus, Edit, Trash2, X, BookOpen, Users, BarChart3, Filter } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, X, BookOpen, Users, BarChart3, Filter, UserCheck, UserPlus } from 'lucide-react';
 import { cn } from '@/utils';
 import { useDataStore, Subject } from '@/store/useDataStore';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -7,7 +7,7 @@ import { useToastStore } from '@/store/useToastStore';
 import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
 
 export default function TeacherSubjects() {
-  const { subjects, addSubject, updateSubject, deleteSubject, classes, schools } = useDataStore();
+  const { subjects, addSubject, updateSubject, deleteSubject, classes, schools, departments } = useDataStore();
   const user = useAuthStore((state) => state.user);
   const showToast = useToastStore((state) => state.showToast);
 
@@ -17,12 +17,15 @@ export default function TeacherSubjects() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTerm, setFilterTerm] = useState('all');
+  const [ownerFilter, setOwnerFilter] = useState<'all' | 'mine'>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
-  const [form, setForm] = useState({ name: '', code: '', type: 'Core' as 'Core' | 'Elective', creditHours: 3, term: '', session: '' });
+  const [form, setForm] = useState({ name: '', code: '', type: 'Core' as 'Core' | 'Elective', creditHours: 3, term: '', session: '', departmentId: '' });
+
+  const selectedDepartment = departments.find((d) => d.id === form.departmentId);
 
   const filteredSubjects = useMemo(() => {
-    let result = subjects;
+    let result = ownerFilter === 'mine' && user ? subjects.filter((s) => s.teacherId === user.id) : subjects;
     if (searchTerm) {
       const t = searchTerm.toLowerCase();
       result = result.filter((s) => s.name.toLowerCase().includes(t) || s.code.toLowerCase().includes(t));
@@ -31,7 +34,7 @@ export default function TeacherSubjects() {
       result = result.filter((s) => isCollege ? s.session === filterTerm : s.term === filterTerm);
     }
     return result;
-  }, [subjects, searchTerm, filterTerm, isCollege]);
+  }, [subjects, searchTerm, filterTerm, isCollege, ownerFilter, user]);
 
   const termOptions = labels.termOptions;
   const totalStudents = classes.reduce((sum, c) => sum + c.studentsCount, 0);
@@ -39,20 +42,23 @@ export default function TeacherSubjects() {
   const handleOpenModal = (subject?: Subject) => {
     if (subject) {
       setEditingSubject(subject);
-      setForm({ name: subject.name, code: subject.code, type: subject.type, creditHours: subject.creditHours, term: subject.term || '', session: subject.session || '' });
+      setForm({ name: subject.name, code: subject.code, type: subject.type, creditHours: subject.creditHours, term: subject.term || '', session: subject.session || '', departmentId: subject.departmentId || '' });
     } else {
       setEditingSubject(null);
-      setForm({ name: '', code: '', type: 'Core', creditHours: 3, term: termOptions[0] || '', session: termOptions[0] || '' });
+      setForm({ name: '', code: '', type: 'Core', creditHours: 3, term: termOptions[0] || '', session: termOptions[0] || '', departmentId: '' });
     }
     setIsModalOpen(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const subjectPayload: Record<string, unknown> = { ...form };
+    subjectPayload.departmentId = isCollege ? form.departmentId : '';
+    subjectPayload.facultyId = isCollege ? selectedDepartment?.facultyId || '' : '';
     if (editingSubject) {
-      updateSubject(editingSubject.id, form);
+      updateSubject(editingSubject.id, subjectPayload);
     } else {
-      addSubject({ ...form, assignedClasses: [] });
+      addSubject({ ...subjectPayload, assignedClasses: [], teacherId: user?.id || '', teacherName: user?.name || '' } as Subject);
     }
     showToast({
       title: editingSubject ? `${labels.subjectSingular} updated` : `${labels.subjectSingular} created`,
@@ -60,6 +66,17 @@ export default function TeacherSubjects() {
       variant: 'success',
     });
     setIsModalOpen(false);
+  };
+
+  const handleAssign = (subject: Subject) => {
+    if (!user) return;
+    updateSubject(subject.id, { teacherId: user.id, teacherName: user.name });
+    showToast({ title: `${labels.subjectSingular} assigned`, description: `${subject.name} is now assigned to you.`, variant: 'success' });
+  };
+
+  const handleUnassign = (subject: Subject) => {
+    updateSubject(subject.id, { teacherId: '', teacherName: '' });
+    showToast({ title: `${labels.subjectSingular} unassigned`, description: `${subject.name} removed from your list.`, variant: 'info' });
   };
 
   const handleDelete = (id: string, name: string) => {
@@ -108,6 +125,30 @@ export default function TeacherSubjects() {
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between gap-4">
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-slate-400" />
+            <button
+              onClick={() => setOwnerFilter('all')}
+              className={cn(
+                "px-3 py-1 rounded-full text-xs font-bold transition-all border",
+                ownerFilter === 'all'
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-blue-400"
+              )}
+            >
+              All {labels.subjectPlural}
+            </button>
+            <button
+              onClick={() => setOwnerFilter('mine')}
+              className={cn(
+                "px-3 py-1 rounded-full text-xs font-bold transition-all border",
+                ownerFilter === 'mine'
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-blue-400"
+              )}
+            >
+              My {labels.subjectPlural}
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
             {(['all', ...termOptions] as const).map((t) => (
               <button
                 key={t}
@@ -161,6 +202,9 @@ export default function TeacherSubjects() {
                       <BookOpen className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => subject.teacherId === user?.id ? handleUnassign(subject) : handleAssign(subject)} className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors" title={subject.teacherId === user?.id ? 'Unassign from me' : 'Assign to me'}>
+                        {subject.teacherId === user?.id ? <UserCheck className="w-3.5 h-3.5" /> : <UserPlus className="w-3.5 h-3.5" />}
+                      </button>
                       <button onClick={() => handleOpenModal(subject)} className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors">
                         <Edit className="w-3.5 h-3.5" />
                       </button>
@@ -171,7 +215,16 @@ export default function TeacherSubjects() {
                   </div>
                   <p className="text-xs font-mono text-slate-400 mb-1">{subject.code}</p>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-2">{subject.name}</h3>
+                  {isCollege && subject.departmentId && (
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1 mb-2">
+                      <span className="font-bold uppercase tracking-wider">{labels.structureSingular}:</span>
+                      <span className="truncate">{departments.find((d) => d.id === subject.departmentId)?.name || ''}</span>
+                    </p>
+                  )}
                   <div className="flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-wider">
+                    {subject.teacherId === user?.id && (
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">Mine</span>
+                    )}
                     <span className={cn(
                       "px-2 py-0.5 rounded-full",
                       subject.type === 'Core' ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
@@ -219,6 +272,19 @@ export default function TeacherSubjects() {
                   placeholder={isCollege ? 'e.g. Database Management Systems' : 'e.g. Mathematics'}
                 />
               </div>
+              {isCollege && (
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-500 uppercase">{labels.structureSingular}</label>
+                  <select
+                    value={form.departmentId}
+                    onChange={(e) => setForm({ ...form, departmentId: e.target.value })}
+                    className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500 dark:text-white"
+                  >
+                    <option value="">-- Select {labels.structureSingular.toLowerCase()} --</option>
+                    {departments.map((d) => <option key={d.id} value={d.id}>{d.name} ({d.code})</option>)}
+                  </select>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-500 uppercase">Code</label>

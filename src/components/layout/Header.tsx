@@ -65,7 +65,7 @@ export default function Header({ userName, userRole, schoolName, avatarUrl, onMe
       else if (term.includes('timetable')) navigate('/admin/timetable');
       else if (term.includes('result')) navigate('/admin/results');
     } else if (user?.role === 'TEACHER') {
-      if (term.includes('class')) navigate('/teacher/classes');
+      if (term.includes('class') || term.includes('department')) navigate('/teacher/departments');
       else if (term.includes('assignment')) navigate('/teacher/assignments');
       else if (term.includes('exam')) navigate('/teacher/exams');
       else if (term.includes('attendance')) navigate('/teacher/attendance');

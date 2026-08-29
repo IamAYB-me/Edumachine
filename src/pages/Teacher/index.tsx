@@ -47,7 +47,7 @@ export default function TeacherDashboard() {
             <PenTool className="w-4 h-4" />
             Record Results
           </AnimatedButton>
-          <AnimatedButton onClick={() => navigate('/teacher/classes')} className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm">
+          <AnimatedButton onClick={() => navigate('/teacher/departments')} className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm">
             View Schedule
           </AnimatedButton>
         </div>
@@ -62,7 +62,7 @@ export default function TeacherDashboard() {
             icon={BookOpen}
             iconBgClass="bg-blue-50 dark:bg-blue-900/20"
             iconColorClass="text-blue-600 dark:text-blue-400"
-            to="/teacher/classes"
+            to="/teacher/departments"
             delay={0}
           />
         </StaggerItem>
@@ -140,7 +140,7 @@ export default function TeacherDashboard() {
               </motion.div>
             ))}
           </div>
-          <AnimatedButton onClick={() => navigate('/teacher/classes')} className="w-full mt-6 py-2.5 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs font-bold rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors border border-slate-200 dark:border-slate-700">
+          <AnimatedButton onClick={() => navigate('/teacher/departments')} className="w-full mt-6 py-2.5 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs font-bold rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors border border-slate-200 dark:border-slate-700">
             View Full Timetable
           </AnimatedButton>
         </AnimatedCard>

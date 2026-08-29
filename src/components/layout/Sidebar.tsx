@@ -109,7 +109,8 @@ const roleNavLinks: Record<Role, NavItem[]> = {
       name: 'My Academic', 
       icon: GraduationCap, 
       subItems: [
-        { name: 'My Classes', path: '/teacher/classes', icon: GraduationCap },
+        { name: 'My Department', path: '/teacher/departments', icon: GraduationCap },
+        { name: 'My Courses', path: '/teacher/courses', icon: BookOpen },
         { name: 'Attendance', path: '/teacher/attendance', icon: UserCheck },
       ]
     },
@@ -257,6 +258,12 @@ export default function Sidebar({ role, open, onClose }: SidebarProps) {
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   
   const activeColorClass = roleColors[role] || roleColors.ADMIN;
+
+  const schoolProfile = resolveSchoolProfile(user, schools);
+  const portalLabels = getPortalLevelLabels(schoolProfile.portalLevel);
+  const portalTitle = role === 'TEACHER'
+    ? `${portalLabels.teacherPlural.replace(/s$/i, '')} Portal`
+    : role.replace('_', ' ');
   
   const links = useMemo(() => {
     const baseLinks = [...(roleNavLinks[role] || roleNavLinks['ADMIN'])];
@@ -313,26 +320,17 @@ export default function Sidebar({ role, open, onClose }: SidebarProps) {
       }
 
       if (role === 'TEACHER' && link.name === 'My Academic' && link.subItems) {
-        const teacherAcademicItem = {
-          name: labels.studyLabel,
-          icon: BookOpen,
-          path: '/teacher/subjects',
-        };
-        const subItems = [...link.subItems];
-        const existingIndex = subItems.findIndex((subItem) => subItem.path === '/teacher/subjects');
-        if (existingIndex >= 0) {
-          subItems[existingIndex] = teacherAcademicItem;
-        } else {
-          subItems.splice(1, 0, teacherAcademicItem);
-        }
-
         return {
           ...link,
-          subItems: subItems.map((subItem) =>
-            subItem.path === '/teacher/classes'
-              ? { ...subItem, name: `My ${labels.structurePlural}` }
-              : subItem
-          ),
+          subItems: link.subItems.map((subItem) => {
+            if (subItem.path === '/teacher/departments') {
+              return { ...subItem, name: `My ${labels.structurePlural}` };
+            }
+            if (subItem.path === '/teacher/courses') {
+              return { ...subItem, name: labels.studyLabel };
+            }
+            return subItem;
+          }),
         };
       }
 
@@ -436,7 +434,7 @@ export default function Sidebar({ role, open, onClose }: SidebarProps) {
       <div className="flex-1 overflow-y-auto py-6 px-4 flex flex-col gap-1 custom-scrollbar">
         <div className="text-xs font-bold text-slate-500 uppercase tracking-[0.2em] mb-3 px-2 flex items-center gap-2">
           <div className={cn("w-1 h-3 rounded-full", activeColorClass.split(' ')[0])}></div>
-          {role.replace('_', ' ')} PORTAL
+          {portalTitle} PORTAL
         </div>
         
         {links.map((link) => {

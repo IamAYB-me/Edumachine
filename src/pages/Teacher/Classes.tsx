@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { getPortalLevelLabels, resolveSchoolProfile } from '@/utils/schoolProfile';
 
 export default function TeacherClasses() {
-  const { classes, students, schools } = useDataStore();
+  const { classes, students, schools, departments, teachers, updateTeacher } = useDataStore();
   const user = useAuthStore((state) => state.user);
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
@@ -18,6 +18,25 @@ export default function TeacherClasses() {
   const showToast = useToastStore((state) => state.showToast);
   const schoolProfile = resolveSchoolProfile(user, schools);
   const labels = getPortalLevelLabels(schoolProfile.portalLevel);
+  const isCollege = schoolProfile.portalLevel === 'College' || schoolProfile.portalLevel === 'University';
+
+  const myProfile = teachers.find((t) => t.id === user?.id);
+  const myDepartmentId = myProfile?.departmentId || '';
+
+  const handleAssignDepartment = (department: { id: string; name: string }) => {
+    if (!user) return;
+    const isMine = myDepartmentId === department.id;
+    if (isMine) {
+      updateTeacher(user.id, { departmentId: '', departmentName: '' });
+    } else {
+      updateTeacher(user.id, { departmentId: department.id, departmentName: department.name });
+    }
+    showToast({
+      title: `${labels.structureSingular} assigned`,
+      description: isMine ? 'Removed from your profile.' : `You are now attached to ${department.name}.`,
+      variant: 'success',
+    });
+  };
 
   // Filter classes for the logged-in teacher (simulated as 'Teacher 1')
   const teacherClasses = [...classes.filter(cls => cls.teacherName.includes('Teacher') || cls.id === '1')].sort((a, b) => {
@@ -26,11 +45,16 @@ export default function TeacherClasses() {
     return a.room.localeCompare(b.room);
   });
 
-  const stats = {
+  const stats = isCollege ? {
+    totalClasses: departments.length,
+    totalStudents: students.length,
+    avgStudents: departments.filter((d) => d.id === myDepartmentId).length,
+    periods: 24,
+  } : {
     totalClasses: teacherClasses.length,
     totalStudents: teacherClasses.reduce((acc, c) => acc + c.studentsCount, 0),
     avgStudents: Math.round(teacherClasses.reduce((acc, c) => acc + c.studentsCount, 0) / (teacherClasses.length || 1)),
-    periods: 24 // Weekly periods
+    periods: 24,
   };
 
   const weeklySlots = [
@@ -110,7 +134,7 @@ export default function TeacherClasses() {
           iconColorClass="text-emerald-600 dark:text-emerald-400"
         />
         <KPICard 
-          title={`Avg. ${labels.structureSingular} Size`} 
+          title={isCollege ? `Assigned ${labels.structureSingular}` : `Avg. ${labels.structureSingular} Size`} 
           value={stats.avgStudents.toString()} 
           icon={User} 
           iconBgClass="bg-amber-50 dark:bg-amber-900/20"
@@ -154,7 +178,49 @@ export default function TeacherClasses() {
 
         {/* Grid of Classes */}
         <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto">
-          {teacherClasses.map((cls) => (
+          {isCollege ? (
+            <>
+              {departments
+                .filter((d) => !searchTerm.trim() || d.name.toLowerCase().includes(searchTerm.toLowerCase()) || d.code.toLowerCase().includes(searchTerm.toLowerCase()))
+                .map((dept) => {
+                  const isMine = myDepartmentId === dept.id;
+                  return (
+                    <div key={dept.id} className={cn("bg-white dark:bg-slate-800/50 rounded-2xl border p-5 transition-all group relative", isMine ? "border-emerald-500 dark:border-emerald-500" : "border-slate-200 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-900/50 hover:shadow-xl")}>
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="p-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl group-hover:scale-110 transition-transform">
+                          <GraduationCap className="w-6 h-6" />
+                        </div>
+                        <span className={cn("px-2 py-1 text-[10px] font-bold rounded uppercase", isMine ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400")}>
+                          {isMine ? `My ${labels.structureSingular}` : dept.code}
+                        </span>
+                      </div>
+                      <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1 group-hover:text-blue-600 transition-colors">{dept.name}</h3>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-1.5">
+                        <BookOpen className="w-3.5 h-3.5" /> {dept.code || dept.facultyId}
+                      </p>
+                      <div className="mt-5 grid grid-cols-2 gap-3">
+                        <button
+                          onClick={() => handleAssignDepartment(dept)}
+                          className={cn("py-2 rounded-xl text-[10px] font-bold transition-colors shadow-md", isMine ? "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300" : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-900/20")}
+                        >
+                          {isMine ? 'Remove' : `Assign as my ${labels.structureSingular}`}
+                        </button>
+                        <button onClick={() => navigate('/teacher/courses')} className="py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 rounded-xl text-[10px] font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                          View {labels.subjectPlural}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              {departments.length === 0 && (
+                <div className="col-span-full py-20 flex flex-col items-center justify-center text-slate-400 dark:text-slate-600">
+                  <GraduationCap className="w-12 h-12 mb-4 opacity-20" />
+                  <p className="text-sm font-medium">No {labels.structurePlural.toLowerCase()} registered yet.</p>
+                </div>
+              )}
+            </>
+          ) : (
+            <>{teacherClasses.map((cls) => (
             <div key={cls.id} className="bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 hover:shadow-xl hover:border-blue-200 dark:hover:border-blue-900/50 transition-all group relative">
               <div className="flex justify-between items-start mb-4">
                 <div className="p-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl group-hover:scale-110 transition-transform">
@@ -195,12 +261,13 @@ export default function TeacherClasses() {
               </div>
             </div>
           ))}
-          {teacherClasses.length === 0 && (
+          {!isCollege && teacherClasses.length === 0 && (
              <div className="col-span-full py-20 flex flex-col items-center justify-center text-slate-400 dark:text-slate-600">
                <GraduationCap className="w-12 h-12 mb-4 opacity-20" />
                <p className="text-sm font-medium">No {labels.structurePlural.toLowerCase()} assigned to you yet.</p>
              </div>
           )}
+          </>)}
         </div>
       </div>
     </div>

@@ -316,6 +316,8 @@ export interface Teacher {
   phone: string;
   status: 'Active' | 'Inactive';
   password?: string;
+  departmentId?: string;
+  departmentName?: string;
 }
 
 export interface Class {
@@ -360,6 +362,8 @@ export interface Subject {
   assignedClasses?: string[];
   facultyId?: string;
   departmentId?: string;
+  teacherId?: string;
+  teacherName?: string;
 }
 
 export interface FeeRecord {
@@ -890,7 +894,7 @@ export const useDataStore = create<DataState>()((set, get) => ({
     const ROLE_COLLECTIONS: Partial<Record<Role, string[]>> = {
       SUPER_ADMIN: ['schools', 'users', 'plans', 'delegatedAccess', 'registrationConfigs', 'admissionApplications', 'settings', 'notifications', 'activityLogs', 'students', 'teachers', 'parents', 'staff', 'classes', 'feeRecords', 'exams', 'examResults', 'attendance', 'expenses', 'payroll', 'subjects', 'faculties', 'departments', 'notices', 'timetable'],
       ADMIN: ['students', 'teachers', 'parents', 'staff', 'classes', 'faculties', 'departments', 'subjects', 'feeRecords', 'feeStructures', 'exams', 'examResults', 'examTimetable', 'attendance', 'expenses', 'payroll', 'delegatedAccess', 'admissionApplications', 'notifications', 'notices', 'timetable', 'schools', 'activityLogs'],
-      TEACHER: ['students', 'classes', 'faculties', 'departments', 'subjects', 'exams', 'examResults', 'attendance', 'notifications', 'notices', 'timetable', 'schools'],
+      TEACHER: ['students', 'classes', 'faculties', 'departments', 'subjects', 'exams', 'examResults', 'attendance', 'notifications', 'notices', 'timetable', 'teachers', 'schools'],
       STUDENT: ['classes', 'faculties', 'departments', 'subjects', 'exams', 'examResults', 'examTimetable', 'attendance', 'feeRecords', 'feeStructures', 'notifications', 'notices', 'timetable', 'schools'],
       PARENT: ['students', 'attendance', 'feeRecords', 'notifications', 'notices', 'schools'],
       HR: ['staff', 'attendance', 'payroll', 'notifications', 'notices', 'schools'],
