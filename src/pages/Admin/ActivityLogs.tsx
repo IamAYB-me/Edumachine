@@ -236,7 +236,7 @@ export default function AdminActivityLogs() {
                       </td>
                       <td className="p-4">
                         <div className="font-medium text-slate-900 dark:text-white">{log.userName}</div>
-                        <div className="text-xs text-slate-400">{log.userRole.replace('_', ' ')}</div>
+                        <div className="text-xs text-slate-400">{(log.userRole || 'System').replace('_', ' ')}</div>
                       </td>
                       <td className="p-4">
                         <span className={cn("px-2.5 py-1 rounded-full text-xs font-semibold", ACTION_COLORS[log.action])}>

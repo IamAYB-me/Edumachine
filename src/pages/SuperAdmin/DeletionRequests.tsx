@@ -125,7 +125,7 @@ export default function SuperAdminDeletionRequests() {
                   <tr key={log.id} className="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                     <td className="p-4">
                       <div className="font-medium text-slate-900 dark:text-white">{log.deletionRequestedByName}</div>
-                      <div className="text-xs text-slate-400">{log.userRole.replace('_', ' ')}</div>
+                      <div className="text-xs text-slate-400">{(log.userRole || 'System').replace('_', ' ')}</div>
                     </td>
                     <td className="p-4">
                       <div className="text-slate-700 dark:text-slate-200 max-w-sm truncate">{log.description}</div>
@@ -222,7 +222,7 @@ export default function SuperAdminDeletionRequests() {
             </div>
             <div className="p-5 space-y-3 text-sm">
               <div className="flex justify-between"><span className="text-slate-500">User</span><span className="font-medium text-slate-900 dark:text-white">{detailLog.userName}</span></div>
-              <div className="flex justify-between"><span className="text-slate-500">Role</span><span className="font-medium text-slate-900 dark:text-white">{detailLog.userRole.replace('_', ' ')}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Role</span><span className="font-medium text-slate-900 dark:text-white">{(detailLog.userRole || 'System').replace('_', ' ')}</span></div>
               <div className="flex justify-between"><span className="text-slate-500">Action</span><span className="font-medium text-slate-900 dark:text-white">{detailLog.action}</span></div>
               <div className="flex justify-between"><span className="text-slate-500">Module</span><span className="font-medium text-slate-900 dark:text-white capitalize">{detailLog.module}</span></div>
               <div className="flex justify-between"><span className="text-slate-500">Target</span><span className="font-medium text-slate-900 dark:text-white">{detailLog.targetName || detailLog.targetId || '—'}</span></div>

@@ -39,8 +39,8 @@ export default function ChildrenAttendance() {
             <div className="p-4 bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
               <div className="flex items-center gap-3">
                 <img 
-                  src={`https://ui-avatars.com/api/?name=${child.name.replace(' ', '+')}&background=eff6ff&color=2563eb&bold=true`} 
-                  alt={child.name} 
+src={`https://ui-avatars.com/api/?name=${(child.name || 'Student').replace(' ', '+')}&background=eff6ff&color=2563eb&bold=true`}
+                  alt={child.name || 'Student'}
                   className="w-8 h-8 rounded-lg"
                 />
                 <span className="font-bold text-slate-900 dark:text-white">{child.name}</span>

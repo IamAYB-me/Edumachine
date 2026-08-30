@@ -196,7 +196,7 @@ export default function MarkAttendance() {
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-3">
                         <img 
-                          src={`https://ui-avatars.com/api/?name=${student.name.replace(' ', '+')}&background=random&bold=true`} 
+                          src={`https://ui-avatars.com/api/?name=${(student.name || 'Student').replace(' ', '+')}&background=random&bold=true`} 
                           alt="" 
                           className="w-9 h-9 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm"
                         />

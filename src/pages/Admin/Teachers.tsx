@@ -199,8 +199,8 @@ export default function TeachersDirectory() {
                       <div className="flex items-center gap-3">
                         <div className="relative">
                           <img 
-                            src={`https://ui-avatars.com/api/?name=${teacher.name.replace(' ', '+')}&background=eff6ff&color=2563eb&bold=true`} 
-                            alt={teacher.name} 
+src={`https://ui-avatars.com/api/?name=${(teacher.name || 'Teacher').replace(' ', '+')}&background=eff6ff&color=2563eb&bold=true`}
+                            alt={teacher.name || 'Teacher'}
                             className="w-10 h-10 rounded-xl object-cover border border-slate-100 dark:border-slate-800"
                           />
                           <div className={cn(

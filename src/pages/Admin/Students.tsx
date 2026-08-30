@@ -1177,8 +1177,8 @@ export default function StudentsDirectory() {
                     <div className="flex items-center gap-3">
                       <div className="relative">
                         <img
-                          src={student.passportUrl || `https://ui-avatars.com/api/?name=${student.name.replace(' ', '+')}&background=eff6ff&color=2563eb&bold=true`}
-                          alt={student.name}
+                          src={student.passportUrl || `https://ui-avatars.com/api/?name=${(student.name || 'Student').replace(' ', '+')}&background=eff6ff&color=2563eb&bold=true`}
+                          alt={student.name || 'Student'}
                           className="w-10 h-10 rounded-xl object-cover border border-slate-100 dark:border-slate-800"
                         />
                         <div className={cn(

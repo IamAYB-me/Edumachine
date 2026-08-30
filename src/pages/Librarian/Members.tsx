@@ -245,7 +245,7 @@ export default function LibraryMembers() {
                   <td className="py-4 px-6">
                     <div className="flex items-center gap-3">
                       <img 
-                        src={`https://ui-avatars.com/api/?name=${member.name.replace(' ', '+')}&background=eff6ff&color=2563eb&bold=true`} 
+                        src={`https://ui-avatars.com/api/?name=${(member.name || 'Member').replace(' ', '+')}&background=eff6ff&color=2563eb&bold=true`} 
                         className="w-8 h-8 rounded-lg"
                         alt={member.name}
                       />

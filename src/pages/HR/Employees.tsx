@@ -257,8 +257,8 @@ export default function HREmployees() {
                       <div className="flex items-center gap-3">
                         <div className="relative">
                           <img 
-                            src={`https://ui-avatars.com/api/?name=${emp.name.replace(' ', '+')}&background=eff6ff&color=2563eb&bold=true`} 
-                            alt={emp.name} 
+src={`https://ui-avatars.com/api/?name=${(emp.name || 'Employee').replace(' ', '+')}&background=eff6ff&color=2563eb&bold=true`}
+                            alt={emp.name || 'Employee'}
                             className="w-10 h-10 rounded-xl object-cover border border-slate-100 dark:border-slate-800 shadow-sm"
                           />
                           <div className={cn(

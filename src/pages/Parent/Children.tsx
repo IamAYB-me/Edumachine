@@ -81,8 +81,8 @@ export default function MyChildren() {
                 <>
                   <div className="flex flex-col gap-6 md:flex-row md:items-center">
                     <img
-                      src={`https://ui-avatars.com/api/?name=${selectedChild.name.replace(' ', '+')}&background=eff6ff&color=2563eb&size=128&bold=true`}
-                      alt={selectedChild.name}
+                      src={`https://ui-avatars.com/api/?name=${(selectedChild.name || 'Student').replace(' ', '+')}&background=eff6ff&color=2563eb&size=128&bold=true`}
+                      alt={selectedChild.name || 'Student'}
                       className="h-24 w-24 rounded-2xl border-4 border-white shadow-sm"
                     />
                     <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-2">
@@ -163,8 +163,8 @@ export default function MyChildren() {
             <div className="p-6 flex flex-col md:flex-row gap-6">
               <div className="flex flex-col items-center gap-4 text-center">
                 <img 
-                  src={`https://ui-avatars.com/api/?name=${child.name.replace(' ', '+')}&background=eff6ff&color=2563eb&size=128&bold=true`} 
-                  alt={child.name} 
+src={`https://ui-avatars.com/api/?name=${(child.name || 'Student').replace(' ', '+')}&background=eff6ff&color=2563eb&size=128&bold=true`}
+                  alt={child.name || 'Student'}
                   className="w-24 h-24 rounded-2xl object-cover border-4 border-white dark:border-slate-800 shadow-sm"
                 />
                 <div>

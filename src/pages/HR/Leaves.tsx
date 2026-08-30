@@ -195,7 +195,7 @@ export default function HRLeaves() {
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-3">
                           <img 
-                            src={`https://ui-avatars.com/api/?name=${leave.staff.replace(' ', '+')}&background=eff6ff&color=2563eb&bold=true`} 
+                            src={`https://ui-avatars.com/api/?name=${(leave.staff || 'Staff').replace(' ', '+')}&background=eff6ff&color=2563eb&bold=true`} 
                             className="w-8 h-8 rounded-lg"
                             alt={leave.staff}
                           />
