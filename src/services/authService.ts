@@ -62,6 +62,9 @@ export async function registerUser(
   schoolName: string,
   phone?: string,
   portalLevel?: string,
+  surname?: string,
+  firstName?: string,
+  middleName?: string,
 ): Promise<{ success: boolean; error?: string }> {
   let createdUser: FirebaseUser | null = null;
   try {
@@ -88,6 +91,9 @@ export async function registerUser(
         setDoc(doc(db, 'students', createdUser!.uid), {
           id: createdUser!.uid,
           name,
+          surname: surname || '',
+          firstName: firstName || '',
+          middleName: middleName || '',
           email,
           phone: phone || '',
           regNo: '',

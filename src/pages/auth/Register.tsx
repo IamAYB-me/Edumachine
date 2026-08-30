@@ -27,6 +27,9 @@ export default function RegisterPage() {
   const schools = useDataStore((s) => s.schools);
 
   const [name, setName] = useState('');
+  const [surname, setSurname] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [middleName, setMiddleName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -88,6 +91,16 @@ export default function RegisterPage() {
       return;
     }
 
+    if (role === 'STUDENT' && (!surname.trim() || !firstName.trim())) {
+      setError('Please enter the student\'s surname and first name.');
+      return;
+    }
+
+    const isStudent = role === 'STUDENT';
+    const fullName = isStudent
+      ? [surname.trim(), firstName.trim(), middleName.trim()].filter(Boolean).join(' ')
+      : name;
+
     setIsLoading(true);
     await new Promise((r) => setTimeout(r, 600));
 
@@ -95,7 +108,19 @@ export default function RegisterPage() {
     const effectivePortalLevel = isCreator ? portalLevel : (selectedSchool?.portalLevel || '');
     const roleLabel = role === 'TEACHER' ? teacherLabel : undefined;
 
-    const result = await register({ name, email, password, role, schoolName, phone, portalLevel: effectivePortalLevel, roleLabel });
+    const result = await register({
+      name: fullName,
+      email,
+      password,
+      role,
+      schoolName,
+      phone,
+      portalLevel: effectivePortalLevel,
+      roleLabel,
+      surname: isStudent ? surname.trim() : '',
+      firstName: isStudent ? firstName.trim() : '',
+      middleName: isStudent ? middleName.trim() : '',
+    });
 
     if (!result.success) {
       setError(result.error || 'Registration failed. Please try again.');
@@ -170,17 +195,54 @@ export default function RegisterPage() {
                 </div>
               )}
 
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-500 uppercase">Full Name</label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter your full name"
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:text-white transition-all"
-                />
-              </div>
+              {role === 'STUDENT' ? (
+                <div className="space-y-3">
+                  <label className="text-xs font-bold text-slate-500 uppercase">Student Name</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <input
+                        type="text"
+                        required
+                        value={surname}
+                        onChange={(e) => setSurname(e.target.value)}
+                        placeholder="Surname e.g. IKARE"
+                        className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:text-white transition-all"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <input
+                        type="text"
+                        required
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        placeholder="First name e.g. FAITH"
+                        className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:text-white transition-all"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <input
+                      type="text"
+                      value={middleName}
+                      onChange={(e) => setMiddleName(e.target.value)}
+                      placeholder="Other name (optional) e.g. IYANU"
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:text-white transition-all"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-500 uppercase">Full Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Enter your full name"
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:text-white transition-all"
+                  />
+                </div>
+              )}
 
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-500 uppercase">Email Address</label>

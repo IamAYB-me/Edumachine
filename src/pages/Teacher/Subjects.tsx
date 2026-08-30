@@ -55,6 +55,8 @@ export default function TeacherSubjects() {
     const subjectPayload: Record<string, unknown> = { ...form };
     subjectPayload.departmentId = isCollege ? form.departmentId : '';
     subjectPayload.facultyId = isCollege ? selectedDepartment?.facultyId || '' : '';
+    subjectPayload.term = isCollege ? '' : form.term;
+    subjectPayload.session = isCollege ? form.session : '';
     if (editingSubject) {
       updateSubject(editingSubject.id, subjectPayload);
     } else {

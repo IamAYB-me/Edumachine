@@ -514,7 +514,7 @@ export default function StudentsDirectory() {
   const filteredStudents = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
 
-    return students.filter((student) => {
+    const result = students.filter((student) => {
       const matchesSearch = !normalizedSearch || [
         student.name,
         student.regNo,
@@ -532,6 +532,7 @@ export default function StudentsDirectory() {
 
       return matchesSearch && matchesStatus && matchesPortalLevel;
     });
+    return result.sort((a, b) => (a.name || '').trim().localeCompare((b.name || '').trim()));
   }, [activePortalLevel, portalLevelFilter, searchTerm, statusFilter, students]);
 
   const activeFilterCount = [statusFilter !== 'All', portalLevelFilter !== 'All', searchTerm.trim().length > 0].filter(Boolean).length;

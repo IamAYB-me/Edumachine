@@ -21,13 +21,19 @@ const COLOR_MAP: Record<string, { bg: string; border: string; text: string }> = 
 };
 
 export default function StudentCourses() {
-  const { subjects, schools } = useDataStore();
+  const { subjects, schools, students, departments } = useDataStore();
   const user = useAuthStore((state) => state.user);
   const showToast = useToastStore((state) => state.showToast);
 
   const schoolProfile = resolveSchoolProfile(user, schools);
   const labels = getPortalLevelLabels(schoolProfile.portalLevel);
   const isCollege = schoolProfile.portalLevel === 'College' || schoolProfile.portalLevel === 'University';
+
+  const myStudent = useMemo(() => students.find((s) => s.id === user?.id), [students, user?.id]);
+  const myDepartmentId = useMemo(() => {
+    const name = myStudent?.classDepartment || myStudent?.department || '';
+    return departments.find((d) => d.name === name || d.code === name || d.id === name)?.id || '';
+  }, [myStudent, departments]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTerm, setFilterTerm] = useState('all');
@@ -41,7 +47,9 @@ export default function StudentCourses() {
   }, [subjects, isCollege]);
 
   const filteredSubjects = useMemo(() => {
-    let result = subjects;
+    let result = isCollege
+      ? subjects.filter((s) => s.session && Boolean(myDepartmentId) && s.departmentId === myDepartmentId)
+      : subjects;
     if (searchTerm) {
       const t = searchTerm.toLowerCase();
       result = result.filter((s) => s.name.toLowerCase().includes(t) || s.code.toLowerCase().includes(t));
@@ -50,7 +58,7 @@ export default function StudentCourses() {
       result = result.filter((s) => isCollege ? s.session === filterTerm : s.term === filterTerm);
     }
     return result;
-  }, [subjects, searchTerm, filterTerm, isCollege]);
+  }, [subjects, searchTerm, filterTerm, isCollege, myDepartmentId, myStudent?.classDepartment, myStudent?.department]);
 
   const progressMap = useMemo(() => {
     const map: Record<string, number> = {};
