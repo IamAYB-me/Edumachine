@@ -295,7 +295,7 @@ const levelSpecificSections: Record<PortalLevel, Array<{ title: string; fields: 
   ],
   College: [
     {
-      title: 'College / Polytechnic Admission',
+      title: 'College Admission',
       fields: [
         { name: 'jambRegistrationNumber', label: 'JAMB Registration Number' },
         { name: 'jambScore', label: 'JAMB Score' },
