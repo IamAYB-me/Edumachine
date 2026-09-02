@@ -113,22 +113,23 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   user: null,
   isAuthenticated: false,
   isLoading: true,
-  _hasHydrated: true,
+  _hasHydrated: false,
 
   setHasHydrated: () => {},
 
   initAuthListener: () => {
     onAuthStateChange(async (firebaseUser) => {
+      let nextUser = null;
       if (firebaseUser) {
         const profile = await getUserProfile(firebaseUser.uid);
-        if (profile) {
-          set({ user: firestoreUserToUser(profile), isAuthenticated: true, isLoading: false });
-        } else {
-          set({ user: null, isAuthenticated: false, isLoading: false });
-        }
-      } else {
-        set({ user: null, isAuthenticated: false, isLoading: false });
+        nextUser = profile ? firestoreUserToUser(profile) : null;
       }
+      set({
+        user: nextUser,
+        isAuthenticated: !!nextUser,
+        isLoading: false,
+        _hasHydrated: true,
+      });
     });
   },
 
