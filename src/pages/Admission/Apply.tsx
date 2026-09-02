@@ -755,20 +755,20 @@ export default function AdmissionApply() {
                 </div>
               </div>
 
-              {/* LGA, State, Nationality */}
+              {/* State, LGA, Nationality */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="space-y-1">
-                  <label className={labelClass}>Local Government Area</label>
-                  <select value={form.lga} onChange={(e) => update('lga', e.target.value)} className={inputClass}>
-                    <option value="">Select LGA</option>
-                    {getLGAsForState(form.stateOfOrigin).map((l) => <option key={l} value={l}>{l}</option>)}
-                  </select>
-                </div>
                 <div className="space-y-1">
                   <label className={labelClass}>State of Origin</label>
                   <select value={form.stateOfOrigin} onChange={(e) => { update('stateOfOrigin', e.target.value); update('lga', ''); }} className={inputClass}>
                     <option value="">Select State</option>
                     {NIGERIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className={labelClass}>Local Government Area</label>
+                  <select value={form.lga} onChange={(e) => update('lga', e.target.value)} className={inputClass}>
+                    <option value="">Select LGA</option>
+                    {getLGAsForState(form.stateOfOrigin).map((l) => <option key={l} value={l}>{l}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1">
