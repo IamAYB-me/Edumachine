@@ -163,6 +163,15 @@ service cloud.firestore {
       allow write: if isAuth();
     }
 
+    // ─── Attendance Tokens ────────────────────────────────────────────
+    // Lecturers/admins generate tokens; any authenticated user may redeem.
+    match /attendanceTokens/{tokenId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && (isAdmin() || hasRole('TEACHER'));
+      allow update: if isAuth();
+      allow delete: if isAdmin();
+    }
+
     // ─── Expenses ─────────────────────────────────────────────────────
     match /expenses/{expenseId} {
       allow read: if isAuth();

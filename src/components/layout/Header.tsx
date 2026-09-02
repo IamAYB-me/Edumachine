@@ -13,19 +13,8 @@ interface HeaderProps {
   onMenuToggle?: () => void;
 }
 
-const currencies = [
-  { code: 'NGN', symbol: '₦' },
-  { code: 'USD', symbol: '$' },
-  { code: 'EUR', symbol: '€' },
-  { code: 'GBP', symbol: '£' },
-  { code: 'GHS', symbol: 'GH₵' },
-  { code: 'KES', symbol: 'KSh' },
-  { code: 'ZAR', symbol: 'R' },
-  { code: 'JPY', symbol: '¥' },
-];
-
 export default function Header({ userName, userRole, schoolName, avatarUrl, onMenuToggle }: HeaderProps) {
-  const { theme, toggleTheme, currency, setCurrency, globalSettings } = useSettingsStore();
+  const { theme, toggleTheme, globalSettings } = useSettingsStore();
   const { user } = useAuthStore();
   const logout = useAuthStore((state) => state.logout);
   const notifications = useDataStore((s) => s.notifications);
@@ -37,7 +26,6 @@ export default function Header({ userName, userRole, schoolName, avatarUrl, onMe
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
-  const showCurrencySwitcher = user && ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT', 'PARENT', 'STUDENT', 'WARDEN'].includes(user.role);
   const displayName = user?.role === 'SUPER_ADMIN' ? globalSettings.appName : schoolName;
   const myNotifications = notifications.filter((n) => n.userId === user?.id);
   const unreadCount = myNotifications.filter((n) => !n.read).length;
@@ -112,20 +100,6 @@ export default function Header({ userName, userRole, schoolName, avatarUrl, onMe
             className="pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border-none rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 w-64 transition-all dark:text-slate-200"
           />
         </form>
-
-        {showCurrencySwitcher && (
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
-            <select
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-              className="bg-transparent text-xs font-bold text-slate-600 dark:text-slate-300 focus:outline-none px-2 cursor-pointer"
-            >
-              {currencies.map(c => (
-                <option key={c.code} value={c.code}>{c.symbol} {c.code}</option>
-              ))}
-            </select>
-          </div>
-        )}
 
         <button
           onClick={toggleTheme}

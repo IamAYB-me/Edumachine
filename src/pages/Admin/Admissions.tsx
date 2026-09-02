@@ -118,11 +118,28 @@ export default function AdmissionsManagement() {
 
     // Promote the applicant's auth account from APPLICANT to STUDENT so they
     // no longer keep the applicant role after admission.
+    await promoteApplicant(app, regNo, classValue, portalLevel);
+
+    updateAdmissionApplication(app.id, { applicationStatus: 'Admitted', reviewedAt: new Date().toISOString().split('T')[0], reviewedBy: user?.name || 'Admin' });
+    showToast({
+      title: `${labels.learnerSingular} admitted`,
+      description: `${app.surname} ${app.firstName} has been added to the ${labels.learnerPlural.toLowerCase()} directory and their account upgraded to a student.`,
+      variant: 'success',
+    });
+    setSelectedApp(null);
+    setAdmitting(false);
+  };
+
+  // Promote an admitted applicant's auth account from APPLICANT to STUDENT.
+  // The applicant/auth user's uid is the Firestore document id of the
+  // platform user record (PlatformUser.id), not the optional uid field.
+  const promoteApplicant = async (app: AdmissionApplication, regNo: string, classValue: string, portalLevel: string) => {
     const applicantUser = platformUsers.find(
       (u) => u.email && app.email && u.email.toLowerCase() === app.email.toLowerCase(),
     );
-    if (applicantUser?.uid) {
-      const res = await promoteApplicantToStudent(applicantUser.uid, {
+    const applicantUid = applicantUser?.id || applicantUser?.uid;
+    if (applicantUid) {
+      const res = await promoteApplicantToStudent(applicantUid, {
         name: `${app.surname} ${app.firstName}`,
         email: app.email,
         schoolName: user?.schoolName || schoolProfile.name,
@@ -135,18 +152,25 @@ export default function AdmissionsManagement() {
         class: classValue,
       });
       if (res.success) {
-        updatePlatformUser(applicantUser.uid, {
+        updatePlatformUser(applicantUid, {
           name: `${app.surname} ${app.firstName}`,
           role: 'STUDENT',
           roleLabel: 'Student',
         });
+        return true;
       }
     }
+    return false;
+  };
 
-    updateAdmissionApplication(app.id, { applicationStatus: 'Admitted', reviewedAt: new Date().toISOString().split('T')[0], reviewedBy: user?.name || 'Admin' });
+  const handlePromoteToStudent = async (app: AdmissionApplication) => {
+    setAdmitting(true);
+    const regNo = 'REG-' + Date.now().toString(36).toUpperCase();
+    const classValue = app.courseOfStudy || '';
+    await promoteApplicant(app, regNo, classValue, schoolProfile.portalLevel);
     showToast({
-      title: `${labels.learnerSingular} admitted`,
-      description: `${app.surname} ${app.firstName} has been added to the ${labels.learnerPlural.toLowerCase()} directory and their account upgraded to a student.`,
+      title: 'Account promoted to student',
+      description: `${app.surname} ${app.firstName}'s account has been upgraded to a ${labels.learnerSingular}. They can now pay fees from their student portal.`,
       variant: 'success',
     });
     setSelectedApp(null);
@@ -641,6 +665,12 @@ export default function AdmissionsManagement() {
                   <button onClick={() => handleAdmit(selectedApp)} disabled={admitting}
                     className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2">
                     <UserCheck className="w-4 h-4" /> {admitting ? 'Admitting...' : `Admit as ${labels.learnerSingular}`}
+                  </button>
+                )}
+                {selectedApp.applicationStatus === 'Admitted' && (
+                  <button onClick={() => handlePromoteToStudent(selectedApp)} disabled={admitting}
+                    className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2">
+                    <UserCheck className="w-4 h-4" /> {admitting ? 'Promoting...' : 'Promote to Student'}
                   </button>
                 )}
               </div>
