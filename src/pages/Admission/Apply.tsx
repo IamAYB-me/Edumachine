@@ -9,6 +9,7 @@ import { cn } from '@/utils';
 import { useDataStore, type PortalLevel } from '@/store/useDataStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useCurrency } from '@/hooks/useCurrency';
+import { useAuthStore } from '@/store/useAuthStore';
 import { getPortalProgrammes, filterDepartmentsByPortal } from '@/utils/portalProgrammes';
 import { NIGERIAN_STATES, getLGAsForState } from '@/utils/nigerianLocations';
 import { subscribeToCollection } from '@/services/firestoreService';
@@ -140,6 +141,7 @@ export default function AdmissionApply() {
   const { subjects, classes, schools } = useDataStore();
   const { globalSettings } = useSettingsStore();
   const { format } = useCurrency();
+  const loginWithCredentials = useAuthStore((state) => state.loginWithCredentials);
   const [step, setStep] = useState(0);
   const [submitted, setSubmitted] = useState(false);
   const [paying, setPaying] = useState(false);
@@ -311,6 +313,11 @@ export default function AdmissionApply() {
       setPaymentDone(true);
       setPaying(false);
       setSubmitted(true);
+
+      // Auto-login so the applicant can access the Progress page immediately.
+      loginWithCredentials(form.email, form.password).catch(() => {
+        console.warn('[Apply] Auto-login failed; user can log in manually from the email credentials.');
+      });
     } catch (err: any) {
       console.error('[Apply] Submission failed:', err);
       setError(err?.message || 'Your application could not be submitted. Please try again.');
