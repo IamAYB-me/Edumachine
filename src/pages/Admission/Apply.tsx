@@ -6,9 +6,10 @@ import {
   Printer, ShieldCheck,
 } from 'lucide-react';
 import { cn } from '@/utils';
-import { useDataStore } from '@/store/useDataStore';
+import { useDataStore, type PortalLevel } from '@/store/useDataStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useCurrency } from '@/hooks/useCurrency';
+import { getPortalProgrammes } from '@/utils/portalProgrammes';
 import { subscribeToCollection } from '@/services/firestoreService';
 import { usePaystackPayment } from 'react-paystack';
 import { functions } from '@/config/firebase';
@@ -42,12 +43,6 @@ const COMMON_SUBJECTS = [
   'Technical Drawing', 'Food & Nutrition', 'French', 'Yoruba', 'Igbo', 'Hausa',
   'Christian Religious Studies', 'Islamic Religious Studies', 'Civic Education',
   'Data Processing', 'Commerce', 'Principle of Accounts', 'Marketing',
-];
-
-const COURSE_OPTIONS = [
-  'Science', 'Commercial', 'Arts', 'Social Sciences', 'Engineering',
-  'Medicine & Surgery', 'Law', 'Education', 'Agriculture', 'Environmental Sciences',
-  'Management Sciences', 'Communication & Media Studies', 'Computer Science',
 ];
 
 const CLASS_OPTIONS = [
@@ -148,7 +143,7 @@ const initialForm: FormData = {
 };
 
 export default function AdmissionApply() {
-  const { subjects, classes } = useDataStore();
+  const { subjects, classes, schools } = useDataStore();
   const { globalSettings } = useSettingsStore();
   const { format } = useCurrency();
   const [step, setStep] = useState(0);
@@ -205,10 +200,22 @@ export default function AdmissionApply() {
     ? remoteDepartments.filter((d) => d.facultyId === form.faculty)
     : remoteDepartments;
 
+  // Resolve the portal level for the school this admission form serves, so the
+  // course/programme list reflects College vs Polytechnic vs University.
+  const resolveAdmissionPortalLevel = useMemo(() => {
+    const normalize = (value?: string) => (value ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const schoolName = globalSettings.appName || 'School';
+    const matched =
+      schools.find((s) => normalize(s.name) === normalize(schoolName)) ??
+      schools.find((s) => normalize(s.name).includes(normalize(schoolName)) || normalize(schoolName).includes(normalize(s.name))) ??
+      (schools.length === 1 ? schools[0] : undefined);
+    return (matched?.portalLevel ?? 'Secondary') as PortalLevel;
+  }, [schools, globalSettings.appName]);
+
   const filteredCourses = useMemo(() => {
-    if (remoteDepartments.length === 0) return COURSE_OPTIONS;
+    if (remoteDepartments.length === 0) return getPortalProgrammes(resolveAdmissionPortalLevel);
     return remoteDepartments.map((d) => d.code ? `${d.name} (${d.code})` : d.name).filter((n, i, a) => a.indexOf(n) === i);
-  }, [remoteDepartments]);
+  }, [remoteDepartments, resolveAdmissionPortalLevel]);
 
   const update = (field: keyof FormData, value: any) =>
     setForm((prev) => ({ ...prev, [field]: value }));

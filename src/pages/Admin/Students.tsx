@@ -7,6 +7,7 @@ import ExcelImport from '@/components/ui/ExcelImport';
 import { KPICard } from '@/components/ui/KPICard';
 import { useAuthStore } from '@/store/useAuthStore';
 import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
+import { COLLEGE_PROGRAMMES, POLYTECHNIC_PROGRAMMES } from '@/utils/portalProgrammes';
 import { PrintableIdCardModal } from '@/components/ui/PrintableIdCardModal';
 import { adminCreateUser } from '@/services/authService';
 
@@ -302,8 +303,8 @@ const levelSpecificSections: Record<PortalLevel, Array<{ title: string; fields: 
         { name: 'oLevelResults', label: "O'Level Results", type: 'textarea', colSpan: 2 },
         { name: 'oLevelSitting', label: 'Sitting (1 or 2)' },
         { name: 'institutionChoice', label: 'Institution Choice' },
-        { name: 'department', label: 'Department' },
-        { name: 'programme', label: 'Programme' },
+        { name: 'department', label: 'Department / Programme', type: 'select', options: COLLEGE_PROGRAMMES },
+        { name: 'programme', label: 'Programme', type: 'select', options: COLLEGE_PROGRAMMES },
         { name: 'level', label: 'Level' },
         { name: 'entryMode', label: 'Entry Mode' },
         { name: 'screeningScore', label: 'Screening Score' },
@@ -322,8 +323,8 @@ const levelSpecificSections: Record<PortalLevel, Array<{ title: string; fields: 
         { name: 'oLevelResults', label: "O'Level Results", type: 'textarea', colSpan: 2 },
         { name: 'oLevelSitting', label: 'Sitting (1 or 2)' },
         { name: 'institutionChoice', label: 'Institution Choice' },
-        { name: 'department', label: 'Department' },
-        { name: 'programme', label: 'Programme' },
+        { name: 'department', label: 'Department / Programme', type: 'select', options: POLYTECHNIC_PROGRAMMES },
+        { name: 'programme', label: 'Programme', type: 'select', options: POLYTECHNIC_PROGRAMMES },
         { name: 'level', label: 'Level' },
         { name: 'entryMode', label: 'Entry Mode' },
         { name: 'screeningScore', label: 'Screening Score' },
