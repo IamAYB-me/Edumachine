@@ -10,6 +10,7 @@ import { useDataStore, type PortalLevel } from '@/store/useDataStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useCurrency } from '@/hooks/useCurrency';
 import { getPortalProgrammes, filterDepartmentsByPortal } from '@/utils/portalProgrammes';
+import { NIGERIAN_STATES, getLGAsForState } from '@/utils/nigerianLocations';
 import { subscribeToCollection } from '@/services/firestoreService';
 import { usePaystackPayment } from 'react-paystack';
 import { functions } from '@/config/firebase';
@@ -29,13 +30,6 @@ const MARITAL_STATUS_OPTIONS = ['Single', 'Married', 'Divorced', 'Widowed', 'Oth
 const RELATIONSHIP_OPTIONS = ['Father', 'Mother', 'Brother', 'Sister', 'Guardian', 'Uncle', 'Aunt', 'Husband', 'Wife', 'Other'];
 const EXAM_BODIES = ['WAEC', 'NECO', 'NABTEB'];
 const GRADE_OPTIONS = ['A1', 'B2', 'B3', 'C4', 'C5', 'C6', 'D7', 'E8', 'F9'];
-const NIGERIAN_STATES = [
-  'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue', 'Borno',
-  'Cross River', 'Delta', 'Ebonyi', 'Edo', 'Ekiti', 'Enugu', 'FCT', 'Gombe', 'Imo',
-  'Jigawa', 'Kaduna', 'Kano', 'Katsina', 'Kebbi', 'Kogi', 'Kwara', 'Lagos', 'Nasarawa',
-  'Niger', 'Ogun', 'Ondo', 'Osun', 'Oyo', 'Plateau', 'Rivers', 'Sokoto', 'Taraba', 'Yobe', 'Zamfara',
-];
-
 const COMMON_SUBJECTS = [
   'English Language', 'Mathematics', 'Physics', 'Chemistry', 'Biology',
   'Economics', 'Government', 'Literature in English', 'History', 'Geography',
@@ -765,12 +759,14 @@ export default function AdmissionApply() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1">
                   <label className={labelClass}>Local Government Area</label>
-                  <input type="text" value={form.lga} onChange={(e) => update('lga', e.target.value)}
-                    placeholder="LGA" className={inputClass} />
+                  <select value={form.lga} onChange={(e) => update('lga', e.target.value)} className={inputClass}>
+                    <option value="">Select LGA</option>
+                    {getLGAsForState(form.stateOfOrigin).map((l) => <option key={l} value={l}>{l}</option>)}
+                  </select>
                 </div>
                 <div className="space-y-1">
                   <label className={labelClass}>State of Origin</label>
-                  <select value={form.stateOfOrigin} onChange={(e) => update('stateOfOrigin', e.target.value)} className={inputClass}>
+                  <select value={form.stateOfOrigin} onChange={(e) => { update('stateOfOrigin', e.target.value); update('lga', ''); }} className={inputClass}>
                     <option value="">Select State</option>
                     {NIGERIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>

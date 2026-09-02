@@ -14,7 +14,7 @@ export default function ClassesManagement() {
   const schoolProfile = resolveSchoolProfile(user, schools);
   const labels = getPortalLevelLabels(schoolProfile.portalLevel);
   const isCollege = isTertiaryLevel(schoolProfile.portalLevel);
-  const structureLabel = isCollege ? 'Faculty/School' : '';
+  const structureLabel = isCollege ? 'Programme' : '';
   
   const stats = {
     totalClasses: classes.length,
