@@ -10,7 +10,7 @@ import {
   deleteUser,
   type User as FirebaseUser,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
 
 export interface FirestoreUser {
@@ -219,6 +219,64 @@ export async function loginUser(
 
 export async function logoutUser(): Promise<void> {
   await signOut(auth);
+}
+
+/**
+ * If the signed-in user is an APPLICANT who has an application with status
+ * 'Admitted', upgrades their account role to STUDENT automatically (and creates
+ * their student profile). Returns the freshly-read profile so the caller can
+ * reflect the promoted role without a full re-login.
+ */
+export async function autoPromoteApplicantIfAdmitted(
+  uid: string,
+  profile: FirestoreUser,
+): Promise<FirestoreUser> {
+  if (profile.role !== 'APPLICANT') return profile;
+
+  try {
+    const q = query(
+      collection(db, 'admissionApplications'),
+      where('email', '==', profile.email),
+      where('applicationStatus', '==', 'Admitted'),
+    );
+    const snap = await getDocs(q);
+    if (snap.empty) return profile;
+
+    const app = snap.docs[0].data() as Record<string, unknown>;
+    const surname = String(app.surname || '').trim();
+    const firstName = String(app.firstName || '').trim();
+    const middleName = String(app.middleName || '').trim();
+    const courseOfStudy = String(app.courseOfStudy || '').trim();
+    const phone = String(app.phone || profile.phone || '');
+    const portalLevel = profile.portalLevel || 'College';
+    const regNo = 'REG-' + Date.now().toString(36).toUpperCase();
+
+    // If a student record already exists for this user, only upgrade the role
+    // instead of overwriting the (possibly richer) student doc.
+    const existingStudent = await getDoc(doc(db, 'students', uid));
+    if (existingStudent.exists()) {
+      await setDoc(doc(db, 'users', uid), { role: 'STUDENT', roleLabel: 'Student' }, { merge: true });
+    } else {
+      const res = await promoteApplicantToStudent(uid, {
+        name: `${surname} ${firstName}`.trim() || profile.name,
+        email: profile.email,
+        schoolName: profile.schoolName,
+        phone,
+        portalLevel,
+        surname,
+        firstName,
+        middleName,
+        regNo,
+        class: courseOfStudy,
+      });
+      if (!res.success) return profile;
+    }
+  } catch (error) {
+    console.warn('[authService] Auto-promote check failed:', error);
+    return profile;
+  }
+
+  return { ...profile, role: 'STUDENT', roleLabel: 'Student' };
 }
 
 export async function getUserProfile(uid: string): Promise<FirestoreUser | null> {

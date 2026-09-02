@@ -6,6 +6,7 @@ import {
   onAuthStateChange,
   getUserProfile,
   updateUserProfile,
+  autoPromoteApplicantIfAdmitted,
   type FirestoreUser,
 } from '@/services/authService';
 import { logActivity } from '@/utils/activityLogger';
@@ -122,7 +123,10 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       let nextUser = null;
       if (firebaseUser) {
         const profile = await getUserProfile(firebaseUser.uid);
-        nextUser = profile ? firestoreUserToUser(profile) : null;
+        if (profile) {
+          const promotedProfile = await autoPromoteApplicantIfAdmitted(firebaseUser.uid, profile);
+          nextUser = firestoreUserToUser(promotedProfile);
+        }
       }
       set({
         user: nextUser,
@@ -136,7 +140,8 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   loginWithCredentials: async (email, password) => {
     const result = await loginUser(email, password);
     if (result.success && result.user) {
-      const user = firestoreUserToUser(result.user);
+      const promotedUser = await autoPromoteApplicantIfAdmitted(result.user.uid, result.user);
+      const user = firestoreUserToUser(promotedUser);
       set({ user, isAuthenticated: true });
       logActivity({ action: 'LOGIN', module: 'auth', description: `User logged in: ${user.email}`, user: { id: user.id, name: user.name, role: user.role } });
       return { success: true };
