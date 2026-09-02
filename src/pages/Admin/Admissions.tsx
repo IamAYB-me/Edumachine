@@ -13,6 +13,8 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { KPICard } from '@/components/ui/KPICard';
 import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
 import { promoteApplicantToStudent } from '@/services/authService';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '@/config/firebase';
 
 export default function AdmissionsManagement() {
   const { admissionApplications, updateAdmissionApplication, deleteAdmissionApplication, addStudent, schools, platformUsers, updatePlatformUser } = useDataStore();
@@ -175,6 +177,42 @@ export default function AdmissionsManagement() {
     });
     setSelectedApp(null);
     setAdmitting(false);
+  };
+
+  const [deletingAccount, setDeletingAccount] = useState(false);
+
+  const handleDeleteAccount = async (app: AdmissionApplication) => {
+    const applicantUser = platformUsers.find(
+      (u) => u.email && app.email && u.email.toLowerCase() === app.email.toLowerCase(),
+    );
+    const uid = applicantUser?.id || applicantUser?.uid;
+    if (!confirm(`Permanently delete ${app.surname} ${app.firstName}'s account (${app.email})?\n\nThis removes the login, student record and admission application. This cannot be undone.`)) {
+      return;
+    }
+    setDeletingAccount(true);
+    try {
+      const deleteAccount = httpsCallable(functions, 'deleteUserAccount');
+      const res = await deleteAccount({ uid: uid || '', email: app.email });
+      const result = res.data as { success: boolean; deleted: string[]; errors: string[] };
+      if (result.success) {
+        showToast({
+          title: 'Account deleted',
+          description: `Removed: ${result.deleted.length} record(s). The admission application, login and student record have been deleted.`,
+          variant: 'success',
+        });
+        setSelectedApp(null);
+      } else {
+        showToast({
+          title: 'Deletion incomplete',
+          description: result.errors.join(', '),
+          variant: 'warning',
+        });
+      }
+    } catch (error) {
+      showToast({ title: 'Deletion failed', description: (error as Error).message, variant: 'error' });
+    } finally {
+      setDeletingAccount(false);
+    }
   };
 
   const DetailRow = ({ label, value }: { label: string; value?: string | number | null }) => (
@@ -674,6 +712,10 @@ export default function AdmissionsManagement() {
                   </button>
                 )}
               </div>
+              <button onClick={() => handleDeleteAccount(selectedApp)} disabled={deletingAccount}
+                className="w-full py-3 bg-rose-600 hover:bg-rose-700 disabled:bg-rose-400 text-white rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 mt-3">
+                <Trash2 className="w-4 h-4" /> {deletingAccount ? 'Deleting account...' : 'Delete Account'}
+              </button>
             </div>
           </div>
         </div>

@@ -432,3 +432,117 @@ export const submitAdmissionApplication = functions.https.onCall(async (request:
     );
   }
 });
+
+/**
+ * deleteUserAccount
+ *
+ * Callable invoked by an ADMIN / SUPER_ADMIN to permanently remove a user
+ * account. This must run server-side because deleting an arbitrary Firebase
+ * Auth user requires the Admin SDK (the client SDK can only delete the
+ * currently signed-in user).
+ *
+ * Deletes:
+ *   1. The Firebase Auth user (if a uid is provided).
+ *   2. users/{uid}
+ *   3. students/{uid}
+ *   4. Any admission applications matching the user's email.
+ */
+export const deleteUserAccount = functions.https.onCall(async (request: any) => {
+  const caller = request.auth;
+  if (!caller) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "You must be signed in to delete an account."
+    );
+  }
+
+  const callerDoc = await db.collection("users").doc(caller.uid).get();
+  const callerRole = callerDoc.exists ? (callerDoc.data() as any)?.role : "";
+  if (callerRole !== "SUPER_ADMIN" && callerRole !== "ADMIN") {
+    throw new functions.https.HttpsError(
+      "permission-denied",
+      "Only an admin can delete a user account."
+    );
+  }
+
+  const data = request.data || {};
+  const { uid, email } = data;
+  if (!uid && !email) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "A user uid (or email) is required."
+    );
+  }
+
+  const results: string[] = [];
+  const errors: string[] = [];
+
+  // 1. Delete the Auth account.
+  if (uid) {
+    try {
+      await admin.auth().deleteUser(uid);
+      results.push(`auth-user/${uid}`);
+    } catch (authError: any) {
+      // Ignore "user not found" — nothing to delete.
+      const code = authError?.code || "";
+      if (code !== "auth/user-not-found") errors.push(`auth-user: ${code || authError?.message}`);
+    }
+  }
+
+  // 2. Delete the users/{uid} doc.
+  if (uid) {
+    try {
+      const ref = db.collection("users").doc(uid);
+      if ((await ref.get()).exists) {
+        await ref.delete();
+        results.push(`users/${uid}`);
+      }
+    } catch (e: any) {
+      errors.push(`users: ${e?.message || e}`);
+    }
+  }
+
+  // 3. Delete the students/{uid} doc.
+  if (uid) {
+    try {
+      const ref = db.collection("students").doc(uid);
+      if ((await ref.get()).exists) {
+        await ref.delete();
+        results.push(`students/${uid}`);
+      }
+    } catch (e: any) {
+      errors.push(`students: ${e?.message || e}`);
+    }
+  }
+
+  // 4. Delete admission applications matching the email (also search by stored uid if present).
+  const emailToUse = email || (uid ? await getEmailForUid(uid) : "");
+  if (emailToUse) {
+    const appSnap = await db
+      .collection("admissionApplications")
+      .where("email", "==", emailToUse)
+      .get();
+    await Promise.all(
+      appSnap.docs.map((d) => d.ref.delete().then(() => results.push(`admissionApplications/${d.id}`)))
+    );
+  }
+
+  if (errors.length) {
+    console.warn("[deleteUserAccount] Partial deletion errors:", errors);
+  }
+
+  return {
+    success: errors.length === 0,
+    deleted: results,
+    errors,
+  };
+});
+
+async function getEmailForUid(uid: string): Promise<string> {
+  try {
+    const snap = await db.collection("users").doc(uid).get();
+    return snap.exists ? String((snap.data() as any)?.email || "") : "";
+  } catch {
+    return "";
+  }
+}
