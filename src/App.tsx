@@ -233,10 +233,8 @@ export default function App() {
         <Route path="/profile" element={<Profile />} />
       </Route>
 
-      {/* Applicant Progress Route */}
-      <Route element={<DashboardLayout />}>
-        <Route path="/admission/progress" element={<AdmissionProgress />} />
-      </Route>
+      {/* Applicant Progress Route — public so newly-registered applicants can access it */}
+      <Route path="/admission/progress" element={<AdmissionProgress />} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

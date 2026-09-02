@@ -1,5 +1,5 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useMemo } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   CheckCircle, Clock, XCircle, GraduationCap, FileText, CreditCard,
   User, Calendar, ArrowRight, ClipboardList, Printer, Lock,
@@ -19,6 +19,8 @@ const TIMELINE = [
 
 export default function AdmissionProgress() {
   const user = useAuthStore((s) => s.user);
+  const [searchParams] = useSearchParams();
+  const formParam = searchParams.get('form') || '';
   const applications = useDataStore((s) => s.admissionApplications);
   const { feeRecords, feeStructures, schools } = useDataStore((s) => ({
     feeRecords: s.feeRecords,
@@ -27,9 +29,16 @@ export default function AdmissionProgress() {
   }));
   const { format } = useCurrency();
 
-  const application = applications.find(
-    (a) => a.email && user?.email && a.email.toLowerCase() === user.email.toLowerCase(),
-  );
+  const application = useMemo(() => {
+    if (formParam) {
+      return applications.find(
+        (a) => a.applicationFormNumber && a.applicationFormNumber.toLowerCase() === formParam.toLowerCase(),
+      );
+    }
+    return applications.find(
+      (a) => a.email && user?.email && a.email.toLowerCase() === user.email.toLowerCase(),
+    );
+  }, [applications, user, formParam]);
 
   const isAdmitted = application?.applicationStatus === 'Admitted';
 

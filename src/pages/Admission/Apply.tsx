@@ -589,7 +589,7 @@ export default function AdmissionApply() {
                   <Printer className="w-4 h-4" /> Print Receipt
                 </button>
                 <Link
-                  to="/admission/progress"
+                  to={`/admission/progress?form=${encodeURIComponent(applicationId)}`}
                   className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-900/20 transition-all"
                 >
                   <ShieldCheck className="w-4 h-4" /> Track Application
