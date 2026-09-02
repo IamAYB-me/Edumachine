@@ -237,12 +237,14 @@ export async function autoPromoteApplicantIfAdmitted(
     const q = query(
       collection(db, 'admissionApplications'),
       where('email', '==', profile.email),
-      where('applicationStatus', '==', 'Admitted'),
     );
     const snap = await getDocs(q);
-    if (snap.empty) return profile;
+    const admitted = snap.docs
+      .map((d) => d.data() as Record<string, unknown>)
+      .find((a) => a.applicationStatus === 'Admitted');
+    if (!admitted) return profile;
 
-    const app = snap.docs[0].data() as Record<string, unknown>;
+    const app = admitted;
     const surname = String(app.surname || '').trim();
     const firstName = String(app.firstName || '').trim();
     const middleName = String(app.middleName || '').trim();
