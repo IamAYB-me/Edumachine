@@ -343,7 +343,8 @@ export default function RegisterPage() {
                     <option value="">-- Select institution type --</option>
                     <option value="Primary">Primary School</option>
                     <option value="Secondary">Secondary School</option>
-                    <option value="College">College / Polytechnic</option>
+                    <option value="College">College</option>
+                    <option value="Polytechnic">Polytechnic</option>
                     <option value="University">University</option>
                   </select>
                 </div>

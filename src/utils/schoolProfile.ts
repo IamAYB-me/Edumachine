@@ -127,6 +127,37 @@ const portalLevelLabels: Record<PortalLevel, PortalLevelLabels> = {
     courseList: [],
     scheduleList: [],
   },
+  Polytechnic: {
+    learnerSingular: 'Student',
+    learnerPlural: 'Students',
+    structureSingular: 'Department',
+    structurePlural: 'Departments',
+    curriculumLabel: 'Programmes',
+    studyLabel: 'My Courses',
+    subjectSingular: 'Course',
+    subjectPlural: 'Courses',
+    teacherSingular: 'Lecturer',
+    teacherPlural: 'Lecturers',
+    creditLabel: 'Credit Hours',
+    termOptions: ['First Semester', 'Second Semester'],
+    resultsLabel: 'Academic Results',
+    assessmentLabel: 'Assessments',
+    termLabel: 'Semester',
+    stageLabel: 'Current Semester',
+    stageValue: 'Second Semester',
+    programmeValue: 'ND II Computer Science',
+    scoreMetricLabel: 'GPA',
+    scoreMetricValue: '3.68',
+    scoreMetricTrend: 'out of 4.0',
+    topStructureLabel: 'Top Performing Departments',
+    performanceByLabel: 'Performance by Department',
+    hallPassLabel: 'Hall Ticket',
+    teacherSignatoryLabel: 'Course Adviser',
+    hodSignatoryLabel: 'Dean / Head of Department',
+    headSignatoryLabel: 'Rector / Provost',
+    courseList: [],
+    scheduleList: [],
+  },
   University: {
     learnerSingular: 'Student',
     learnerPlural: 'Students',
@@ -195,10 +226,19 @@ export function resolveSchoolProfile(user: User | null, schools: School[]): Scho
       const normalizedSchool = normalize(school.name);
       const normalizedUserSchool = normalize(user?.schoolName);
       return normalizedSchool.includes(normalizedUserSchool) || normalizedUserSchool.includes(normalizedSchool);
-    })
+    }) ??
+    (schools.length === 1 ? schools[0] : undefined)
   );
 }
 
 export function getPortalLevelLabels(level: PortalLevel): PortalLevelLabels {
   return portalLevelLabels[level] ?? portalLevelLabels.Secondary;
+}
+
+/**
+ * True for tertiary institutions that use Departments, Courses, Semesters and
+ * Credit Hours (as opposed to Classes, Subjects, Terms).
+ */
+export function isTertiaryLevel(level: PortalLevel): boolean {
+  return level === 'College' || level === 'Polytechnic' || level === 'University';
 }

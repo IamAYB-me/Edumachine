@@ -22,7 +22,7 @@ type FieldConfig = {
   readOnly?: boolean;
 };
 
-const portalLevelOptions: PortalLevel[] = ['Primary', 'Secondary', 'College', 'University'];
+const portalLevelOptions: PortalLevel[] = ['Primary', 'Secondary', 'College', 'Polytechnic', 'University'];
 
 const generateCode = (prefix: string) =>
   `${prefix}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
@@ -296,6 +296,26 @@ const levelSpecificSections: Record<PortalLevel, Array<{ title: string; fields: 
   College: [
     {
       title: 'College / Polytechnic Admission',
+      fields: [
+        { name: 'jambRegistrationNumber', label: 'JAMB Registration Number' },
+        { name: 'jambScore', label: 'JAMB Score' },
+        { name: 'oLevelResults', label: "O'Level Results", type: 'textarea', colSpan: 2 },
+        { name: 'oLevelSitting', label: 'Sitting (1 or 2)' },
+        { name: 'institutionChoice', label: 'Institution Choice' },
+        { name: 'department', label: 'Department' },
+        { name: 'programme', label: 'Programme' },
+        { name: 'level', label: 'Level' },
+        { name: 'entryMode', label: 'Entry Mode' },
+        { name: 'screeningScore', label: 'Screening Score' },
+        { name: 'localGovernmentCertificate', label: 'Local Government Certificate Reference' },
+        { name: 'acceptanceLetter', label: 'Acceptance Letter Reference' },
+        { name: 'admissionLetter', label: 'Admission Letter Reference' },
+      ],
+    },
+  ],
+  Polytechnic: [
+    {
+      title: 'Polytechnic Admission',
       fields: [
         { name: 'jambRegistrationNumber', label: 'JAMB Registration Number' },
         { name: 'jambScore', label: 'JAMB Score' },

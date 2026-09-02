@@ -8,7 +8,7 @@ import { cn } from '@/utils';
 import { useDataStore, Exam, Question } from '@/store/useDataStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useToastStore } from '@/store/useToastStore';
-import { getPortalLevelLabels, resolveSchoolProfile } from '@/utils/schoolProfile';
+import { getPortalLevelLabels, resolveSchoolProfile, isTertiaryLevel } from '@/utils/schoolProfile';
 import { useSearchParams } from 'react-router-dom';
 
 export default function TeacherExams() {
@@ -22,7 +22,7 @@ export default function TeacherExams() {
 
   const schoolProfile = resolveSchoolProfile(user ?? null, schools);
   const labels = getPortalLevelLabels(schoolProfile.portalLevel);
-  const isCollege = schoolProfile.portalLevel === 'College' || schoolProfile.portalLevel === 'University';
+  const isCollege = isTertiaryLevel(schoolProfile.portalLevel);
 
   const [searchParams] = useSearchParams();
   const initialTab = (searchParams.get('tab') as 'exams' | 'scores' | 'supervision') || 'exams';

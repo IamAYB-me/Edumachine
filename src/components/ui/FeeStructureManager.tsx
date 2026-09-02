@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { BookOpen, Edit2, Plus, Trash2, Wallet, X } from 'lucide-react';
+import { BookOpen, Edit2, Plus, Trash2, Wallet, X, Lock, Unlock } from 'lucide-react';
 import { cn } from '@/utils';
 import { FeeStructure, useDataStore } from '@/store/useDataStore';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -39,6 +39,10 @@ export function FeeStructureManager({
     description: '',
     status: 'Active',
     isUniversal: false,
+    isGated: false,
+    isOptional: false,
+    requiredPercentage: 100,
+    gatedAction: 'course_registration',
   });
 
   const universalFilterKey = `Universal (All ${labels.structurePlural})`;
@@ -73,6 +77,10 @@ export function FeeStructureManager({
       description: '',
       status: 'Active',
       isUniversal: false,
+      isGated: false,
+      isOptional: false,
+      requiredPercentage: 100,
+      gatedAction: 'course_registration',
     });
   };
 
@@ -95,6 +103,10 @@ export function FeeStructureManager({
       description: structure.description ?? '',
       status: structure.status,
       isUniversal: !!structure.isUniversal,
+      isGated: !!structure.isGated,
+      isOptional: !!structure.isOptional,
+      requiredPercentage: structure.requiredPercentage ?? 100,
+      gatedAction: structure.gatedAction || 'course_registration',
     });
     setIsModalOpen(true);
   };
@@ -287,6 +299,117 @@ export function FeeStructureManager({
                 </div>
               </div>
 
+              {/* Gating & Optional controls */}
+              <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4 dark:border-indigo-900/40 dark:bg-indigo-950/40">
+                <div className="flex items-center gap-2 mb-1">
+                  <Lock className="h-4 w-4 text-indigo-500" />
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">Fee Gating</p>
+                </div>
+                <p className="mb-4 text-xs text-slate-500 dark:text-slate-400">
+                  Control whether this fee must be paid before the student can proceed to important actions.
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">Gated Fee</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Blocks access until payment threshold is met.</p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={formData.isGated}
+                        onClick={() => setFormData((c) => ({ ...c, isGated: !c.isGated }))}
+                        className={cn(
+                          'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors',
+                          formData.isGated ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
+                            formData.isGated ? 'translate-x-6' : 'translate-x-1'
+                          )}
+                        />
+                      </button>
+                    </div>
+                    {formData.isGated && (
+                      <div className="mt-4 space-y-3">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Gates Which Action</label>
+                          <select
+                            value={formData.gatedAction}
+                            onChange={(e) => setFormData({ ...formData, gatedAction: e.target.value as FeeStructure['gatedAction'] })}
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition-all focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                          >
+                            <option value="course_registration">Course / Subject Registration</option>
+                            <option value="admission_letter">Admission Letter</option>
+                            <option value="exam_access">Exam Access</option>
+                            <option value="result_access">Result Access</option>
+                            <option value="clearance">Financial Clearance</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                            Required Payment: {formData.requiredPercentage ?? 100}%
+                          </label>
+                          <input
+                            type="range"
+                            min="10"
+                            max="100"
+                            step="5"
+                            value={formData.requiredPercentage ?? 100}
+                            onChange={(e) => setFormData({ ...formData, requiredPercentage: Number(e.target.value) })}
+                            className="w-full accent-indigo-600"
+                          />
+                          <div className="flex justify-between text-[10px] font-bold text-slate-400">
+                            <span>10%</span>
+                            <span>100%</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">Optional Fee</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Student is not required to pay this fee.</p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={formData.isOptional}
+                        onClick={() => setFormData((c) => ({ ...c, isOptional: !c.isOptional }))}
+                        className={cn(
+                          'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors',
+                          formData.isOptional ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
+                            formData.isOptional ? 'translate-x-6' : 'translate-x-1'
+                          )}
+                        />
+                      </button>
+                    </div>
+                    {formData.isOptional && (
+                      <div className="mt-4">
+                        <div className="rounded-xl bg-emerald-50 px-3 py-2.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300">
+                          <p className="flex items-center gap-2">
+                            <Unlock className="h-3.5 w-3.5" />
+                            This fee will not block registration, exams, results, or clearance even if unpaid.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
@@ -383,6 +506,18 @@ export function FeeStructureManager({
                   {item.isUniversal ? (
                     <span className="rounded-xl bg-violet-50 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
                       Universal
+                    </span>
+                  ) : null}
+                  {item.isGated ? (
+                    <span className="inline-flex items-center gap-1 rounded-xl bg-indigo-50 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+                      <Lock className="h-3 w-3" />
+                      Gated {item.requiredPercentage ? `${item.requiredPercentage}%` : '100%'}
+                    </span>
+                  ) : null}
+                  {item.isOptional ? (
+                    <span className="inline-flex items-center gap-1 rounded-xl bg-emerald-50 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                      <Unlock className="h-3 w-3" />
+                      Optional
                     </span>
                   ) : null}
                   <span

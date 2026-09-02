@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Bell, Search, Menu, Moon, Sun, X, CheckCheck, LogOut } from 'lucide-react';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useDataStore } from '@/store/useDataStore';
+import { useDataStore, type Notification } from '@/store/useDataStore';
 import { Link, useNavigate } from 'react-router-dom';
 
 interface HeaderProps {
@@ -34,11 +34,13 @@ export default function Header({ userName, userRole, schoolName, avatarUrl, onMe
   const navigate = useNavigate();
   const [searchValue, setSearchValue] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
   const showCurrencySwitcher = user && ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT', 'PARENT', 'STUDENT', 'WARDEN'].includes(user.role);
   const displayName = user?.role === 'SUPER_ADMIN' ? globalSettings.appName : schoolName;
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const myNotifications = notifications.filter((n) => n.userId === user?.id);
+  const unreadCount = myNotifications.filter((n) => !n.read).length;
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -164,15 +166,15 @@ export default function Header({ userName, userRole, schoolName, avatarUrl, onMe
                 </div>
               </div>
               <div className="max-h-80 overflow-y-auto">
-                {notifications.length === 0 ? (
+                {myNotifications.length === 0 ? (
                   <div className="px-4 py-8 text-center">
                     <p className="text-sm text-slate-400 dark:text-slate-500">No notifications yet</p>
                   </div>
                 ) : (
-                  notifications.slice(0, 20).map((notif) => (
+                  myNotifications.slice().sort((a, b) => (a.read === b.read ? 0 : a.read ? 1 : -1)).slice(0, 20).map((notif) => (
                     <div
                       key={notif.id}
-                      onClick={() => !notif.read && markNotificationRead(notif.id)}
+                      onClick={() => { !notif.read && markNotificationRead(notif.id); setSelectedNotification(notif); }}
                       className={`px-4 py-3 border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer ${!notif.read ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
                     >
                       <div className="flex items-start gap-3">
@@ -214,6 +216,45 @@ export default function Header({ userName, userRole, schoolName, avatarUrl, onMe
           />
         </Link>
       </div>
+
+      {selectedNotification && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setSelectedNotification(null)}>
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
+          <div
+            className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
+                  <Bell className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">{selectedNotification.title}</h3>
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500">{selectedNotification.time}</p>
+                </div>
+              </div>
+              <button onClick={() => setSelectedNotification(null)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
+                <X className="w-4 h-4 text-slate-400" />
+              </button>
+            </div>
+            <div className="px-6 py-5">
+              <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300 whitespace-pre-wrap break-words">
+                {selectedNotification.description}
+              </p>
+              {selectedNotification.link && (
+                <Link
+                  to={selectedNotification.link}
+                  onClick={() => setSelectedNotification(null)}
+                  className="mt-5 inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-colors"
+                >
+                  Open Portal
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

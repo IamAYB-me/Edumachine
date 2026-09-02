@@ -20,9 +20,21 @@ export function generateId(): string {
   return Math.random().toString(36).substring(2, 11);
 }
 
+export function stripUndefined(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stripUndefined);
+  if (value && typeof value === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+      if (val !== undefined) result[key] = stripUndefined(val);
+    }
+    return result;
+  }
+  return value;
+}
+
 export async function addDocument(collectionName: string, data: DocumentData): Promise<string> {
   const docRef = await addDoc(collection(db, collectionName), {
-    ...data,
+    ...stripUndefined(data) as DocumentData,
     createdAt: serverTimestamp(),
   });
   return docRef.id;
@@ -34,7 +46,7 @@ export async function addDocumentWithId(
   data: DocumentData,
 ): Promise<void> {
   await setDoc(doc(db, collectionName, id), {
-    ...data,
+    ...stripUndefined(data) as DocumentData,
     id,
     createdAt: serverTimestamp(),
   });
@@ -47,7 +59,7 @@ export async function updateDocument(
 ): Promise<void> {
   const docRef = doc(db, collectionName, id);
   const { id: _id, createdAt: _createdAt, ...updateData } = data as DocumentData & { id: string; createdAt: unknown };
-  await setDoc(docRef, { ...updateData, updatedAt: serverTimestamp() }, { merge: true });
+  await setDoc(docRef, { ...stripUndefined(updateData) as DocumentData, updatedAt: serverTimestamp() }, { merge: true });
 }
 
 export async function deleteDocument(collectionName: string, id: string): Promise<void> {
@@ -128,7 +140,7 @@ export async function setDocument(
   id: string,
   data: DocumentData,
 ): Promise<void> {
-  await setDoc(doc(db, collectionName, id), data, { merge: true });
+  await setDoc(doc(db, collectionName, id), stripUndefined(data) as DocumentData, { merge: true });
 }
 
 export async function replaceDocument(
@@ -136,7 +148,7 @@ export async function replaceDocument(
   id: string,
   data: DocumentData,
 ): Promise<void> {
-  await setDoc(doc(db, collectionName, id), data);
+  await setDoc(doc(db, collectionName, id), stripUndefined(data) as DocumentData);
 }
 
 export async function deleteFieldsFromDocument(

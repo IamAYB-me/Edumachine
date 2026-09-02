@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { useDataStore } from '@/store/useDataStore';
 import { useAuthStore } from '@/store/useAuthStore';
-import { Search, Calendar, CheckCircle, XCircle, AlertCircle, Clock, Save, Users, UserCheck } from 'lucide-react';
+import { Search, Calendar, CheckCircle, XCircle, AlertCircle, Clock, Save, Users, UserCheck, KeyRound, RefreshCw } from 'lucide-react';
 import { cn } from '@/utils';
 import { KPICard } from '@/components/ui/KPICard';
 import { useToastStore } from '@/store/useToastStore';
 import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
 
 export default function MarkAttendance() {
-  const { classes, students, markAttendance, schools } = useDataStore();
+  const { classes, students, markAttendance, generateAttendanceToken, attendanceTokens, schools } = useDataStore();
   const user = useAuthStore((state) => state.user);
   const schoolProfile = resolveSchoolProfile(user, schools);
   const labels = getPortalLevelLabels(schoolProfile.portalLevel ?? 'Secondary');
@@ -18,12 +18,18 @@ export default function MarkAttendance() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [attendanceMap, setAttendanceMap] = useState<Record<string, 'Present' | 'Absent' | 'Late' | 'Excused'>>({});
   const [searchTerm, setSearchTerm] = useState('');
+  const [generatedToken, setGeneratedToken] = useState<string>('');
+  const [tokenCountdown, setTokenCountdown] = useState<number>(0);
 
   const currentClass = classes.find(c => c.id === selectedClass);
   const classStudents = students.filter(s => s.class === currentClass?.name);
   const filteredStudents = classStudents.filter(s => 
     s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     s.regNo.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const activeTokens = attendanceTokens.filter(
+    (t) => t.classId === selectedClass && t.date === date && Date.now() <= t.expiresAt,
   );
 
   const stats = {
@@ -43,6 +49,37 @@ export default function MarkAttendance() {
 
   const handleMark = (studentId: string, status: 'Present' | 'Absent' | 'Late' | 'Excused') => {
     setAttendanceMap({ ...attendanceMap, [studentId]: status });
+  };
+
+  const handleGenerateToken = () => {
+    if (!currentClass) {
+      showToast({ title: 'Select a class first', description: 'Choose a class before generating an attendance token.', variant: 'warning' });
+      return;
+    }
+    const token = generateAttendanceToken({
+      classId: selectedClass,
+      className: currentClass.name,
+      date,
+      createdBy: user?.name || 'Teacher',
+      ttlMinutes: 15,
+    });
+    setGeneratedToken(token.code);
+    setTokenCountdown(15);
+    const timer = setInterval(() => {
+      setTokenCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setGeneratedToken('');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 60000);
+    showToast({
+      title: 'Token generated',
+      description: `Share token ${token.code} with students. It expires in 15 minutes.`,
+      variant: 'success',
+    });
   };
 
   const handleSave = () => {
@@ -158,6 +195,39 @@ export default function MarkAttendance() {
                    <XCircle className="w-4 h-4" /> Mark All Absent
                 </button>
               </div>
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 block">Attendance Token</label>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mb-3">
+                Generate a short-lived token so {labels.learnerPlural.toLowerCase()} can mark their own attendance from their portal.
+              </p>
+              <button
+                onClick={handleGenerateToken}
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors shadow-lg shadow-indigo-900/20"
+              >
+                <KeyRound className="w-4 h-4" /> Generate Token
+              </button>
+              {generatedToken && (
+                <div className="mt-3 p-3 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 text-center">
+                  <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest mb-1">Share this code</p>
+                  <p className="text-2xl font-black tracking-[0.3em] text-indigo-700 dark:text-indigo-300 font-mono">{generatedToken}</p>
+                  <p className="text-[10px] text-indigo-500 font-bold mt-1 uppercase tracking-widest">Expires in {tokenCountdown} min</p>
+                </div>
+              )}
+              {activeTokens.length > 0 && !generatedToken && (
+                <div className="mt-3 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+                  <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-1">Active tokens</p>
+                  {activeTokens.map((t) => (
+                    <p key={t.id} className="text-sm font-mono font-bold text-emerald-700 dark:text-emerald-300 tracking-widest">
+                      {t.code} <span className="text-[10px] font-normal text-emerald-500">({Math.max(0, Math.ceil((t.expiresAt - Date.now()) / 60000))}m left · {t.usedBy?.length || 0} used)</span>
+                    </p>
+                  ))}
+                  <button onClick={() => setGeneratedToken(activeTokens[0]?.code || '')} className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 text-[10px] font-bold text-emerald-600 hover:text-emerald-700 bg-white dark:bg-slate-800 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                    <RefreshCw className="w-3 h-3" /> Reshow
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -12,9 +12,10 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { useCurrency } from '@/hooks/useCurrency';
 import { KPICard } from '@/components/ui/KPICard';
 import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
+import { promoteApplicantToStudent } from '@/services/authService';
 
 export default function AdmissionsManagement() {
-  const { admissionApplications, updateAdmissionApplication, deleteAdmissionApplication, addStudent, schools } = useDataStore();
+  const { admissionApplications, updateAdmissionApplication, deleteAdmissionApplication, addStudent, schools, platformUsers, updatePlatformUser } = useDataStore();
   const user = useAuthStore((state) => state.user);
   const showToast = useToastStore((state) => state.showToast);
   const { globalSettings, updateGlobalSettings } = useSettingsStore();
@@ -74,14 +75,19 @@ export default function AdmissionsManagement() {
     showToast({ title: `Application ${status.toLowerCase()}`, variant: status === 'Rejected' ? 'warning' : 'success' });
   };
 
-  const handleAdmit = (app: AdmissionApplication) => {
+  const handleAdmit = async (app: AdmissionApplication) => {
     setAdmitting(true);
-    addStudent({
+
+    const regNo = 'REG-' + Date.now().toString(36).toUpperCase();
+    const classValue = app.courseOfStudy || '';
+    const portalLevel = schoolProfile.portalLevel;
+
+    const studentPayload: Parameters<typeof addStudent>[0] = {
       name: `${app.surname} ${app.firstName}`,
       email: app.email,
-      regNo: 'REG-' + Date.now().toString(36).toUpperCase(),
+      regNo,
       admissionNumber: '',
-      class: app.courseOfStudy || '',
+      class: classValue,
       parentName: app.sponsorFullName || app.parentName || '',
       status: 'Active',
       phone: app.phone,
@@ -99,9 +105,50 @@ export default function AdmissionsManagement() {
       residentialAddress: app.residentialAddress,
       sponsorName: app.sponsorFullName,
       sponsorPhone: app.sponsorPhone,
+      classDepartment: classValue,
+      department: classValue,
+      portalLevel,
+      feeCategory: '',
+      feePaymentPlan: 'Full Payment',
+      dateOfAdmission: new Date().toISOString().split('T')[0],
+      admissionStatus: 'Admitted',
+    };
+
+    addStudent(studentPayload);
+
+    // Promote the applicant's auth account from APPLICANT to STUDENT so they
+    // no longer keep the applicant role after admission.
+    const applicantUser = platformUsers.find(
+      (u) => u.email && app.email && u.email.toLowerCase() === app.email.toLowerCase(),
+    );
+    if (applicantUser?.uid) {
+      const res = await promoteApplicantToStudent(applicantUser.uid, {
+        name: `${app.surname} ${app.firstName}`,
+        email: app.email,
+        schoolName: user?.schoolName || schoolProfile.name,
+        phone: app.phone,
+        portalLevel,
+        surname: app.surname,
+        firstName: app.firstName,
+        middleName: app.middleName,
+        regNo,
+        class: classValue,
+      });
+      if (res.success) {
+        updatePlatformUser(applicantUser.uid, {
+          name: `${app.surname} ${app.firstName}`,
+          role: 'STUDENT',
+          roleLabel: 'Student',
+        });
+      }
+    }
+
+    updateAdmissionApplication(app.id, { applicationStatus: 'Admitted', reviewedAt: new Date().toISOString().split('T')[0], reviewedBy: user?.name || 'Admin' });
+    showToast({
+      title: `${labels.learnerSingular} admitted`,
+      description: `${app.surname} ${app.firstName} has been added to the ${labels.learnerPlural.toLowerCase()} directory and their account upgraded to a student.`,
+      variant: 'success',
     });
-    updateAdmissionApplication(app.id, { applicationStatus: 'Admitted' });
-    showToast({ title: `${labels.learnerSingular} admitted`, description: `${app.surname} ${app.firstName} has been added to the ${labels.learnerPlural.toLowerCase()} directory.`, variant: 'success' });
     setSelectedApp(null);
     setAdmitting(false);
   };

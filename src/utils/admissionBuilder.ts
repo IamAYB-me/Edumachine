@@ -342,6 +342,78 @@ const byPortalLevel: Record<PortalLevel, AdmissionBuilderSection[]> = {
     },
     ...commonBuilderSections,
   ],
+  Polytechnic: [
+    {
+      title: 'Personal Information',
+      fields: [
+        { key: 'jambRegistrationNumber', label: 'JAMB Registration Number' },
+        { key: 'jambScore', label: 'JAMB Score' },
+        { key: 'surname', label: 'Surname' },
+        { key: 'firstName', label: 'First Name' },
+        { key: 'middleName', label: 'Middle Name' },
+        { key: 'gender', label: 'Gender' },
+        { key: 'dateOfBirth', label: 'Date of Birth' },
+        { key: 'maritalStatus', label: 'Marital Status' },
+        { key: 'nationality', label: 'Nationality' },
+        { key: 'state', label: 'State' },
+        { key: 'lga', label: 'Local Government Area (LGA)' },
+        { key: 'passportUrl', label: 'Passport' },
+      ],
+    },
+    {
+      title: 'Academic Information',
+      fields: [
+        { key: 'oLevelResults', label: "O'Level Results" },
+        { key: 'oLevelSitting', label: 'Sitting (1 or 2)' },
+        { key: 'oLevelSubjectsGrades', label: 'Subjects & Grades' },
+        { key: 'institutionChoice', label: 'Institution Choice' },
+        { key: 'department', label: 'Department' },
+        { key: 'programme', label: 'Programme' },
+        { key: 'level', label: 'Level' },
+        { key: 'entryMode', label: 'Entry Mode' },
+        { key: 'screeningScore', label: 'Screening Score' },
+      ],
+    },
+    {
+      title: 'Contact Information',
+      fields: [
+        { key: 'phone', label: 'Phone Number' },
+        { key: 'email', label: 'Email' },
+        { key: 'residentialAddress', label: 'Home Address' },
+      ],
+    },
+    {
+      title: 'Parent Information',
+      fields: [
+        { key: 'parentName', label: 'Parent Name' },
+        { key: 'sponsorOccupation', label: 'Occupation' },
+        { key: 'guardianPhone', label: 'Phone Number' },
+        { key: 'guardianAddress', label: 'Address' },
+      ],
+    },
+    {
+      title: 'Medical Information',
+      fields: [
+        { key: 'bloodGroup', label: 'Blood Group' },
+        { key: 'genotype', label: 'Genotype' },
+        { key: 'disability', label: 'Disability' },
+        { key: 'medicalConditions', label: 'Medical Conditions' },
+      ],
+    },
+    {
+      title: 'Documents',
+      fields: [
+        { key: 'oLevelResults', label: 'WAEC / NECO Result' },
+        { key: 'jambAdmissionLetter', label: 'JAMB Result' },
+        { key: 'birthCertificate', label: 'Birth Certificate' },
+        { key: 'localGovernmentCertificate', label: 'Local Government Certificate' },
+        { key: 'passportDocument', label: 'Passport' },
+        { key: 'acceptanceLetter', label: 'Acceptance Letter' },
+        { key: 'admissionLetter', label: 'Admission Letter' },
+      ],
+    },
+    ...commonBuilderSections,
+  ],
   University: [
     {
       title: 'Personal Information',

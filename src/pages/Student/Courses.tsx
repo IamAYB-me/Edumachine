@@ -1,13 +1,16 @@
 import React, { useState, useMemo, useRef } from 'react';
 import {
   Search, BookOpen, Printer, Download, BarChart3,
-  Clock, FileText, Video, X,
+  Clock, FileText, Video, X, Lock,
 } from 'lucide-react';
 import { cn } from '@/utils';
 import { useDataStore } from '@/store/useDataStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useToastStore } from '@/store/useToastStore';
-import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
+import { resolveSchoolProfile, getPortalLevelLabels, isTertiaryLevel } from '@/utils/schoolProfile';
+import { checkFeeGate, gatingBlockerMessage } from '@/utils/feeGating';
+import { useNavigate } from 'react-router-dom';
+import { useCurrency } from '@/hooks/useCurrency';
 
 const COLORS = ['blue', 'emerald', 'purple', 'amber', 'rose', 'indigo', 'teal'];
 const COLOR_MAP: Record<string, { bg: string; border: string; text: string }> = {
@@ -21,15 +24,23 @@ const COLOR_MAP: Record<string, { bg: string; border: string; text: string }> = 
 };
 
 export default function StudentCourses() {
-  const { subjects, schools, students, departments } = useDataStore();
+  const { subjects, schools, students, departments, feeStructures, feeRecords } = useDataStore();
   const user = useAuthStore((state) => state.user);
   const showToast = useToastStore((state) => state.showToast);
+  const navigate = useNavigate();
+  const { format } = useCurrency();
 
   const schoolProfile = resolveSchoolProfile(user, schools);
   const labels = getPortalLevelLabels(schoolProfile.portalLevel);
-  const isCollege = schoolProfile.portalLevel === 'College' || schoolProfile.portalLevel === 'University';
+  const isCollege = isTertiaryLevel(schoolProfile.portalLevel);
 
   const myStudent = useMemo(() => students.find((s) => s.id === user?.id), [students, user?.id]);
+
+  const gating = useMemo(
+    () => checkFeeGate(feeStructures, feeRecords, myStudent?.class, 'course_registration'),
+    [feeStructures, feeRecords, myStudent?.class],
+  );
+  const registrationBlocked = !gating.isAllowed;
   const myDepartmentId = useMemo(() => {
     const name = myStudent?.classDepartment || myStudent?.department || '';
     return departments.find((d) => d.name === name || d.code === name || d.id === name)?.id || '';
@@ -48,7 +59,7 @@ export default function StudentCourses() {
 
   const filteredSubjects = useMemo(() => {
     let result = isCollege
-      ? subjects.filter((s) => s.session && Boolean(myDepartmentId) && s.departmentId === myDepartmentId)
+      ? subjects.filter((s) => s.session && (myDepartmentId ? s.departmentId === myDepartmentId : true))
       : subjects;
     if (searchTerm) {
       const t = searchTerm.toLowerCase();
@@ -192,6 +203,43 @@ export default function StudentCourses() {
           Print {isCollege ? 'Courses' : 'Subjects'}
         </button>
       </div>
+
+      {registrationBlocked && (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 dark:border-rose-900/40 dark:bg-rose-950/30 p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="shrink-0 w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-900/40 flex items-center justify-center">
+              <Lock className="w-6 h-6 text-rose-600 dark:text-rose-400" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-bold text-rose-900 dark:text-rose-300 uppercase tracking-wide">
+                Registration Locked — Fees Required
+              </h3>
+              <p className="text-sm text-rose-700 dark:text-rose-400 mt-1">
+                {gatingBlockerMessage('course_registration', myStudent?.class)}
+              </p>
+              <div className="mt-3 space-y-2">
+                {gating.blockers.map((b) => (
+                  <div key={b.structure.id} className="flex items-center justify-between gap-3 rounded-xl bg-white/60 dark:bg-white/5 px-4 py-2.5 border border-rose-100 dark:border-rose-900/30">
+                    <div>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">{b.structure.category}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Paid {format(b.studentsPaid)} / Required {format(b.required)} ({b.structure.requiredPercentage ?? 100}%)
+                      </p>
+                    </div>
+                    <span className="text-xs font-bold text-rose-600 dark:text-rose-400">{Math.round(b.percentagePaid)}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <button
+              onClick={() => navigate('/student/fees')}
+              className="shrink-0 inline-flex items-center justify-center gap-2 px-6 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-rose-900/20 transition-all"
+            >
+              Pay Fees Now
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

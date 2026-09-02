@@ -4,7 +4,7 @@ import { cn } from '@/utils';
 import { useDataStore, Subject, Faculty, Department, AcademicSession } from '@/store/useDataStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useToastStore } from '@/store/useToastStore';
-import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
+import { resolveSchoolProfile, getPortalLevelLabels, isTertiaryLevel } from '@/utils/schoolProfile';
 
 type TabKey = 'subjects' | 'courses' | 'faculties' | 'sessions';
 type ModalKind = 'subject' | 'faculty' | 'department' | 'session' | null;
@@ -16,7 +16,7 @@ export default function AcademicManagement() {
 
   const schoolProfile = resolveSchoolProfile(user, schools);
   const labels = getPortalLevelLabels(schoolProfile.portalLevel);
-  const isCollege = schoolProfile.portalLevel === 'College' || schoolProfile.portalLevel === 'University';
+  const isCollege = isTertiaryLevel(schoolProfile.portalLevel);
   const structureLabel = isCollege ? 'Faculty/School' : 'Department';
 
   const [activeTab, setActiveTab] = useState<TabKey>(isCollege ? 'faculties' : 'subjects');

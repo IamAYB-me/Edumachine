@@ -238,6 +238,61 @@ export async function updateUserProfile(
   await setDoc(doc(db, 'users', uid), cleanUpdates, { merge: true });
 }
 
+/**
+ * Promotes an admitted applicant's auth record to a STUDENT role and creates
+ * their student profile record. Once admitted, the applicant no longer keeps
+ * the APPLICANT account role.
+ */
+export async function promoteApplicantToStudent(
+  uid: string,
+  studentData: {
+    name: string;
+    email: string;
+    schoolName: string;
+    phone?: string;
+    portalLevel?: string;
+    surname?: string;
+    firstName?: string;
+    middleName?: string;
+    regNo?: string;
+    class?: string;
+  },
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await writeDocWithRetry(() =>
+      setDoc(
+        doc(db, 'users', uid),
+        {
+          role: 'STUDENT',
+          roleLabel: 'Student',
+        },
+        { merge: true },
+      ),
+    );
+
+    await writeDocWithRetry(() =>
+      setDoc(doc(db, 'students', uid), {
+        id: uid,
+        name: studentData.name,
+        surname: studentData.surname || '',
+        firstName: studentData.firstName || '',
+        middleName: studentData.middleName || '',
+        email: studentData.email,
+        phone: studentData.phone || '',
+        regNo: studentData.regNo || '',
+        class: studentData.class || '',
+        parentName: '',
+        status: 'Active',
+        portalLevel: studentData.portalLevel || 'College',
+      }),
+    );
+
+    return { success: true };
+  } catch (error: unknown) {
+    return { success: false, error: (error as Error).message || 'Could not promote applicant.' };
+  }
+}
+
 export async function changeUserPassword(
   currentPassword: string,
   newPassword: string,

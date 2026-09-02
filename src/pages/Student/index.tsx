@@ -31,7 +31,7 @@ export default function StudentDashboard() {
   const myFees = feeRecords.filter(f => f.studentId === user?.id);
   const pendingFees = myFees.filter(f => f.status === 'Pending' || f.status === 'Partial').reduce((sum, f) => sum + f.amount, 0);
   const isFinanciallyCleared = pendingFees === 0;
-  const unreadNotifs = notifications.filter(n => !n.read).length;
+  const unreadNotifs = notifications.filter(n => n.userId === user?.id && !n.read).length;
 
   const handleQuickAction = (action: 'issue' | 'return' | 'catalog' | 'reminder') => {
     if (action === 'issue') {

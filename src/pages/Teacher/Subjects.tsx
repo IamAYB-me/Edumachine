@@ -4,7 +4,7 @@ import { cn } from '@/utils';
 import { useDataStore, Subject } from '@/store/useDataStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useToastStore } from '@/store/useToastStore';
-import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
+import { resolveSchoolProfile, getPortalLevelLabels, isTertiaryLevel } from '@/utils/schoolProfile';
 
 export default function TeacherSubjects() {
   const { subjects, addSubject, updateSubject, deleteSubject, classes, schools, departments } = useDataStore();
@@ -13,7 +13,7 @@ export default function TeacherSubjects() {
 
   const schoolProfile = resolveSchoolProfile(user, schools);
   const labels = getPortalLevelLabels(schoolProfile.portalLevel);
-  const isCollege = schoolProfile.portalLevel === 'College' || schoolProfile.portalLevel === 'University';
+  const isCollege = isTertiaryLevel(schoolProfile.portalLevel);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTerm, setFilterTerm] = useState('all');

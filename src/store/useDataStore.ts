@@ -4,7 +4,7 @@ import { logActivity, type ActivityAction } from '@/utils/activityLogger';
 import type { Unsubscribe } from 'firebase/firestore';
 import { useAuthStore, type Role } from './useAuthStore';
 
-export type PortalLevel = 'Primary' | 'Secondary' | 'College' | 'University';
+export type PortalLevel = 'Primary' | 'Secondary' | 'College' | 'Polytechnic' | 'University';
 
 export type AdmissionFieldKey = keyof Omit<Student, 'id'>;
 
@@ -17,6 +17,7 @@ export const buildDefaultAdmissionFormConfig = (portalLevel: PortalLevel): Admis
     Primary: ['admissionNumber', 'regNo', 'surname', 'firstName', 'middleName', 'gender', 'dateOfBirth', 'placeOfBirth', 'nationality', 'stateOfOrigin', 'lga', 'tribeEthnicity', 'religion', 'passportUrl', 'residentialAddress', 'townCity', 'state', 'postalAddress', 'fatherName', 'fatherOccupation', 'fatherEmployer', 'fatherPhone', 'fatherEmail', 'fatherAddress', 'motherName', 'motherOccupation', 'motherEmployer', 'motherPhone', 'motherEmail', 'guardianName', 'guardianRelationship', 'guardianPhone', 'guardianAddress', 'bloodGroup', 'genotype', 'allergies', 'medicalConditions', 'disability', 'hospitalDoctor', 'emergencyContact', 'previousSchoolName', 'previousSchoolAddress', 'lastClassAttended', 'reasonForLeaving', 'classApplyingFor', 'classDepartment', 'academicSession', 'dateOfAdmission', 'admissionStatus', 'birthCertificate', 'passportDocument', 'immunizationCard', 'previousSchoolResult', 'parentIdDocument', 'status'],
     Secondary: ['admissionNumber', 'regNo', 'surname', 'firstName', 'middleName', 'gender', 'dateOfBirth', 'placeOfBirth', 'nationality', 'stateOfOrigin', 'lga', 'tribeEthnicity', 'religion', 'passportUrl', 'residentialAddress', 'townCity', 'state', 'postalAddress', 'fatherName', 'fatherOccupation', 'fatherEmployer', 'fatherPhone', 'fatherEmail', 'fatherAddress', 'motherName', 'motherOccupation', 'motherEmployer', 'motherPhone', 'motherEmail', 'guardianName', 'guardianRelationship', 'guardianPhone', 'guardianAddress', 'bloodGroup', 'genotype', 'allergies', 'medicalConditions', 'disability', 'hospitalDoctor', 'emergencyContact', 'entranceExamScore', 'commonEntranceResult', 'previousSchoolResult', 'lastClassAttended', 'subjectsOffered', 'preferredSport', 'clubSociety', 'specialTalent', 'accommodationType', 'hostelPreference', 'classApplyingFor', 'classDepartment', 'academicSession', 'dateOfAdmission', 'admissionStatus', 'transferLetter', 'testimonial', 'birthCertificate', 'passportDocument', 'stateOfOriginCertificate', 'status'],
     College: ['admissionNumber', 'regNo', 'jambRegistrationNumber', 'jambScore', 'surname', 'firstName', 'middleName', 'gender', 'dateOfBirth', 'maritalStatus', 'nationality', 'state', 'lga', 'passportUrl', 'oLevelResults', 'oLevelSitting', 'oLevelSubjectsGrades', 'institutionChoice', 'department', 'programme', 'level', 'entryMode', 'screeningScore', 'phone', 'email', 'residentialAddress', 'parentName', 'sponsorOccupation', 'guardianPhone', 'guardianAddress', 'bloodGroup', 'genotype', 'disability', 'medicalConditions', 'birthCertificate', 'localGovernmentCertificate', 'acceptanceLetter', 'admissionLetter', 'classDepartment', 'academicSession', 'dateOfAdmission', 'admissionStatus', 'status'],
+    Polytechnic: ['admissionNumber', 'regNo', 'jambRegistrationNumber', 'jambScore', 'surname', 'firstName', 'middleName', 'gender', 'dateOfBirth', 'maritalStatus', 'nationality', 'state', 'lga', 'passportUrl', 'oLevelResults', 'oLevelSitting', 'oLevelSubjectsGrades', 'institutionChoice', 'department', 'programme', 'level', 'entryMode', 'screeningScore', 'phone', 'email', 'residentialAddress', 'parentName', 'sponsorOccupation', 'guardianPhone', 'guardianAddress', 'bloodGroup', 'genotype', 'disability', 'medicalConditions', 'birthCertificate', 'localGovernmentCertificate', 'acceptanceLetter', 'admissionLetter', 'classDepartment', 'academicSession', 'dateOfAdmission', 'admissionStatus', 'status'],
     University: ['admissionNumber', 'regNo', 'matricNumber', 'jambRegistrationNumber', 'jambScore', 'surname', 'firstName', 'middleName', 'gender', 'dateOfBirth', 'maritalStatus', 'nationality', 'state', 'lga', 'passportUrl', 'faculty', 'department', 'programme', 'degreeType', 'entryMode', 'admissionType', 'session', 'semester', 'level', 'oLevelExaminationBody', 'oLevelExamNumber', 'oLevelYear', 'oLevelResults', 'oLevelSubjectsGrades', 'aLevelQualifications', 'aLevelResults', 'cgpa', 'phone', 'email', 'residentialAddress', 'fatherName', 'motherName', 'sponsorName', 'sponsorOccupation', 'sponsorEmployer', 'sponsorPhone', 'sponsorEmail', 'bloodGroup', 'genotype', 'disability', 'medicalHistory', 'bankName', 'accountNumber', 'sponsor', 'jambAdmissionLetter', 'admissionLetter', 'birthCertificate', 'localGovernmentCertificate', 'passportDocument', 'medicalReport', 'acceptanceLetter', 'guarantorForm', 'classDepartment', 'academicSession', 'termSemester', 'dateOfAdmission', 'admissionStatus', 'status'],
   };
 
@@ -388,6 +389,10 @@ export interface FeeStructure {
   description?: string;
   status: 'Active' | 'Inactive';
   isUniversal?: boolean;
+  isGated?: boolean;
+  isOptional?: boolean;
+  requiredPercentage?: number;
+  gatedAction?: 'course_registration' | 'admission_letter' | 'exam_access' | 'result_access' | 'clearance';
 }
 
 export interface Expense {
@@ -470,6 +475,18 @@ export interface AttendanceRecord {
   date: string;
   classId?: string;
   markedBy?: string;
+}
+
+export interface AttendanceToken {
+  id: string;
+  code: string;
+  classId: string;
+  className: string;
+  date: string;
+  createdBy: string;
+  createdAt: number;
+  expiresAt: number;
+  usedBy?: string[];
 }
 
 export interface AdmissionApplication {
@@ -706,6 +723,7 @@ interface DataState {
   examResults: ExamResult[];
   examTimetable: ExamTimetableEntry[];
   attendance: AttendanceRecord[];
+  attendanceTokens: AttendanceToken[];
   expenses: Expense[];
   payroll: Payroll[];
   registrationConfigs: SchoolRegistrationConfig[];
@@ -801,6 +819,10 @@ interface DataState {
   // Attendance Actions
   markAttendance: (records: Omit<AttendanceRecord, 'id'>[]) => void;
 
+  // Attendance Token Actions
+  generateAttendanceToken: (data: { classId: string; className: string; date: string; createdBy: string; ttlMinutes?: number }) => AttendanceToken;
+  redeemAttendanceToken: (code: string, student: { targetId: string; targetName: string; date: string; classId?: string }) => { ok: boolean; message: string };
+
   // Expense Actions
   addExpense: (expense: Omit<Expense, 'id'>) => void;
   updateExpense: (id: string, expense: Partial<Expense>) => void;
@@ -875,6 +897,7 @@ export const useDataStore = create<DataState>()((set, get) => ({
   examResults: [],
   examTimetable: [],
   attendance: [],
+  attendanceTokens: [],
   expenses: [],
   payroll: [],
   registrationConfigs: [],
@@ -893,9 +916,9 @@ export const useDataStore = create<DataState>()((set, get) => ({
 
     const ROLE_COLLECTIONS: Partial<Record<Role, string[]>> = {
       SUPER_ADMIN: ['schools', 'users', 'plans', 'delegatedAccess', 'registrationConfigs', 'admissionApplications', 'settings', 'notifications', 'activityLogs', 'students', 'teachers', 'parents', 'staff', 'classes', 'feeRecords', 'exams', 'examResults', 'attendance', 'expenses', 'payroll', 'subjects', 'faculties', 'departments', 'notices', 'timetable'],
-      ADMIN: ['students', 'teachers', 'parents', 'staff', 'classes', 'faculties', 'departments', 'subjects', 'feeRecords', 'feeStructures', 'exams', 'examResults', 'examTimetable', 'attendance', 'expenses', 'payroll', 'delegatedAccess', 'admissionApplications', 'notifications', 'notices', 'timetable', 'schools', 'activityLogs'],
-      TEACHER: ['students', 'classes', 'faculties', 'departments', 'subjects', 'exams', 'examResults', 'attendance', 'notifications', 'notices', 'timetable', 'teachers', 'schools'],
-      STUDENT: ['classes', 'faculties', 'departments', 'subjects', 'exams', 'examResults', 'examTimetable', 'attendance', 'feeRecords', 'feeStructures', 'notifications', 'notices', 'timetable', 'schools'],
+      ADMIN: ['students', 'teachers', 'parents', 'staff', 'classes', 'faculties', 'departments', 'subjects', 'feeRecords', 'feeStructures', 'exams', 'examResults', 'examTimetable', 'attendance', 'attendanceTokens', 'expenses', 'payroll', 'delegatedAccess', 'admissionApplications', 'notifications', 'notices', 'timetable', 'schools', 'activityLogs'],
+      TEACHER: ['students', 'classes', 'faculties', 'departments', 'subjects', 'exams', 'examResults', 'attendance', 'attendanceTokens', 'notifications', 'notices', 'timetable', 'teachers', 'schools'],
+      STUDENT: ['classes', 'faculties', 'departments', 'subjects', 'exams', 'examResults', 'examTimetable', 'attendance', 'attendanceTokens', 'feeRecords', 'feeStructures', 'notifications', 'notices', 'timetable', 'schools'],
       PARENT: ['students', 'attendance', 'feeRecords', 'notifications', 'notices', 'schools'],
       HR: ['staff', 'attendance', 'payroll', 'notifications', 'notices', 'schools'],
       WARDEN: ['students', 'notifications', 'schools'],
@@ -922,6 +945,7 @@ export const useDataStore = create<DataState>()((set, get) => ({
       examResults: 'examResults',
       examTimetable: 'examTimetable',
       attendance: 'attendance',
+      attendanceTokens: 'attendanceTokens',
       expenses: 'expenses',
       payroll: 'payroll',
       registrationConfigs: 'registrationConfigs',
@@ -1392,6 +1416,58 @@ export const useDataStore = create<DataState>()((set, get) => ({
     const late = records.filter((r) => r.status === 'Late').length;
     const excused = records.filter((r) => r.status === 'Excused').length;
     logActivity({ action: 'CREATE', module: 'attendance', description: `Marked attendance for ${records.length} ${records[0]?.type?.toLowerCase() || 'records'} (${present} present, ${absent} absent, ${late} late, ${excused} excused)` }).catch(console.error);
+  },
+
+  generateAttendanceToken: ({ classId, className, date, createdBy, ttlMinutes = 15 }) => {
+    const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const now = Date.now();
+    const token: AttendanceToken = {
+      id: generateId(),
+      code,
+      classId,
+      className,
+      date,
+      createdBy,
+      createdAt: now,
+      expiresAt: now + ttlMinutes * 60 * 1000,
+      usedBy: [],
+    };
+    set((state) => ({ attendanceTokens: [...state.attendanceTokens.filter((t) => t.date === date && t.classId === classId), token] }));
+    addDocumentWithId('attendanceTokens', token.id, token).catch(console.error);
+    logActivity({ action: 'CREATE', module: 'attendanceTokens', description: `Generated attendance token ${code} for ${className} on ${date}`, targetId: token.id }).catch(console.error);
+    return token;
+  },
+
+  redeemAttendanceToken: (code, student) => {
+    const token = get().attendanceTokens.find((t) => t.code.toUpperCase() === code.trim().toUpperCase());
+    if (!token) return { ok: false, message: 'Invalid token. Please check with your lecturer.' };
+    if (Date.now() > token.expiresAt) return { ok: false, message: 'This token has expired. Ask your lecturer to generate a new one.' };
+    if (token.date !== student.date) return { ok: false, message: `This token is for ${token.date}, not ${student.date}.` };
+    if (token.usedBy?.includes(student.targetId)) return { ok: false, message: 'You have already marked attendance with this token.' };
+
+    const updatedToken: AttendanceToken = { ...token, usedBy: [...(token.usedBy ?? []), student.targetId] };
+    set((state) => ({ attendanceTokens: state.attendanceTokens.map((t) => (t.id === token.id ? updatedToken : t)) }));
+    addDocumentWithId('attendanceTokens', token.id, updatedToken).catch(console.error);
+
+    const record: AttendanceRecord = {
+      id: generateId(),
+      targetId: student.targetId,
+      targetName: student.targetName,
+      type: 'Student',
+      status: 'Present',
+      date: student.date,
+      classId: student.classId ?? token.classId,
+      markedBy: 'Token',
+    };
+    set((state) => {
+      const filtered = state.attendance.filter(
+        (existing) => !(existing.date === record.date && existing.targetId === record.targetId && existing.classId === record.classId),
+      );
+      return { attendance: [...filtered, record] };
+    });
+    addDocumentWithId('attendance', record.id, record).catch(console.error);
+    logActivity({ action: 'CREATE', module: 'attendance', description: `Student ${student.targetName} marked present via token ${code}` }).catch(console.error);
+    return { ok: true, message: `Attendance marked as Present for ${token.className}.` };
   },
 
   addExpense: (expense) => {

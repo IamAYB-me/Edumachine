@@ -249,8 +249,8 @@ export default function ExamTimetable() {
               onChange={(e) => setSelectedClass(e.target.value)}
               className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             >
-              <option>{schoolProfile.portalLevel === 'Primary' ? 'Primary 5 - Gold' : schoolProfile.portalLevel === 'Secondary' ? 'Grade 10 - A' : schoolProfile.portalLevel === 'College' ? 'Computer Science ND II' : 'Computer Science 400L'}</option>
-              <option>{schoolProfile.portalLevel === 'Primary' ? 'Primary 6 - Blue' : schoolProfile.portalLevel === 'Secondary' ? 'Grade 11 - B' : schoolProfile.portalLevel === 'College' ? 'Accountancy ND I' : 'Software Engineering 300L'}</option>
+              <option>{schoolProfile.portalLevel === 'Primary' ? 'Primary 5 - Gold' : schoolProfile.portalLevel === 'Secondary' ? 'Grade 10 - A' : schoolProfile.portalLevel === 'College' || schoolProfile.portalLevel === 'Polytechnic' ? 'Computer Science ND II' : 'Computer Science 400L'}</option>
+              <option>{schoolProfile.portalLevel === 'Primary' ? 'Primary 6 - Blue' : schoolProfile.portalLevel === 'Secondary' ? 'Grade 11 - B' : schoolProfile.portalLevel === 'College' || schoolProfile.portalLevel === 'Polytechnic' ? 'Accountancy ND I' : 'Software Engineering 300L'}</option>
             </select>
             <div className="h-6 w-px bg-slate-200 dark:bg-slate-700"></div>
             <p className="text-xs font-bold text-slate-500 uppercase tracking-widest italic">First {labels.termLabel} Finals 2026</p>

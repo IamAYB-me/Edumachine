@@ -2,12 +2,13 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   CheckCircle, Clock, XCircle, GraduationCap, FileText, CreditCard,
-  User, Calendar, ArrowRight, ClipboardList,
+  User, Calendar, ArrowRight, ClipboardList, Printer, Lock,
 } from 'lucide-react';
 import { cn } from '@/utils';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useDataStore } from '@/store/useDataStore';
 import { useCurrency } from '@/hooks/useCurrency';
+import { checkFeeGate } from '@/utils/feeGating';
 
 const TIMELINE = [
   { key: 'Pending', label: 'Application Submitted', desc: 'Your application was received and payment confirmed.' },
@@ -19,11 +20,86 @@ const TIMELINE = [
 export default function AdmissionProgress() {
   const user = useAuthStore((s) => s.user);
   const applications = useDataStore((s) => s.admissionApplications);
+  const { feeRecords, feeStructures, schools } = useDataStore((s) => ({
+    feeRecords: s.feeRecords,
+    feeStructures: s.feeStructures,
+    schools: s.schools,
+  }));
   const { format } = useCurrency();
 
   const application = applications.find(
     (a) => a.email && user?.email && a.email.toLowerCase() === user.email.toLowerCase(),
   );
+
+  const isAdmitted = application?.applicationStatus === 'Admitted';
+
+  const isSupportedPortal = useDataStore((s) => {
+    const school = schools.find((sc) => sc.name === user?.schoolName) ?? schools[0];
+    return school?.portalLevel === 'College' || school?.portalLevel === 'Polytechnic' || school?.portalLevel === 'University';
+  });
+
+  const admissionLetterGate = useDataStore((s) => {
+    if (!isAdmitted) return null;
+    return checkFeeGate(s.feeStructures, s.feeRecords, application?.courseOfStudy, 'admission_letter');
+  });
+
+  const handlePrintAdmissionLetter = () => {
+    if (!application) return;
+    if (admissionLetterGate && !admissionLetterGate.isAllowed) return;
+
+    const schoolName = schools.find((sc) => sc.name === user?.schoolName)?.name || user?.schoolName || 'School';
+    const fullName = `${application.surname} ${application.firstName} ${application.middleName || ''}`.trim();
+    const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Admission Letter - ${fullName}</title>
+        <style>
+          body { font-family: 'Segoe UI', system-ui, sans-serif; padding: 48px; color: #1e293b; line-height: 1.7; }
+          .head { text-align: center; border-bottom: 3px double #2563eb; padding-bottom: 20px; margin-bottom: 32px; }
+          .school-name { font-size: 26px; font-weight: 800; letter-spacing: 1px; }
+          .subtitle { font-size: 14px; color: #64748b; margin-top: 4px; }
+          .ref { margin-top: 10px; font-size: 13px; color: #64748b; }
+          h2 { text-align: center; font-size: 20px; margin: 8px 0 24px; text-transform: uppercase; letter-spacing: 2px; color: #2563eb; }
+          p { font-size: 15px; margin-bottom: 14px; }
+          .ta { text-indent: 2.5em; text-align: justify; }
+          .sig { margin-top: 48px; display: flex; justify-content: flex-end; }
+          .sig-inner { text-align: center; }
+          .sig-line { border-top: 1px solid #1e293b; margin-bottom: 6px; padding-top: 6px; font-weight: 700; }
+        </style>
+      </head>
+      <body>
+        <div class="head">
+          <div class="school-name">${schoolName}</div>
+          <div class="subtitle">Office of Admissions & Registration</div>
+          <div class="ref">Ref: ${application.applicationFormNumber || 'N/A'}</div>
+          <div class="ref">Date: ${currentDate}</div>
+        </div>
+        <h2>Admission Letter</h2>
+        <p>Dear ${fullName},</p>
+        <p class="ta">We are pleased to inform you that you have been admitted to study <strong>${application.courseOfStudy || 'your chosen course'}</strong> for the current academic session. Following the review of your application (${application.applicationFormNumber}), you have met the requirements for admission.</p>
+        <p class="ta">Your admission is subject to your compliance with the acceptance procedure, including the payment of the prescribed acceptance fee and other registration charges. Upon completion of these requirements, you will be eligible to register for courses and access campus facilities.</p>
+        <p class="ta">Kindly report to the admissions office with this letter and the required documents for further clearance and course registration.</p>
+        <p class="ta">We congratulate you once again and look forward to welcoming you to our community.</p>
+        <div class="sig">
+          <div class="sig-inner">
+            <div>Admissions Officer</div>
+            <div class="sig-line">Signature</div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const win = window.open('', '_blank', 'width=800,height=900');
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      setTimeout(() => win.print(), 500);
+    }
+  };
 
   if (!application) {
     return (
@@ -74,12 +150,67 @@ export default function AdmissionProgress() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white uppercase tracking-tight">My Application</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 font-medium">
-          Track the status of your admission application.
-        </p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white uppercase tracking-tight">My Application</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 font-medium">
+            Track the status of your admission application.
+          </p>
+        </div>
+        {isAdmitted && (
+          <button
+            onClick={handlePrintAdmissionLetter}
+            disabled={!!admissionLetterGate && !admissionLetterGate.isAllowed}
+            className={cn(
+              "inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-bold shadow-lg transition-all",
+              admissionLetterGate && !admissionLetterGate.isAllowed
+                ? "bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed shadow-transparent"
+                : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-900/20",
+            )}
+          >
+            {admissionLetterGate && !admissionLetterGate.isAllowed ? <Lock className="w-4 h-4" /> : <Printer className="w-4 h-4" />}
+            Print Admission Letter
+          </button>
+        )}
       </div>
+
+      {/* Admission Letter Gate Banner for admitted applicants */}
+      {isAdmitted && admissionLetterGate && !admissionLetterGate.isAllowed && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 dark:border-amber-900/40 dark:bg-amber-950/30 p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="shrink-0 w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+              <Lock className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-bold text-amber-900 dark:text-amber-300 uppercase tracking-wide">
+                Pay Acceptance Fee to Access Admission Letter
+              </h3>
+              <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+                You must complete your acceptance fee payment before you can print your admission letter and register for courses.
+              </p>
+              <div className="mt-3 space-y-2">
+                {admissionLetterGate.blockers.map((b) => (
+                  <div key={b.structure.id} className="flex items-center justify-between gap-3 rounded-xl bg-white/60 dark:bg-white/5 px-4 py-2.5 border border-amber-100 dark:border-amber-900/30">
+                    <div>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">{b.structure.category}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Paid {format(b.studentsPaid)} / Required {format(b.required)} ({b.structure.requiredPercentage ?? 100}%)
+                      </p>
+                    </div>
+                    <span className="text-xs font-bold text-amber-600 dark:text-amber-400">{Math.round(b.percentagePaid)}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <a
+              href="/student/fees"
+              className="shrink-0 inline-flex items-center justify-center gap-2 px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-amber-900/20 transition-all"
+            >
+              Pay Fee Now
+            </a>
+          </div>
+        </div>
+      )}
 
       {isRejected ? (
         <div className="bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-2xl p-6 flex items-start gap-4">

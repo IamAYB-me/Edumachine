@@ -6,7 +6,7 @@ import { KPICard } from '@/components/ui/KPICard';
 import { useToastStore } from '@/store/useToastStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useNavigate } from 'react-router-dom';
-import { getPortalLevelLabels, resolveSchoolProfile } from '@/utils/schoolProfile';
+import { getPortalLevelLabels, resolveSchoolProfile, isTertiaryLevel } from '@/utils/schoolProfile';
 
 export default function TeacherClasses() {
   const { classes, students, schools, departments, teachers, updateTeacher } = useDataStore();
@@ -18,7 +18,7 @@ export default function TeacherClasses() {
   const showToast = useToastStore((state) => state.showToast);
   const schoolProfile = resolveSchoolProfile(user, schools);
   const labels = getPortalLevelLabels(schoolProfile.portalLevel);
-  const isCollege = schoolProfile.portalLevel === 'College' || schoolProfile.portalLevel === 'University';
+  const isCollege = isTertiaryLevel(schoolProfile.portalLevel);
 
   const myProfile = teachers.find((t) => t.id === user?.id);
   const myDepartmentId = myProfile?.departmentId || '';

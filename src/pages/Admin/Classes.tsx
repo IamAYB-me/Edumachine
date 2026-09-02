@@ -4,7 +4,7 @@ import { cn } from '@/utils';
 import { useDataStore, Class } from '@/store/useDataStore';
 import { KPICard } from '@/components/ui/KPICard';
 import { useAuthStore } from '@/store/useAuthStore';
-import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
+import { resolveSchoolProfile, getPortalLevelLabels, isTertiaryLevel } from '@/utils/schoolProfile';
 
 export default function ClassesManagement() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -13,7 +13,7 @@ export default function ClassesManagement() {
   const user = useAuthStore((state) => state.user);
   const schoolProfile = resolveSchoolProfile(user, schools);
   const labels = getPortalLevelLabels(schoolProfile.portalLevel);
-  const isCollege = schoolProfile.portalLevel === 'College' || schoolProfile.portalLevel === 'University';
+  const isCollege = isTertiaryLevel(schoolProfile.portalLevel);
   const structureLabel = isCollege ? 'Faculty/School' : '';
   
   const stats = {
