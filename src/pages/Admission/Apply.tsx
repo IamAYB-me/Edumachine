@@ -9,7 +9,7 @@ import { cn } from '@/utils';
 import { useDataStore, type PortalLevel } from '@/store/useDataStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useCurrency } from '@/hooks/useCurrency';
-import { getPortalProgrammes } from '@/utils/portalProgrammes';
+import { getPortalProgrammes, filterDepartmentsByPortal } from '@/utils/portalProgrammes';
 import { subscribeToCollection } from '@/services/firestoreService';
 import { usePaystackPayment } from 'react-paystack';
 import { functions } from '@/config/firebase';
@@ -156,7 +156,7 @@ export default function AdmissionApply() {
   const [error, setError] = useState('');
   const [remoteSubjects, setRemoteSubjects] = useState<{ name: string; code: string; facultyId?: string; departmentId?: string }[]>([]);
   const [remoteFaculties, setRemoteFaculties] = useState<{ id: string; name: string; code: string }[]>([]);
-  const [remoteDepartments, setRemoteDepartments] = useState<{ id: string; name: string; code: string; facultyId: string }[]>([]);
+  const [remoteDepartments, setRemoteDepartments] = useState<{ id: string; name: string; code: string; facultyId: string; portalLevel?: PortalLevel }[]>([]);
 
   useEffect(() => {
     const unsubSubjects = subscribeToCollection('subjects', (data) => {
@@ -166,7 +166,7 @@ export default function AdmissionApply() {
       setRemoteFaculties(data.map((d: any) => ({ id: d.id, name: d.name, code: d.code })));
     }, (err) => console.error('[Apply] faculties subscription error:', err));
     const unsubDepts = subscribeToCollection('departments', (data) => {
-      setRemoteDepartments(data.map((d: any) => ({ id: d.id, name: d.name, code: d.code, facultyId: d.facultyId || '' })));
+      setRemoteDepartments(data.map((d: any) => ({ id: d.id, name: d.name, code: d.code, facultyId: d.facultyId || '', portalLevel: (d.portalLevel as PortalLevel) || undefined })));
     }, (err) => console.error('[Apply] departments subscription error:', err));
     return () => { unsubSubjects(); unsubFaculties(); unsubDepts(); };
   }, []);
@@ -213,8 +213,9 @@ export default function AdmissionApply() {
   }, [schools, globalSettings.appName]);
 
   const filteredCourses = useMemo(() => {
-    if (remoteDepartments.length === 0) return getPortalProgrammes(resolveAdmissionPortalLevel);
-    return remoteDepartments.map((d) => d.code ? `${d.name} (${d.code})` : d.name).filter((n, i, a) => a.indexOf(n) === i);
+    const scopedDepartments = filterDepartmentsByPortal(remoteDepartments, resolveAdmissionPortalLevel);
+    if (scopedDepartments.length === 0) return getPortalProgrammes(resolveAdmissionPortalLevel);
+    return scopedDepartments.map((d) => d.code ? `${d.name} (${d.code})` : d.name).filter((n, i, a) => a.indexOf(n) === i);
   }, [remoteDepartments, resolveAdmissionPortalLevel]);
 
   const update = (field: keyof FormData, value: any) =>

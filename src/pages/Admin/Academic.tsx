@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { Search, Plus, Edit, Trash2, X, BookOpen, GraduationCap, Filter, ChevronDown, ChevronRight, Building2 } from 'lucide-react';
 import { cn } from '@/utils';
-import { useDataStore, Subject, Faculty, Department, AcademicSession } from '@/store/useDataStore';
+import { useDataStore, Subject, Faculty, Department, AcademicSession, PortalLevel } from '@/store/useDataStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useToastStore } from '@/store/useToastStore';
 import { resolveSchoolProfile, getPortalLevelLabels, isTertiaryLevel } from '@/utils/schoolProfile';
+import { filterDepartmentsByPortal } from '@/utils/portalProgrammes';
 
 type TabKey = 'subjects' | 'courses' | 'faculties' | 'sessions';
 type ModalKind = 'subject' | 'faculty' | 'department' | 'session' | null;
@@ -30,7 +31,7 @@ export default function AcademicManagement() {
 
   const safeSubjects = useMemo(() => (subjects || []).filter(Boolean), [subjects]);
   const safeFaculties = useMemo(() => (faculties || []).filter(Boolean), [faculties]);
-  const safeDepartments = useMemo(() => (departments || []).filter(Boolean), [departments]);
+  const safeDepartments = useMemo(() => filterDepartmentsByPortal((departments || []).filter(Boolean), schoolProfile.portalLevel), [departments, schoolProfile.portalLevel]);
 
   const primarySubjects = useMemo(() => safeSubjects.filter((s) => s.term && !s.session), [safeSubjects]);
   const collegeCourses = useMemo(() => safeSubjects.filter((s) => s.session && !s.term), [safeSubjects]);
@@ -96,7 +97,7 @@ export default function AcademicManagement() {
 
   const [subjectForm, setSubjectForm] = useState({ name: '', code: '', type: 'Core' as 'Core' | 'Elective', creditHours: 3, term: '', session: '', facultyId: '', departmentId: '' });
   const [facultyForm, setFacultyForm] = useState({ name: '', code: '', headName: '' });
-  const [deptForm, setDeptForm] = useState({ name: '', code: '', headName: '', facultyId: '' });
+  const [deptForm, setDeptForm] = useState<{ name: string; code: string; headName: string; facultyId: string; portalLevel: PortalLevel }>({ name: '', code: '', headName: '', facultyId: '', portalLevel: schoolProfile.portalLevel });
   const [sessionForm, setSessionForm] = useState({ name: '' });
 
   const coreCount = safeSubjects.filter((s) => s.type === 'Core').length;
@@ -132,10 +133,10 @@ export default function AcademicManagement() {
   const openDeptModal = (dept?: Department, preselectedFacultyId?: string) => {
     if (dept) {
       setEditingItem(dept);
-      setDeptForm({ name: dept.name, code: dept.code, headName: dept.headName, facultyId: dept.facultyId });
+      setDeptForm({ name: dept.name, code: dept.code, headName: dept.headName, facultyId: dept.facultyId, portalLevel: dept.portalLevel || schoolProfile.portalLevel });
     } else {
       setEditingItem(null);
-      setDeptForm({ name: '', code: '', headName: '', facultyId: preselectedFacultyId || '' });
+      setDeptForm({ name: '', code: '', headName: '', facultyId: preselectedFacultyId || '', portalLevel: schoolProfile.portalLevel });
     }
     setModalKind('department');
   };
@@ -671,6 +672,17 @@ export default function AcademicManagement() {
                 <input type="text" required value={deptForm.name} onChange={(e) => setDeptForm({ ...deptForm, name: e.target.value })}
                   className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500 dark:text-white" />
               </div>
+              {isCollege && (
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-500 uppercase">Institution Type</label>
+                  <select value={deptForm.portalLevel} onChange={(e) => setDeptForm({ ...deptForm, portalLevel: e.target.value as PortalLevel })}
+                    className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500 dark:text-white">
+                    <option value="College">College</option>
+                    <option value="Polytechnic">Polytechnic</option>
+                    <option value="University">University</option>
+                  </select>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-500 uppercase">Code</label>

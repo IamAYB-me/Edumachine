@@ -1,35 +1,53 @@
 import type { PortalLevel } from '@/store/useDataStore';
 
+export interface PortalScopedDepartment {
+  id: string;
+  name: string;
+  code: string;
+  portalLevel?: PortalLevel;
+}
+
+/**
+ * Filters a list of departments/courses so only those matching the given
+ * portal level are returned. Departments without a portalLevel (legacy) are
+ * treated as applicable to every tertiary portal so nothing is lost.
+ */
+export function filterDepartmentsByPortal<T extends PortalScopedDepartment>(
+  departments: T[],
+  portalLevel: PortalLevel,
+): T[] {
+  if (portalLevel !== 'College' && portalLevel !== 'Polytechnic' && portalLevel !== 'University') {
+    return departments;
+  }
+  return departments.filter((d) => !d.portalLevel || d.portalLevel === portalLevel);
+}
+
 export const COLLEGE_PROGRAMMES: string[] = [
-  // Colleges of Education (NCE) — Teaching
-  'NCE Primary Education Studies',
-  'NCE Early Childhood Care & Education',
-  'NCE Special Education',
-  'NCE Integrated Science',
-  'NCE Biology Education',
-  'NCE Chemistry Education',
-  'NCE Physics Education',
-  'NCE Mathematics Education',
-  'NCE English Language Education',
-  'NCE Yoruba Education',
-  'NCE Igbo Education',
-  'NCE Hausa Education',
-  'NCE French Education',
-  'NCE Social Studies',
-  'NCE Business Education',
-  'NCE Computer Education',
-  'NCE Home Economics',
-  'NCE Agricultural Science Education',
-  'NCE Fine & Applied Arts',
-  'NCE Music Education',
-  'NCE Physical & Health Education',
-  // Colleges of health / professional
-  'National Diploma (ND) Computer Science',
-  'ND Business Administration & Management',
-  'ND Accountancy',
-  'ND Mass Communication',
-  'ND Public Administration',
-  'ND Science Laboratory Technology',
+  // College of Health Science & Technology
+  'Health Information Management',
+  'Community Health Extension Work (CHEW)',
+  'Community Health (Diploma)',
+  'Public Health Nursing',
+  'General Nursing',
+  'Basic Midwifery',
+  'Post-Basic Midwifery',
+  'Pharmacy Technology',
+  'Medical Laboratory Science (Medical Lab Tech)',
+  'Medical Imaging & Radiography Technology',
+  'Dental Health Technology',
+  'Environmental Health Science',
+  'Nutrition & Dietetics',
+  'Physiotherapy Technology',
+  'Health Promotion & Education',
+  'Epidemiology & Disease Control',
+  'Health Services Management',
+  'Health Records & Coding',
+  'Biomedical Engineering Technology',
+  'Occupational Therapy',
+  'Ophthalmic Nursing / Eye Care',
+  'Public Health Technology',
+  'Laboratory Science Technology',
+  'Emergency & Trauma Care',
 ];
 
 export const POLYTECHNIC_PROGRAMMES: string[] = [

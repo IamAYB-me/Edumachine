@@ -345,6 +345,7 @@ export interface Department {
   code: string;
   headName: string;
   facultyId: string;
+  portalLevel?: PortalLevel;
 }
 
 export interface AcademicSession {
