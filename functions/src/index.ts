@@ -203,7 +203,12 @@ export const payAcceptanceFee = functions.https.onCall(async (request: any) => {
       activeAcceptance.find((s) => s.isUniversal === true) || activeAcceptance[0];
 
     const expectedAmount = acceptanceStructure ? Number(acceptanceStructure.amount) : 0;
-    const paidAmount = Number(txnData.amount || 0) / 100;
+    // Paystack adds its processing fee on top of the amount, so compare against
+    // the NET amount actually received (total charged minus Paystack's fee),
+    // falling back to the gross amount if fees aren't reported.
+    const grossAmount = Number(txnData.amount || 0) / 100;
+    const receivedAmount = (Number(txnData.amount || 0) - Number(txnData.fees || 0)) / 100;
+    const paidAmount = receivedAmount > 0 ? receivedAmount : grossAmount;
     if (acceptanceStructure && expectedAmount > 0 && Math.abs(paidAmount - expectedAmount) > 1) {
       throw new functions.https.HttpsError(
         "failed-precondition",
