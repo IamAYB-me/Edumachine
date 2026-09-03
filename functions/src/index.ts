@@ -10,8 +10,6 @@ const db = admin.firestore();
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || "";
 const SMTP_PASSWORD = process.env.SMTP_PASSWORD || "";
 
-const bucket = admin.storage().bucket();
-
 /**
  * Uploads a base64 data URL to Cloud Storage and returns a public HTTP URL.
  * Non-data-URL values (e.g. an existing https URL) are returned unchanged.
@@ -21,13 +19,14 @@ async function uploadDataUrlToStorage(dataUrl: string, prefix: string, peerId: s
   if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:")) {
     return dataUrl;
   }
-  const match = dataUrl.match(/^data:([^;]+);base64,(.*)$/s);
+  const match = dataUrl.match(/^data:([^;]+);base64,(.*)$/);
   if (!match) return dataUrl;
   const mime = match[1] || "application/octet-stream";
   const rawExt = (mime.split("/")[1] || "jpg").toLowerCase();
   const ext = rawExt.replace(/[^a-z0-9]/gi, "") || "jpg";
   const buffer = Buffer.from(match[2], "base64");
   const path = `admissions/${peerId}-${prefix}-${Date.now()}.${ext}`;
+  const bucket = admin.storage().bucket();
   const file = bucket.file(path);
   await file.save(buffer, { contentType: mime, resumable: false });
   await file.makePublic();

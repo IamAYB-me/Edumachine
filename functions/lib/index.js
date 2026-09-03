@@ -44,7 +44,7 @@ var __rest = (this && this.__rest) || function (s, e) {
     return t;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.submitAdmissionApplication = exports.verifyPaystackPayment = void 0;
+exports.deleteUserAccount = exports.submitAdmissionApplication = exports.verifyPaystackPayment = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 admin.initializeApp();
@@ -53,6 +53,29 @@ const db = admin.firestore();
 // never in the publicly-readable portal settings doc.
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || "";
 const SMTP_PASSWORD = process.env.SMTP_PASSWORD || "";
+/**
+ * Uploads a base64 data URL to Cloud Storage and returns a public HTTP URL.
+ * Non-data-URL values (e.g. an existing https URL) are returned unchanged.
+ * This keeps large images out of Firestore, which rejects properties over 1MB.
+ */
+async function uploadDataUrlToStorage(dataUrl, prefix, peerId) {
+    if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:")) {
+        return dataUrl;
+    }
+    const match = dataUrl.match(/^data:([^;]+);base64,(.*)$/);
+    if (!match)
+        return dataUrl;
+    const mime = match[1] || "application/octet-stream";
+    const rawExt = (mime.split("/")[1] || "jpg").toLowerCase();
+    const ext = rawExt.replace(/[^a-z0-9]/gi, "") || "jpg";
+    const buffer = Buffer.from(match[2], "base64");
+    const path = `admissions/${peerId}-${prefix}-${Date.now()}.${ext}`;
+    const bucket = admin.storage().bucket();
+    const file = bucket.file(path);
+    await file.save(buffer, { contentType: mime, resumable: false });
+    await file.makePublic();
+    return `https://storage.googleapis.com/${bucket.name}/${path}`;
+}
 /**
  * verifyPaystackPayment
  *
@@ -203,7 +226,11 @@ exports.submitAdmissionApplication = functions.https.onCall(async (request) => {
             return number;
         });
         const appId = `ADM-${Math.random().toString(36).substring(2, 11)}`;
-        await db.collection("admissionApplications").doc(appId).set(Object.assign(Object.assign({}, application), { id: appId, schoolName: application.schoolName || settings.appName, applicationFormNumber: formNumber, surname,
+        // Upload passport & signature images to Cloud Storage before Firestore write.
+        // Firestore rejects properties > 1MB; base64 camera photos easily exceed that.
+        const uploadedPassport = await uploadDataUrlToStorage(application.passportUrl || "", "passport", appId);
+        const uploadedSignature = await uploadDataUrlToStorage(application.sponsorSignatureUrl || "", "signature", appId);
+        await db.collection("admissionApplications").doc(appId).set(Object.assign(Object.assign({}, application), { passportUrl: uploadedPassport, sponsorSignatureUrl: uploadedSignature, id: appId, schoolName: application.schoolName || settings.appName, applicationFormNumber: formNumber, surname,
             firstName,
             email, paymentStatus: "Pending", applicationStatus: "Pending", paymentReference: reference || "", submittedAt: new Date().toISOString().split("T")[0], createdAt: admin.firestore.FieldValue.serverTimestamp() }));
         // 2. Create the applicant's account (role APPLICANT) so they can track progress.
@@ -371,4 +398,103 @@ exports.submitAdmissionApplication = functions.https.onCall(async (request) => {
         throw new functions.https.HttpsError("internal", "Your application could not be submitted. Please contact support.");
     }
 });
+/**
+ * deleteUserAccount
+ *
+ * Callable invoked by an ADMIN / SUPER_ADMIN to permanently remove a user
+ * account. This must run server-side because deleting an arbitrary Firebase
+ * Auth user requires the Admin SDK (the client SDK can only delete the
+ * currently signed-in user).
+ *
+ * Deletes:
+ *   1. The Firebase Auth user (if a uid is provided).
+ *   2. users/{uid}
+ *   3. students/{uid}
+ *   4. Any admission applications matching the user's email.
+ */
+exports.deleteUserAccount = functions.https.onCall(async (request) => {
+    var _a;
+    const caller = request.auth;
+    if (!caller) {
+        throw new functions.https.HttpsError("unauthenticated", "You must be signed in to delete an account.");
+    }
+    const callerDoc = await db.collection("users").doc(caller.uid).get();
+    const callerRole = callerDoc.exists ? (_a = callerDoc.data()) === null || _a === void 0 ? void 0 : _a.role : "";
+    if (callerRole !== "SUPER_ADMIN" && callerRole !== "ADMIN") {
+        throw new functions.https.HttpsError("permission-denied", "Only an admin can delete a user account.");
+    }
+    const data = request.data || {};
+    const { uid, email } = data;
+    if (!uid && !email) {
+        throw new functions.https.HttpsError("invalid-argument", "A user uid (or email) is required.");
+    }
+    const results = [];
+    const errors = [];
+    // 1. Delete the Auth account.
+    if (uid) {
+        try {
+            await admin.auth().deleteUser(uid);
+            results.push(`auth-user/${uid}`);
+        }
+        catch (authError) {
+            // Ignore "user not found" — nothing to delete.
+            const code = (authError === null || authError === void 0 ? void 0 : authError.code) || "";
+            if (code !== "auth/user-not-found")
+                errors.push(`auth-user: ${code || (authError === null || authError === void 0 ? void 0 : authError.message)}`);
+        }
+    }
+    // 2. Delete the users/{uid} doc.
+    if (uid) {
+        try {
+            const ref = db.collection("users").doc(uid);
+            if ((await ref.get()).exists) {
+                await ref.delete();
+                results.push(`users/${uid}`);
+            }
+        }
+        catch (e) {
+            errors.push(`users: ${(e === null || e === void 0 ? void 0 : e.message) || e}`);
+        }
+    }
+    // 3. Delete the students/{uid} doc.
+    if (uid) {
+        try {
+            const ref = db.collection("students").doc(uid);
+            if ((await ref.get()).exists) {
+                await ref.delete();
+                results.push(`students/${uid}`);
+            }
+        }
+        catch (e) {
+            errors.push(`students: ${(e === null || e === void 0 ? void 0 : e.message) || e}`);
+        }
+    }
+    // 4. Delete admission applications matching the email (also search by stored uid if present).
+    const emailToUse = email || (uid ? await getEmailForUid(uid) : "");
+    if (emailToUse) {
+        const appSnap = await db
+            .collection("admissionApplications")
+            .where("email", "==", emailToUse)
+            .get();
+        await Promise.all(appSnap.docs.map((d) => d.ref.delete().then(() => results.push(`admissionApplications/${d.id}`))));
+    }
+    if (errors.length) {
+        console.warn("[deleteUserAccount] Partial deletion errors:", errors);
+    }
+    return {
+        success: errors.length === 0,
+        deleted: results,
+        errors,
+    };
+});
+async function getEmailForUid(uid) {
+    var _a;
+    try {
+        const snap = await db.collection("users").doc(uid).get();
+        return snap.exists ? String(((_a = snap.data()) === null || _a === void 0 ? void 0 : _a.email) || "") : "";
+    }
+    catch (_b) {
+        return "";
+    }
+}
 //# sourceMappingURL=index.js.map
