@@ -22,11 +22,9 @@ export default function AdmissionProgress() {
   const [searchParams] = useSearchParams();
   const formParam = searchParams.get('form') || '';
   const applications = useDataStore((s) => s.admissionApplications);
-  const { feeRecords, feeStructures, schools } = useDataStore((s) => ({
-    feeRecords: s.feeRecords,
-    feeStructures: s.feeStructures,
-    schools: s.schools,
-  }));
+  const feeRecords = useDataStore((s) => s.feeRecords);
+  const feeStructures = useDataStore((s) => s.feeStructures);
+  const schools = useDataStore((s) => s.schools);
   const { format } = useCurrency();
 
   const application = useMemo(() => {
@@ -42,15 +40,15 @@ export default function AdmissionProgress() {
 
   const isAdmitted = application?.applicationStatus === 'Admitted';
 
-  const isSupportedPortal = useDataStore((s) => {
+  const isSupportedPortal = useMemo(() => {
     const school = schools.find((sc) => sc.name === user?.schoolName) ?? schools[0];
     return school?.portalLevel === 'College' || school?.portalLevel === 'Polytechnic' || school?.portalLevel === 'University';
-  });
+  }, [schools, user?.schoolName]);
 
-  const admissionLetterGate = useDataStore((s) => {
+  const admissionLetterGate = useMemo(() => {
     if (!isAdmitted) return null;
-    return checkFeeGate(s.feeStructures, s.feeRecords, application?.courseOfStudy, 'admission_letter');
-  });
+    return checkFeeGate(feeStructures, feeRecords, application?.courseOfStudy, 'admission_letter');
+  }, [isAdmitted, feeStructures, feeRecords, application?.courseOfStudy]);
 
   const handlePrintAdmissionLetter = () => {
     if (!application) return;
