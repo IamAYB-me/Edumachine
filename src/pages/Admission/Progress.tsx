@@ -155,20 +155,39 @@ export default function AdmissionProgress() {
         <div className="w-full max-w-md text-center">
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-8 sm:p-10">
             <div className="w-20 h-20 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mx-auto mb-6">
-              <ClipboardList className="w-10 h-10 text-blue-600 dark:text-blue-400" />
+              <Lock className="w-10 h-10 text-blue-600 dark:text-blue-400" />
             </div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-3">No Application Found</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 leading-relaxed">
-              {formParam
-                ? <>We could not find an admission application with the number <strong className="break-all">{formParam}</strong>. Please check the link you were sent, or log in to your applicant account to track your application.</>
-                : <>We could not find an admission application linked to <strong>{user?.email}</strong>. If you have not submitted one yet, you can start a new application below.</>}
-            </p>
-            <Link
-              to="/admissions/apply"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-900/20 transition-all"
-            >
-              Apply Now <ArrowRight className="w-4 h-4" />
-            </Link>
+            {!user ? (
+              <>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-3">Please Log In</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 leading-relaxed">
+                  {formParam
+                    ? <>To track application <strong className="break-all">{formParam}</strong>, please log in with the email and password you used when you submitted your application.</>
+                    : <>Please log in with the email and password you used when you submitted your application to view your status updates.</>}
+                </p>
+                <Link
+                  to="/login"
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-900/20 transition-all"
+                >
+                  <Lock className="w-4 h-4" /> Log In to Track Application
+                </Link>
+              </>
+            ) : (
+              <>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-3">No Application Found</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 leading-relaxed">
+                  {formParam
+                    ? <>We could not find an admission application with the number <strong className="break-all">{formParam}</strong> linked to <strong>{user.email}</strong>. Please check the number you were sent.</>
+                    : <>We could not find an admission application linked to <strong>{user.email}</strong>. If you have not submitted one yet, you can start a new application below.</>}
+                </p>
+                <Link
+                  to="/admissions/apply"
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-900/20 transition-all"
+                >
+                  Apply Now <ArrowRight className="w-4 h-4" />
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>
