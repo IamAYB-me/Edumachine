@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { usePaystackPayment } from 'react-paystack';
 import { functions } from '@/config/firebase';
@@ -7,6 +7,8 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useDataStore } from '@/store/useDataStore';
 import { useCurrency } from '@/hooks/useCurrency';
 import { cn } from '@/utils';
+import { getDocumentsWhere } from '@/services/firestoreService';
+import type { AdmissionApplication } from '@/store/useDataStore';
 import {
   ShieldCheck, CheckCircle, Lock, CreditCard, Loader2, AlertTriangle, LogIn, ArrowRight,
 } from 'lucide-react';
@@ -24,13 +26,42 @@ export default function AcceptancePayment() {
   const [processing, setProcessing] = useState(false);
   const [success, setSuccess] = useState<{ reference: string; amount: number } | null>(null);
   const [error, setError] = useState('');
+  const [directApplication, setDirectApplication] = useState<AdmissionApplication | null>(null);
+  const [directLoaded, setDirectLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!user?.email) {
+      setDirectLoaded(true);
+      return;
+    }
+    let cancelled = false;
+    getDocumentsWhere('admissionApplications', 'email', '==', user.email)
+      .then((rows) => {
+        if (cancelled) return;
+        setDirectApplication((rows[0] as AdmissionApplication) || null);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setDirectApplication(null);
+      })
+      .finally(() => {
+        if (!cancelled) setDirectLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.email]);
 
   const application = useMemo(() => {
     if (!user?.email) return null;
-    return applications.find(
-      (a) => a.email && a.email.toLowerCase() === user.email!.toLowerCase(),
-    ) || null;
-  }, [applications, user?.email]);
+    return (
+      directApplication ||
+      applications.find(
+        (a) => a.email && a.email.toLowerCase() === user.email!.toLowerCase(),
+      ) ||
+      null
+    );
+  }, [applications, user?.email, directApplication]);
 
   const acceptanceStructure = useMemo(() => {
     const candidates = feeStructures.filter(
@@ -104,6 +135,16 @@ export default function AcceptancePayment() {
   }
 
   if (!application) {
+    if (!directLoaded) {
+      return (
+        <Shell>
+          <div className="text-center">
+            <div className="w-12 h-12 rounded-full border-4 border-slate-200 dark:border-slate-700 border-t-blue-600 animate-spin mx-auto mb-4" />
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Loading your application...</p>
+          </div>
+        </Shell>
+      );
+    }
     return (
       <Shell>
         <div className="text-center">
@@ -112,7 +153,7 @@ export default function AcceptancePayment() {
           </div>
           <h1 className="text-xl font-bold text-slate-900 dark:text-white mb-3">Application Not Found</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mb-8">
-            We could not find an admitted application linked to your account.
+            We could not find an admitted application linked to <strong>{user?.email}</strong>.
           </p>
           <Link to="/admission/progress" className="inline-flex gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-all">
             Back to My Application
