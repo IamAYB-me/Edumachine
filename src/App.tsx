@@ -82,6 +82,7 @@ import AdminActivityLogs from './pages/Admin/ActivityLogs';
 import AdminReportCard from './pages/Admin/ReportCard';
 import SuperAdminDeletionRequests from './pages/SuperAdmin/DeletionRequests';
 import SuperAdminSchoolUsers from './pages/SuperAdmin/SchoolUsers';
+import SuperAdminCleanupUsers from './pages/SuperAdmin/CleanupUsers';
 
 export default function App() {
   const logoUrl = useSettingsStore((s) => s.globalSettings.logoUrl);
@@ -131,6 +132,7 @@ export default function App() {
         <Route path="/super-admin/registration-fields" element={<RegistrationFields />} />
         <Route path="/super-admin/deletion-requests" element={<SuperAdminDeletionRequests />} />
         <Route path="/super-admin/school-users" element={<SuperAdminSchoolUsers />} />
+        <Route path="/super-admin/cleanup-users" element={<SuperAdminCleanupUsers />} />
       </Route>
 
       {/* Admin Routes */}

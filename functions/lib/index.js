@@ -684,6 +684,39 @@ exports.deleteUserAccount = functions.https.onCall(async (request) => {
             errors.push(`students: ${(e === null || e === void 0 ? void 0 : e.message) || e}`);
         }
     }
+    // 3b. Delete teacher/parent/staff docs (a uid may hold multiple roles, e.g. a
+    // mixed-up account that is both a teacher and an applicant).
+    for (const colName of ["teachers", "parents", "staff"]) {
+        try {
+            const ref = db.collection(colName).doc(uid);
+            if ((await ref.get()).exists) {
+                await ref.delete();
+                results.push(`${colName}/${uid}`);
+            }
+        }
+        catch (e) {
+            errors.push(`${colName}: ${(e === null || e === void 0 ? void 0 : e.message) || e}`);
+        }
+    }
+    // 3c. Delete any fee records for this user (by studentId or email).
+    try {
+        const emailToUse = email || (uid ? await getEmailForUid(uid) : "");
+        const ids = new Set();
+        if (uid)
+            ids.add(uid);
+        if (emailToUse)
+            ids.add(emailToUse);
+        if (ids.size) {
+            const feeSnap = await db
+                .collection("feeRecords")
+                .where("studentId", "in", Array.from(ids))
+                .get();
+            await Promise.all(feeSnap.docs.map((d) => d.ref.delete().then(() => results.push(`feeRecords/${d.id}`))));
+        }
+    }
+    catch (e) {
+        errors.push(`feeRecords: ${(e === null || e === void 0 ? void 0 : e.message) || e}`);
+    }
     // 4. Delete admission applications matching the email (also search by stored uid if present).
     const emailToUse = email || (uid ? await getEmailForUid(uid) : "");
     if (emailToUse) {

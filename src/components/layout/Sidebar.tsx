@@ -6,7 +6,7 @@ import {
   Settings, LogOut, Home, Key, BedDouble,
   FileText, ClipboardCheck, Award, Users2, Clock, Calendar,
   ChevronDown, ChevronRight, Briefcase, Landmark, ShieldCheck,
-  Truck, Library, Layers, ClipboardList, UserPlus, ScrollText, ShieldAlert
+  Truck, Library, Layers, ClipboardList, UserPlus, ScrollText, ShieldAlert, Trash2
 } from 'lucide-react';
 import { cn } from '@/utils';
 import { useAuthStore, Role } from '@/store/useAuthStore';
@@ -58,6 +58,7 @@ const roleNavLinks: Record<Role, NavItem[]> = {
     { name: 'Registration Fields', icon: ClipboardList, path: '/super-admin/registration-fields' },
     { name: 'System Settings', icon: Settings, path: '/super-admin/settings' },
     { name: 'Deletion Requests', icon: ShieldAlert, path: '/super-admin/deletion-requests' },
+    { name: 'Delete Test Users', icon: Trash2, path: '/super-admin/cleanup-users' },
   ],
   ADMIN: [
     { name: 'Dashboard', icon: LayoutDashboard, path: '/admin' },

@@ -10,7 +10,7 @@ import { cn } from '@/utils';
 import { getDocumentsWhere } from '@/services/firestoreService';
 import type { AdmissionApplication } from '@/store/useDataStore';
 import {
-  ShieldCheck, CheckCircle, Lock, CreditCard, Loader2, AlertTriangle, LogIn, ArrowRight,
+  ShieldCheck, CheckCircle, Lock, CreditCard, Loader2, AlertTriangle, LogIn, ArrowRight, Info,
 } from 'lucide-react';
 
 export const ACCEPTANCE_PATH = '/admission/pay-acceptance';
@@ -293,6 +293,15 @@ export default function AcceptancePayment() {
                   {acceptanceStructure.description || 'One-time acceptance fee.'}
                 </p>
               )}
+
+              <div className="flex items-start gap-2.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 p-4 -mt-2 text-xs text-amber-700 dark:text-amber-300">
+                <Info className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>
+                  The amount shown above is your acceptance fee (<strong>{format(amount)}</strong>). Paystack
+                  adds a small processing charge on top, which will be reflected on the payment page and your
+                  receipt. The <strong>{format(amount)}</strong> acceptance fee is what is credited to your account.
+                </span>
+              </div>
 
               {error && (
                 <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 dark:border-rose-900/40 dark:bg-rose-950/30 p-4 text-sm text-rose-700 dark:text-rose-300">
