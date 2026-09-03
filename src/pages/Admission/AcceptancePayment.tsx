@@ -30,6 +30,8 @@ export default function AcceptancePayment() {
   const [error, setError] = useState('');
   const [directApplication, setDirectApplication] = useState<AdmissionApplication | null>(null);
   const [directLoaded, setDirectLoaded] = useState(false);
+  const [directFeeStructures, setDirectFeeStructures] = useState<typeof feeStructures>([]);
+  const [feeLoaded, setFeeLoaded] = useState(false);
 
   useEffect(() => {
     if (!user?.email) {
@@ -76,12 +78,31 @@ export default function AcceptancePayment() {
     );
   }, [applications, user?.email, directApplication, formNumber]);
 
+  useEffect(() => {
+    let cancelled = false;
+    getDocumentsWhere('feeStructures', 'gatedAction', '==', 'admission_letter')
+      .then((rows) => {
+        if (cancelled) return;
+        setDirectFeeStructures((rows as unknown as typeof feeStructures) || []);
+      })
+      .catch(() => {
+        if (cancelled) setDirectFeeStructures([]);
+      })
+      .finally(() => {
+        if (!cancelled) setFeeLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const acceptanceStructure = useMemo(() => {
-    const candidates = feeStructures.filter(
+    const source = directFeeStructures.length ? directFeeStructures : feeStructures;
+    const candidates = source.filter(
       (s) => s.status === 'Active' && s.gatedAction === 'admission_letter' && !s.isOptional,
     );
     return candidates.find((s) => s.isUniversal) || candidates[0] || null;
-  }, [feeStructures]);
+  }, [feeStructures, directFeeStructures, feeLoaded]);
 
   const amount = acceptanceStructure?.amount || 0;
 
