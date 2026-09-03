@@ -133,6 +133,89 @@ export const verifyPaystackPayment = functions.https.onCall(async (request: any)
 });
 
 /**
+ * Finds an admission application by its stored payment reference and marks it
+ * as paid. Shared by the callable (fallback) and the Paystack webhook so the
+ * verification behavior stays consistent.
+ */
+async function findAndMarkPaid(reference: string, txn: any) {
+  const snap = await db
+    .collection("admissionApplications")
+    .where("paymentReference", "==", reference)
+    .limit(1)
+    .get();
+  if (snap.empty) return { found: false as const };
+  const doc = snap.docs[0];
+  await doc.ref.update({
+    paymentStatus: "Paid",
+    paymentVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+    paymentAmount: txn?.amount ? txn.amount / 100 : admin.firestore.FieldValue.delete(),
+    paymentChannel: txn?.channel || "",
+    paymentIpAddress: txn?.ip_address || "",
+  });
+  return { found: true as const, id: doc.id };
+}
+
+/**
+ * handlePaystackWebhook
+ *
+ * HTTPS endpoint for Paystack charge-success webhooks. Paystack posts the raw
+ * event payload here whenever a payment succeeds. This is the correct target
+ * for the Paystack dashboard webhook URL — WITHOUT it, webhooks were being
+ * sent to the callable endpoint (which rejects them, causing the repeated
+ * "Request body has extra fields: event" errors).
+ *
+ * Configure in Paystack Dashboard -> Settings -> API Keys & Webhooks,
+ * with the webhook URL: https://us-central1-myskulboot.cloudfunctions.net/handlePaystackWebhook
+ *
+ * This endpoint is intentionally lenient: it verifies the x-paystack-signature
+ * with the secret key, marks the application paid, and always returns 200 so
+ * Paystack stops retrying non-fatal failures.
+ */
+export const handlePaystackWebhook = functions.https.onRequest(async (req, res) => {
+  try {
+    if (req.method !== "POST") {
+      res.status(405).send("Method not allowed");
+      return;
+    }
+    const signature = String(req.headers["x-paystack-signature"] || "");
+    if (!signature || !PAYSTACK_SECRET_KEY) {
+      res.status(401).send("Unauthorized");
+      return;
+    }
+
+    const crypto = require("crypto");
+    const rawBody =
+      typeof req.rawBody === "string"
+        ? req.rawBody
+        : Buffer.isBuffer(req.rawBody)
+        ? req.rawBody.toString()
+        : JSON.stringify(req.body || {});
+    const expected = crypto.createHmac("sha512", PAYSTACK_SECRET_KEY).update(rawBody).digest("hex");
+    if (expected !== signature) {
+      res.status(401).send("Invalid signature");
+      return;
+    }
+
+    const event = req.body || {};
+    if (event.event === "charge.success" && event?.data?.reference) {
+      const reference = String(event.data.reference);
+      const result = await findAndMarkPaid(reference, event.data);
+      if (result.found) {
+        console.log(`[handlePaystackWebhook] Marked ${result.id} paid (ref ${reference})`);
+      } else {
+        console.warn(`[handlePaystackWebhook] No application found for ref ${reference}`);
+      }
+    }
+
+    // Always acknowledge to stop Paystack retry loops.
+    res.status(200).send("OK");
+  } catch (error: any) {
+    console.error("[handlePaystackWebhook] Error:", error);
+    res.status(200).send("OK");
+  }
+});
+
+/**
  * Settings used to configure SMTP email delivery. Values are stored in the
  * portal settings document (settings/global) and managed from the Super Admin
  * -> Email & SMTP screen, so they can be updated without redeploying.
