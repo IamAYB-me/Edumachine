@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   CheckCircle, Clock, XCircle, GraduationCap, FileText, CreditCard,
@@ -9,6 +9,8 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useDataStore } from '@/store/useDataStore';
 import { useCurrency } from '@/hooks/useCurrency';
 import { checkFeeGate } from '@/utils/feeGating';
+import { getDocumentsWhere } from '@/services/firestoreService';
+import type { AdmissionApplication } from '@/store/useDataStore';
 
 const TIMELINE = [
   { key: 'Pending', label: 'Application Submitted', desc: 'Your application was received and payment confirmed.' },
@@ -27,16 +29,43 @@ export default function AdmissionProgress() {
   const schools = useDataStore((s) => s.schools);
   const { format } = useCurrency();
 
+  const [directApplication, setDirectApplication] = useState<AdmissionApplication | null>(null);
+  const [directLoaded, setDirectLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!formParam) {
+      setDirectLoaded(false);
+      return;
+    }
+    let cancelled = false;
+    getDocumentsWhere('admissionApplications', 'applicationFormNumber', '==', formParam)
+      .then((rows) => {
+        if (cancelled) return;
+        setDirectApplication((rows[0] as AdmissionApplication) || null);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setDirectApplication(null);
+      })
+      .finally(() => {
+        if (!cancelled) setDirectLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [formParam]);
+
   const application = useMemo(() => {
     if (formParam) {
-      return applications.find(
-        (a) => a.applicationFormNumber && a.applicationFormNumber.toLowerCase() === formParam.toLowerCase(),
-      );
+      return directApplication ||
+        applications.find(
+          (a) => a.applicationFormNumber && a.applicationFormNumber.toLowerCase() === formParam.toLowerCase(),
+        ) || null;
     }
     return applications.find(
       (a) => a.email && user?.email && a.email.toLowerCase() === user.email.toLowerCase(),
-    );
-  }, [applications, user, formParam]);
+    ) || null;
+  }, [applications, user, formParam, directApplication]);
 
   const isAdmitted = application?.applicationStatus === 'Admitted';
 
@@ -108,7 +137,19 @@ export default function AdmissionProgress() {
     }
   };
 
+  const noAppFound = !application && (!formParam || directLoaded);
+
   if (!application) {
+    if (!noAppFound) {
+      return (
+        <div className="min-h-[70vh] flex items-center justify-center px-4">
+          <div className="text-center">
+            <div className="w-12 h-12 rounded-full border-4 border-slate-200 dark:border-slate-700 border-t-blue-600 animate-spin mx-auto mb-4" />
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Loading your application...</p>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="min-h-[70vh] flex items-center justify-center px-4">
         <div className="w-full max-w-md text-center">
@@ -118,7 +159,9 @@ export default function AdmissionProgress() {
             </div>
             <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-3">No Application Found</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 leading-relaxed">
-              We could not find an admission application linked to <strong>{user?.email}</strong>. If you have not submitted one yet, you can start a new application below.
+              {formParam
+                ? <>We could not find an admission application with the number <strong className="break-all">{formParam}</strong>. Please check the link you were sent, or log in to your applicant account to track your application.</>
+                : <>We could not find an admission application linked to <strong>{user?.email}</strong>. If you have not submitted one yet, you can start a new application below.</>}
             </p>
             <Link
               to="/admissions/apply"
