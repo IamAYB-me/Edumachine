@@ -226,9 +226,9 @@ export default function AdmissionProgress() {
             Track the status of your admission application.
           </p>
         </div>
-        {isAdmitted && (
+        {isAdmitted && application && (
           <Link
-            to="/admission/pay-acceptance"
+            to={`/admission/pay-acceptance?form=${encodeURIComponent(application.applicationFormNumber || '')}`}
             className={cn(
               "inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-bold shadow-lg transition-all",
               "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-900/20",
@@ -269,7 +269,7 @@ export default function AdmissionProgress() {
               </div>
             </div>
             <Link
-              to="/admission/pay-acceptance"
+              to={`/admission/pay-acceptance?form=${encodeURIComponent(application?.applicationFormNumber || '')}`}
               className="shrink-0 inline-flex items-center justify-center gap-2 px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-amber-900/20 transition-all"
             >
               Pay Acceptance Fee

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { usePaystackPayment } from 'react-paystack';
 import { functions } from '@/config/firebase';
 import { httpsCallable } from 'firebase/functions';
@@ -17,6 +17,8 @@ export const ACCEPTANCE_PATH = '/admission/pay-acceptance';
 
 export default function AcceptancePayment() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const formNumber = searchParams.get('form');
   const user = useAuthStore((s) => s.user);
   const applications = useDataStore((s) => s.admissionApplications);
   const feeStructures = useDataStore((s) => s.feeStructures);
@@ -35,33 +37,44 @@ export default function AcceptancePayment() {
       return;
     }
     let cancelled = false;
-    getDocumentsWhere('admissionApplications', 'email', '==', user.email)
-      .then((rows) => {
-        if (cancelled) return;
-        setDirectApplication((rows[0] as AdmissionApplication) || null);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setDirectApplication(null);
-      })
-      .finally(() => {
+    const findOnServer = async () => {
+      try {
+        if (formNumber) {
+          const rows = await getDocumentsWhere(
+            'admissionApplications',
+            'applicationFormNumber',
+            '==',
+            formNumber,
+          );
+          if (!cancelled) setDirectApplication((rows[0] as AdmissionApplication) || null);
+          return;
+        }
+        const rows = await getDocumentsWhere('admissionApplications', 'email', '==', user.email);
+        if (!cancelled) setDirectApplication((rows[0] as AdmissionApplication) || null);
+      } catch {
+        if (!cancelled) setDirectApplication(null);
+      } finally {
         if (!cancelled) setDirectLoaded(true);
-      });
+      }
+    };
+    findOnServer();
     return () => {
       cancelled = true;
     };
-  }, [user?.email]);
+  }, [user?.email, formNumber]);
 
   const application = useMemo(() => {
     if (!user?.email) return null;
     return (
       directApplication ||
-      applications.find(
-        (a) => a.email && a.email.toLowerCase() === user.email!.toLowerCase(),
-      ) ||
-      null
+      (formNumber
+        ? applications.find((a) => a.applicationFormNumber === formNumber) || null
+        : applications.find(
+            (a) => a.email && a.email.toLowerCase() === user.email!.toLowerCase(),
+          ) ||
+          null)
     );
-  }, [applications, user?.email, directApplication]);
+  }, [applications, user?.email, directApplication, formNumber]);
 
   const acceptanceStructure = useMemo(() => {
     const candidates = feeStructures.filter(
