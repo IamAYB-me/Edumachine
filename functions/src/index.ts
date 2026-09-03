@@ -133,6 +133,170 @@ export const verifyPaystackPayment = functions.https.onCall(async (request: any)
 });
 
 /**
+ * payAcceptanceFee
+ *
+ * Callable invoked by an admitted applicant after paying the acceptance fee
+ * via Paystack. Verifies the transaction with Paystack's secret key, records
+ * the acceptance fee payment, and promotes the applicant to STUDENT so they
+ * can log in and access the student dashboard.
+ *
+ * The acceptance fee amount is NOT taken from the client. It is looked up from
+ * the school's feeStructures that are gated to 'admission_letter' (acceptance),
+ * and the Paystack transaction amount must match, preventing client tampering.
+ */
+export const payAcceptanceFee = functions.https.onCall(async (request: any) => {
+  const data = request.data || {};
+  const { reference, applicationFormNumber } = data;
+
+  if (!reference || !applicationFormNumber) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Missing reference or applicationFormNumber."
+    );
+  }
+
+  if (!PAYSTACK_SECRET_KEY) {
+    throw new functions.https.HttpsError(
+      "failed-precondition",
+      "Paystack secret key not configured."
+    );
+  }
+
+  const axios = require("axios") as import("axios").AxiosStatic;
+
+  try {
+    // Verify transaction with Paystack
+    const response = await axios.get(
+      `https://api.paystack.co/transaction/verify/${reference}`,
+      { headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` } }
+    );
+    const { status, data: txnData } = response.data;
+    if (!status || !txnData || txnData.status !== "success") {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        `Payment verification failed: ${txnData?.gateway_response || "invalid transaction reference"}`
+      );
+    }
+
+    // Find the application
+    const appsRef = db.collection("admissionApplications");
+    const snapshot = await appsRef
+      .where("applicationFormNumber", "==", applicationFormNumber)
+      .limit(1)
+      .get();
+    if (snapshot.empty) {
+      throw new functions.https.HttpsError("not-found", `Application ${applicationFormNumber} not found.`);
+    }
+    const appDoc = snapshot.docs[0];
+    const app = appDoc.data() as any;
+
+    // Look up the acceptance fee amount from gated structures (single-field
+    // query to avoid a composite index; filter status in code).
+    const feeSnap = await db.collection("feeStructures")
+      .where("gatedAction", "==", "admission_letter")
+      .limit(20)
+      .get();
+    const activeAcceptance = feeSnap.docs
+      .map((d) => ({ id: d.id, ...d.data() } as any))
+      .filter((s) => s.status === "Active" && !(s.isOptional === true));
+    const acceptanceStructure =
+      activeAcceptance.find((s) => s.isUniversal === true) || activeAcceptance[0];
+
+    const expectedAmount = acceptanceStructure ? Number(acceptanceStructure.amount) : 0;
+    const paidAmount = Number(txnData.amount || 0) / 100;
+    if (acceptanceStructure && expectedAmount > 0 && Math.abs(paidAmount - expectedAmount) > 1) {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        `Payment amount mismatch: expected ${expectedAmount}, received ${paidAmount}.`
+      );
+    }
+
+    // Identify the applicant's auth user by email
+    const email = String(app.email || "");
+    let uid: string | undefined;
+    const usersSnap = await db.collection("users").where("email", "==", email).limit(1).get();
+    if (!usersSnap.empty) {
+      uid = usersSnap.docs[0].id;
+    }
+
+    // Record the acceptance fee payment
+    const feeRecordId = `FR-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+    await db.collection("feeRecords").doc(feeRecordId).set({
+      id: feeRecordId,
+      studentId: uid || email,
+      studentName: `${app.surname || ""} ${app.firstName || ""}`.trim(),
+      regNo: uid || "",
+      amount: paidAmount || expectedAmount,
+      status: "Paid",
+      date: new Date().toISOString().split("T")[0],
+      type: acceptanceStructure?.category || "Acceptance Fee",
+      attachmentName: "",
+      attachmentUrl: "",
+      paymentReference: reference,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Promote applicant to STUDENT
+    if (uid) {
+      const usersDocRef = db.collection("users").doc(uid);
+      const usersDoc = await usersDocRef.get();
+      const fullName = `${app.surname || ""} ${app.firstName || ""}`.trim();
+      const regNo = "REG-" + Date.now().toString(36).toUpperCase();
+
+      await usersDocRef.set(
+        { role: "STUDENT", roleLabel: "Student" },
+        { merge: true }
+      );
+
+      const studentsDoc = db.collection("students").doc(uid);
+      const existingStudent = await studentsDoc.get();
+      if (!existingStudent.exists) {
+        await studentsDoc.set({
+          id: uid,
+          name: fullName || (usersDoc.exists ? (usersDoc.data() as any).name : "") || email,
+          surname: app.surname || "",
+          firstName: app.firstName || "",
+          middleName: app.middleName || "",
+          email,
+          phone: app.phone || "",
+          regNo,
+          class: app.courseOfStudy || "",
+          parentName: "",
+          status: "Active",
+          portalLevel: (usersDoc.exists ? (usersDoc.data() as any).portalLevel : "") || "College",
+        });
+      }
+    }
+
+    // Mark acceptance fee paid on the application
+    await appDoc.ref.update({
+      acceptancePaid: true,
+      acceptanceReference: reference,
+      acceptanceVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+      acceptanceAmount: paidAmount || expectedAmount,
+    });
+
+    return {
+      success: true,
+      message: "Acceptance fee paid and account activated as student.",
+      applicationFormNumber,
+      reference,
+      amount: paidAmount || expectedAmount,
+      promoted: !!uid,
+    };
+  } catch (error: any) {
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    console.error("[payAcceptanceFee] Error:", error);
+    throw new functions.https.HttpsError(
+      "internal",
+      "Acceptance fee verification failed. Please contact support."
+    );
+  }
+});
+
+/**
  * Finds an admission application by its stored payment reference and marks it
  * as paid. Shared by the callable (fallback) and the Paystack webhook so the
  * verification behavior stays consistent.

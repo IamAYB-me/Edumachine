@@ -553,6 +553,11 @@ export interface AdmissionApplication {
   paymentStatus: 'Unpaid' | 'Paid' | 'Pending';
   paymentReference?: string;
 
+  // Acceptance fee
+  acceptancePaid?: boolean;
+  acceptanceReference?: string;
+  acceptanceAmount?: number;
+
   // Application Status
   applicationStatus: 'Pending' | 'Under Review' | 'Approved' | 'Rejected' | 'Admitted';
   submittedAt: string;

@@ -227,19 +227,16 @@ export default function AdmissionProgress() {
           </p>
         </div>
         {isAdmitted && (
-          <button
-            onClick={handlePrintAdmissionLetter}
-            disabled={!!admissionLetterGate && !admissionLetterGate.isAllowed}
+          <Link
+            to="/admission/pay-acceptance"
             className={cn(
               "inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-bold shadow-lg transition-all",
-              admissionLetterGate && !admissionLetterGate.isAllowed
-                ? "bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed shadow-transparent"
-                : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-900/20",
+              "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-900/20",
             )}
           >
-            {admissionLetterGate && !admissionLetterGate.isAllowed ? <Lock className="w-4 h-4" /> : <Printer className="w-4 h-4" />}
-            Print Admission Letter
-          </button>
+            <CreditCard className="w-4 h-4" />
+            Pay Acceptance Fees
+          </Link>
         )}
       </div>
 
@@ -271,12 +268,12 @@ export default function AdmissionProgress() {
                 ))}
               </div>
             </div>
-            <a
-              href="/student/fees"
+            <Link
+              to="/admission/pay-acceptance"
               className="shrink-0 inline-flex items-center justify-center gap-2 px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-amber-900/20 transition-all"
             >
-              Pay Fee Now
-            </a>
+              Pay Acceptance Fee
+            </Link>
           </div>
         </div>
       )}

@@ -76,6 +76,7 @@ import Profile from './pages/Profile';
 import Home from './pages/Home';
 import AdmissionApply from './pages/Admission/Apply';
 import AdmissionProgress from './pages/Admission/Progress';
+import AcceptancePayment from './pages/Admission/AcceptancePayment';
 import AdminAdmissions from './pages/Admin/Admissions';
 import AdminActivityLogs from './pages/Admin/ActivityLogs';
 import AdminReportCard from './pages/Admin/ReportCard';
@@ -235,6 +236,9 @@ export default function App() {
 
       {/* Applicant Progress Route — public so newly-registered applicants can access it */}
       <Route path="/admission/progress" element={<AdmissionProgress />} />
+
+      {/* Public acceptance fee payment route for admitted applicants */}
+      <Route path="/admission/pay-acceptance" element={<AcceptancePayment />} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
