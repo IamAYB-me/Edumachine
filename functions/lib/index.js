@@ -177,7 +177,8 @@ async function findAndMarkPaid(reference, txn) {
  * "Request body has extra fields: event" errors).
  *
  * Configure in Paystack Dashboard -> Settings -> API Keys & Webhooks,
- * with the webhook URL: https://us-central1-myskulboot.cloudfunctions.net/handlePaystackWebhook
+ * with the webhook URL: https://app.brochest.com.ng/api/paystack-webhook
+ * (Firebase Hosting rewrites this path to this Cloud Function.)
  *
  * This endpoint is intentionally lenient: it verifies the x-paystack-signature
  * with the secret key, marks the application paid, and always returns 200 so
