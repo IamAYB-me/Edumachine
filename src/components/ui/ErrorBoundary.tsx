@@ -23,6 +23,12 @@ export default class ErrorBoundary extends React.Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('ErrorBoundary caught:', error, errorInfo);
+    const message = error?.message || String(error);
+    const isChunkError = /dynamically imported module|Loading chunk .* failed|import\(\).*failed/i.test(message);
+    if (isChunkError && !sessionStorage.getItem('chunk-reload-attempted')) {
+      sessionStorage.setItem('chunk-reload-attempted', '1');
+      window.location.reload();
+    }
   }
 
   handleReset = () => {

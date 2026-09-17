@@ -7,6 +7,8 @@ import { useToastStore } from '@/store/useToastStore';
 import { downloadTextFile } from '@/utils/fileHelpers';
 import { useAuthStore } from '@/store/useAuthStore';
 import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
+import Pagination from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 
 export default function LibraryMembers() {
   const { students, schools } = useDataStore();
@@ -58,6 +60,8 @@ export default function LibraryMembers() {
 
     return matchesSearch && matchesType;
   });
+
+  const pages = usePagination(filteredMembers, 10);
 
   const cycleMemberType = () => {
     setMemberTypeFilter((current) => {
@@ -240,7 +244,7 @@ export default function LibraryMembers() {
               </tr>
             </thead>
             <tbody className="text-sm divide-y divide-slate-100 dark:divide-slate-800">
-              {filteredMembers.map((member, i) => (
+              {pages.slice.map((member, i) => (
                 <tr key={i} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors group">
                   <td className="py-4 px-6">
                     <div className="flex items-center gap-3">
@@ -297,6 +301,8 @@ export default function LibraryMembers() {
             No members match the current search and member type filter.
           </div>
         ) : null}
+
+        <Pagination page={pages.page} totalPages={pages.totalPages} total={pages.total} start={pages.start} pageSize={pages.pageSize} onPageChange={pages.setPage} />
       </div>
 
       {showModal ? (

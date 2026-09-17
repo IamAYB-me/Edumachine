@@ -140,6 +140,8 @@ export interface Student {
   hostelPreference?: string;
   accommodationType?: string;
   classDepartment?: string;
+  departmentId?: string;
+  departmentCode?: string;
 
   // Financial / Services
   feeCategory?: string;
@@ -182,6 +184,9 @@ export interface Student {
   guarantorForm?: string;
   passportDocument?: string;
   password?: string;
+
+  // Student self-service profile update tracking
+  profileSelfUpdateAt?: string;
 }
 
 export interface Parent {
@@ -351,6 +356,8 @@ export interface Department {
 export interface AcademicSession {
   id: string;
   name: string;
+  semester?: 'First Semester' | 'Second Semester';
+  active?: boolean;
 }
 
 export interface Subject {
@@ -394,6 +401,32 @@ export interface FeeStructure {
   isOptional?: boolean;
   requiredPercentage?: number;
   gatedAction?: 'course_registration' | 'admission_letter' | 'exam_access' | 'result_access' | 'clearance';
+}
+
+export interface CourseRegistrationCourse {
+  subjectId: string;
+  code: string;
+  name: string;
+  creditHours: number;
+  type: 'Core' | 'Elective';
+}
+
+export interface CourseRegistration {
+  id: string;
+  studentId: string;
+  studentName: string;
+  studentEmail?: string;
+  department?: string;
+  portalLevel?: string;
+  session: string;
+  academicSessionName?: string;
+  courses: CourseRegistrationCourse[];
+  courseCount: number;
+  totalCredits: number;
+  coreCount: number;
+  electiveCount: number;
+  status: 'REGISTERED' | 'PENDING';
+  registeredAt: string;
 }
 
 export interface Expense {
@@ -716,6 +749,7 @@ interface DataState {
   staff: Staff[];
   feeRecords: FeeRecord[];
   feeStructures: FeeStructure[];
+  courseRegistrations: CourseRegistration[];
   schools: School[];
   delegatedAccess: DelegatedPortalAccess[];
   plans: SubscriptionPlan[];
@@ -739,6 +773,7 @@ interface DataState {
   notices: Notice[];
   timetable: TimetableEntry[];
   activityLogs: ActivityLog[];
+  dataReady: boolean;
   _hasHydrated: boolean;
   setHasHydrated: (value: boolean) => void;
   initSubscriptions: (role?: Role) => void;
@@ -770,6 +805,9 @@ interface DataState {
   addFeeStructure: (structure: Omit<FeeStructure, 'id'>) => void;
   updateFeeStructure: (id: string, structure: Partial<FeeStructure>) => void;
   deleteFeeStructure: (id: string) => void;
+
+  // Course Registration Actions
+  saveCourseRegistration: (reg: CourseRegistration) => void;
 
   // School Actions
   addSchool: (school: Omit<School, 'id'>) => void;
@@ -803,6 +841,7 @@ interface DataState {
   addAcademicSession: (session: Omit<AcademicSession, 'id'>) => void;
   updateAcademicSession: (id: string, session: Partial<AcademicSession>) => void;
   deleteAcademicSession: (id: string) => void;
+  setActiveSession: (id: string) => void;
 
   // Subject Actions
   addSubject: (subject: Omit<Subject, 'id'>) => void;
@@ -884,6 +923,9 @@ const defaultPlans: SubscriptionPlan[] = [
 ];
 
 const subscriptions: Unsubscribe[] = [];
+let lastSubscribedRole: Role | undefined = undefined;
+let pendingSubscriptionCols: string[] = [];
+const deliveredSubscriptionCols = new Set<string>();
 
 export const useDataStore = create<DataState>()((set, get) => ({
   students: [],
@@ -891,6 +933,7 @@ export const useDataStore = create<DataState>()((set, get) => ({
   staff: [],
   feeRecords: [],
   feeStructures: [],
+  courseRegistrations: [],
   schools: [],
   delegatedAccess: [],
   plans: defaultPlans,
@@ -914,21 +957,35 @@ export const useDataStore = create<DataState>()((set, get) => ({
   timetable: [],
   activityLogs: [],
 
+  dataReady: false,
   _hasHydrated: true,
   setHasHydrated: (_value) => {},
 
   initSubscriptions: (role?: Role) => {
-    if (subscriptions.length > 0) return;
+    if (!role) {
+      subscriptions.forEach((unsub) => unsub());
+      subscriptions.length = 0;
+      lastSubscribedRole = undefined;
+      return;
+    }
+    if (lastSubscribedRole === role && subscriptions.length > 0) return;
+    subscriptions.forEach((unsub) => unsub());
+    subscriptions.length = 0;
+    lastSubscribedRole = role;
+    deliveredSubscriptionCols.clear();
+    pendingSubscriptionCols = [];
+    set({ dataReady: false } as Partial<DataState>);
 
     const ROLE_COLLECTIONS: Partial<Record<Role, string[]>> = {
-      SUPER_ADMIN: ['schools', 'users', 'plans', 'delegatedAccess', 'registrationConfigs', 'admissionApplications', 'settings', 'notifications', 'activityLogs', 'students', 'teachers', 'parents', 'staff', 'classes', 'feeRecords', 'exams', 'examResults', 'attendance', 'expenses', 'payroll', 'subjects', 'faculties', 'departments', 'notices', 'timetable'],
-      ADMIN: ['students', 'teachers', 'parents', 'staff', 'classes', 'faculties', 'departments', 'subjects', 'feeRecords', 'feeStructures', 'exams', 'examResults', 'examTimetable', 'attendance', 'attendanceTokens', 'expenses', 'payroll', 'delegatedAccess', 'admissionApplications', 'notifications', 'notices', 'timetable', 'schools', 'activityLogs'],
+      SUPER_ADMIN: ['schools', 'users', 'plans', 'delegatedAccess', 'registrationConfigs', 'admissionApplications', 'settings', 'notifications', 'activityLogs', 'students', 'teachers', 'parents', 'staff', 'classes', 'feeRecords', 'exams', 'examResults', 'attendance', 'expenses', 'payroll', 'subjects', 'faculties', 'departments', 'academicSessions', 'notices', 'timetable', 'courseRegistrations'],
+      ADMIN: ['students', 'teachers', 'parents', 'staff', 'classes', 'faculties', 'departments', 'subjects', 'academicSessions', 'feeRecords', 'feeStructures', 'exams', 'examResults', 'examTimetable', 'attendance', 'attendanceTokens', 'expenses', 'payroll', 'delegatedAccess', 'admissionApplications', 'notifications', 'notices', 'timetable', 'schools', 'activityLogs', 'courseRegistrations'],
+      REGISTRAR: ['students', 'admissionApplications', 'classes', 'faculties', 'departments', 'academicSessions', 'feeStructures', 'notifications', 'notices', 'schools', 'courseRegistrations'],
       TEACHER: ['students', 'classes', 'faculties', 'departments', 'subjects', 'exams', 'examResults', 'attendance', 'attendanceTokens', 'notifications', 'notices', 'timetable', 'teachers', 'schools'],
-      STUDENT: ['classes', 'faculties', 'departments', 'subjects', 'exams', 'examResults', 'examTimetable', 'attendance', 'attendanceTokens', 'feeRecords', 'feeStructures', 'notifications', 'notices', 'timetable', 'schools'],
+      STUDENT: ['students', 'classes', 'departments', 'subjects', 'exams', 'examResults', 'examTimetable', 'feeRecords', 'feeStructures', 'academicSessions', 'notifications', 'notices', 'timetable', 'schools', 'courseRegistrations'],
       PARENT: ['students', 'attendance', 'feeRecords', 'notifications', 'notices', 'schools'],
       HR: ['staff', 'attendance', 'payroll', 'notifications', 'notices', 'schools'],
       WARDEN: ['students', 'notifications', 'schools'],
-      ACCOUNTANT: ['feeRecords', 'feeStructures', 'expenses', 'payroll', 'notifications', 'schools'],
+      ACCOUNTANT: ['students', 'feeRecords', 'feeStructures', 'expenses', 'payroll', 'notifications', 'schools'],
       TRANSPORT: ['students', 'notifications', 'schools'],
       LIBRARIAN: ['students', 'notifications', 'schools'],
       APPLICANT: ['admissionApplications', 'notifications'],
@@ -945,6 +1002,7 @@ export const useDataStore = create<DataState>()((set, get) => ({
       academicSessions: 'academicSessions',      subjects: 'subjects',
       feeRecords: 'feeRecords',
       feeStructures: 'feeStructures',
+      courseRegistrations: 'courseRegistrations',
       schools: 'schools',
       delegatedAccess: 'delegatedAccess',
       exams: 'exams',
@@ -969,8 +1027,35 @@ export const useDataStore = create<DataState>()((set, get) => ({
     allowedCollections.forEach((col) => {
       const storeKey = COLLECTION_STORE_MAP[col];
       if (storeKey) {
+        pendingSubscriptionCols.push(col);
+      }
+    });
+
+    let scheduledReady = 0;
+    let readyTimer: number | undefined;
+    const maybeMarkReady = () => {
+      scheduledReady += 1;
+      if (scheduledReady >= pendingSubscriptionCols.length) {
+        if (readyTimer) window.clearTimeout(readyTimer);
+        set({ dataReady: true } as Partial<DataState>);
+      }
+    };
+
+    readyTimer = window.setTimeout(() => {
+      if (scheduledReady < pendingSubscriptionCols.length) {
+        set({ dataReady: true } as Partial<DataState>);
+      }
+    }, 4000);
+
+    allowedCollections.forEach((col) => {
+      const storeKey = COLLECTION_STORE_MAP[col];
+      if (storeKey) {
         subscriptions.push(
           subscribeToCollection(col, (data) => {
+            if (!deliveredSubscriptionCols.has(col)) {
+              deliveredSubscriptionCols.add(col);
+              maybeMarkReady();
+            }
             if (storeKey === 'plans' && data.length === 0) {
               defaultPlans.forEach((plan) => {
                 addDocumentWithId('plans', plan.id, { ...plan }).catch(console.error);
@@ -979,6 +1064,12 @@ export const useDataStore = create<DataState>()((set, get) => ({
             } else {
               set({ [storeKey]: data } as Partial<DataState>);
             }
+          }, (error) => {
+            if (!deliveredSubscriptionCols.has(col)) {
+              deliveredSubscriptionCols.add(col);
+              maybeMarkReady();
+            }
+            console.error(`[subscriptions] Error subscribing to "${col}":`, error);
           }),
         );
       }
@@ -1190,6 +1281,23 @@ export const useDataStore = create<DataState>()((set, get) => ({
     logActivity({ action: 'DELETE', module: 'feeStructures', description: `Deleted fee structure`, targetId: id }).catch(console.error);
   },
 
+  saveCourseRegistration: (reg) => {
+    set((state) => {
+      const existing = state.courseRegistrations.find(
+        (r) => r.studentId === reg.studentId && r.session === reg.session,
+      );
+      const entry = { ...reg, id: existing?.id ?? reg.id };
+      if (existing) {
+        updateDocument('courseRegistrations', existing.id, entry as Record<string, unknown>).catch(console.error);
+        logActivity({ action: 'UPDATE', module: 'courseRegistrations', description: `Updated course registration for ${reg.studentName} (${reg.session})`, targetId: existing.id, targetName: reg.studentName }).catch(console.error);
+        return { courseRegistrations: state.courseRegistrations.map((r) => (r.id === existing.id ? entry : r)) };
+      }
+      addDocumentWithId('courseRegistrations', entry.id, entry).catch(console.error);
+      logActivity({ action: 'CREATE', module: 'courseRegistrations', description: `Registered ${reg.courseCount} courses for ${reg.studentName} (${reg.session})`, targetId: entry.id, targetName: reg.studentName }).catch(console.error);
+      return { courseRegistrations: [...state.courseRegistrations, entry] };
+    });
+  },
+
   addSchool: (school) => {
     const id = generateId();
     const record = { ...school, id };
@@ -1334,6 +1442,18 @@ export const useDataStore = create<DataState>()((set, get) => ({
     set((state) => ({ academicSessions: state.academicSessions.filter((s) => s.id !== id) }));
     deleteDocument('academicSessions', id).catch(console.error);
     logActivity({ action: 'DELETE', module: 'academicSessions', description: `Deleted academic session`, targetId: id }).catch(console.error);
+  },
+  setActiveSession: (id) => {
+    set((state) => {
+      state.academicSessions.forEach((s) => {
+        if (s.id === id) {
+          updateDocument('academicSessions', id, { active: true }).catch(console.error);
+        } else if (s.active) {
+          updateDocument('academicSessions', s.id, { active: false }).catch(console.error);
+        }
+      });
+      return { academicSessions: state.academicSessions.map((s) => ({ ...s, active: s.id === id })) };
+    });
   },
 
   addSubject: (subject) => {

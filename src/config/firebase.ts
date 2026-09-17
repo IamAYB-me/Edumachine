@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
+import { getAuth, setPersistence, browserSessionPersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getFunctions } from 'firebase/functions';
@@ -16,9 +16,10 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
-// Keep users signed in across browser sessions and page refreshes.
-setPersistence(auth, browserLocalPersistence).catch((err) => {
-  console.warn('[firebase] Could not set local persistence:', err);
+// Keep the session scoped to the open tab: closing the tab signs the user out,
+// so they must log in again for a fresh session (refresh retains the session).
+setPersistence(auth, browserSessionPersistence).catch((err) => {
+  console.warn('[firebase] Could not set session persistence:', err);
 });
 export const db = getFirestore(app);
 export const storage = getStorage(app);

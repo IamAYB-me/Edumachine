@@ -1,9 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   DollarSign, CreditCard, Receipt, Clock, Download, 
   CheckCircle, AlertCircle, ShieldCheck, Loader2,
   Landmark, Wallet, X
 } from 'lucide-react';
+import { usePaystackPayment } from 'react-paystack';
+import { useLocation } from 'react-router-dom';
 import { KPICard } from '@/components/ui/KPICard';
 import { cn } from '@/utils';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -12,42 +14,75 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useToastStore } from '@/store/useToastStore';
 import { downloadFromUrl, openPaymentReceiptWindow, readFileAsDataUrl, downloadTextFile } from '@/utils/fileHelpers';
 import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
+import { deriveStudentFees } from '@/utils/feeGating';
 
 export default function StudentFees() {
   const { format } = useCurrency();
   const { user } = useAuthStore();
-  const { feeRecords, updateFeeRecord, schools } = useDataStore();
+  const location = useLocation();
+  const { feeRecords, updateFeeRecord, addFeeRecord, schools, students, feeStructures } = useDataStore();
   const showToast = useToastStore((state) => state.showToast);
   const schoolProfile = resolveSchoolProfile(user, schools);
   const labels = getPortalLevelLabels(schoolProfile.portalLevel);
   
   const [showPayModal, setShowPayModal] = useState(false);
   const [selectedFee, setSelectedFee] = useState<any>(null);
-  const [paymentStep, setPaymentStep] = useState<'select' | 'processing' | 'success'>('select');
+  const [paymentStep, setPaymentStep] = useState<'select' | 'amount' | 'processing' | 'success'>('select');
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
   const [transactionId] = useState(() => `EDU-${Math.random().toString(36).substring(2, 11).toUpperCase()}`);
   const [paymentProof, setPaymentProof] = useState<{ name: string; url: string } | null>(null);
+  const [payAmount, setPayAmount] = useState(0);
 
-  // Filter records for the current student
-  const studentFees = useMemo(() => {
-    return feeRecords.filter(record => record.studentId === user?.id);
-  }, [feeRecords, user?.id]);
+  // Resolve the current student profile (for their class) and derive all fees
+  // expected from both universal and peculiar (class-specific) structures.
+  const myStudent = useMemo(() => students.find((s) => s.id === user?.id), [students, user?.id]);
+  const studentFees = useMemo(
+    () => feeRecords.filter((record) => record.studentId === user?.id),
+    [feeRecords, user?.id],
+  );
 
-  const pendingFees = studentFees.filter(f => f.status === 'Pending');
+  const derivedFees = useMemo(
+    () => deriveStudentFees(feeStructures, studentFees, myStudent?.class),
+    [feeStructures, studentFees, myStudent?.class],
+  );
+
+  const pendingFees = derivedFees.filter(f => f.status === 'Pending' || f.status === 'Partial');
   const feeHistory = studentFees.filter(f => f.status === 'Paid');
 
+  // Auto-open the payment flow for a targeted fee via ?pay=<category> (used by
+  // the dashboard's "Start Course Registration" card).
+  const targetedCategory = useMemo(() => {
+    const raw = typeof location.search === 'string' ? location.search : String(location.search || '');
+    if (!raw) return '';
+    const params = new URLSearchParams(raw.replace(/^\?/, ''));
+    return (params.get('pay') || '').trim();
+  }, [location.search]);
+
+  const autoOpenedRef = useRef(false);
+  useEffect(() => {
+    if (!targetedCategory || showPayModal || autoOpenedRef.current) return;
+    autoOpenedRef.current = true;
+    const target = derivedFees.find((f) => f.category.trim().toLowerCase() === targetedCategory.toLowerCase());
+    if (target) handlePay(target);
+    try {
+      const clean = (location.search || '').replace(/^\?/, '').split('&').filter(p => !p.startsWith('pay=')).join('&');
+      window.history.replaceState(null, '', clean ? `?${clean}` : window.location.pathname);
+    } catch { /* ignore */ }
+  }, [targetedCategory, derivedFees]);
+
   const stats = useMemo(() => {
-    const total = studentFees.reduce((acc, f) => acc + f.amount, 0);
-    const paid = feeHistory.reduce((acc, f) => acc + f.amount, 0);
-    const pending = pendingFees.reduce((acc, f) => acc + f.amount, 0);
+    const total = derivedFees.reduce((acc, f) => acc + f.amount, 0);
+    const paid = derivedFees.reduce((acc, f) => acc + f.paid, 0);
+    const pending = derivedFees.reduce((acc, f) => acc + f.remaining, 0);
     return { total, paid, pending };
-  }, [studentFees, feeHistory, pendingFees]);
+  }, [derivedFees]);
 
   const handlePay = (fee: any) => {
     setSelectedFee(fee);
     setPaymentStep('select');
     setSelectedMethod(null);
     setPaymentProof(null);
+    setPayAmount(Math.min(fee?.remaining || fee?.amount || 0, fee?.amount || 0));
     setShowPayModal(true);
   };
 
@@ -57,36 +92,139 @@ export default function StudentFees() {
     setPaymentProof({ name: file.name, url });
   };
 
-  const processPayment = async () => {
-    if (!selectedMethod) return;
-    
-    setPaymentStep('processing');
-    
-    // Simulate API call to payment gateway (e.g. Paystack/Flutterwave)
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    if (selectedFee) {
-      updateFeeRecord(selectedFee.id, { 
-        status: 'Paid', 
+  const payableAmount =
+    selectedFee && selectedFee.remaining > 0 && selectedFee.status === 'Partial'
+      ? selectedFee.remaining
+      : (selectedFee?.amount || selectedFee?.remaining || 0);
+
+  // Percentage-fee amount step properties:
+  // - minThisPayment: smallest this single payment can be while still letting
+  //   total paid reach the required % (e.g. Tuition 50% => at least half the
+  //   category, minus whatever has already been paid).
+  // - needsAmountStep: true for fees with a sub-100% required percentage that
+  //   are not yet fully paid, so the student can adjust how much to pay now.
+  const minThisPayment = Math.min(
+    selectedFee?.remaining || 0,
+    Math.max(0, (selectedFee?.minPayable || 0) - (selectedFee?.paid || 0)),
+  );
+  const maxPayment = selectedFee?.remaining || 0;
+  const needsAmountStep = !!selectedFee && (selectedFee.requiredPercentage ?? 100) < 100 && maxPayment > minThisPayment;
+
+  const chosenAmount =
+    payAmount > 0 ? payAmount : (needsAmountStep ? minThisPayment : payableAmount);
+
+  const paystackConfig = useMemo(
+    () => ({
+      reference: `EDU-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
+      email: user?.email || '',
+      amount: Math.round(chosenAmount * 100),
+      publicKey: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY as string,
+    }),
+    [chosenAmount, user?.email],
+  );
+  const initializePayment = usePaystackPayment(paystackConfig);
+
+  const recordPayment = (category: string, amount: number) => {
+    const existingRecord = studentFees.find(
+      (r) => r.type === category && r.status !== 'Paid',
+    );
+
+    const existingPaid = studentFees
+      .filter((r) => r.type === category)
+      .reduce((sum, r) => (r.status === 'Paid' || r.status === 'Partial' ? sum + r.amount : sum), 0);
+    const newPaid = existingPaid + amount;
+    const remaining = Math.max(0, selectedFee?.amount || 0 - newPaid);
+    const isNowFull = newPaid >= (selectedFee?.amount || 0);
+    const isPartialPaid = newPaid > 0 && !isNowFull;
+
+    if (existingRecord) {
+      updateFeeRecord(existingRecord.id, {
+        status: isNowFull ? 'Paid' : 'Partial',
+        amount: isNowFull ? newPaid : amount,
         date: new Date().toISOString().split('T')[0],
         attachmentName: paymentProof?.name,
         attachmentUrl: paymentProof?.url,
       });
-      setPaymentStep('success');
+    } else {
+      addFeeRecord({
+        studentId: user?.id || '',
+        studentName: user?.name || '',
+        amount: isNowFull ? newPaid : amount,
+        status: isNowFull ? 'Paid' : 'Partial',
+        date: new Date().toISOString().split('T')[0],
+        type: category,
+        attachmentName: paymentProof?.name,
+        attachmentUrl: paymentProof?.url,
+      });
     }
+    setPaymentStep('success');
+  };
+
+  const onPaystackSuccess = () => {
+    const category = selectedFee?.category || selectedFee?.type;
+    recordPayment(category, chosenAmount);
+  };
+
+  const onPaystackClose = () => {
+    setPaymentStep('select');
+    showToast({ title: 'Payment cancelled', description: 'You closed the Paystack payment popup. No charge was made.', variant: 'warning' });
+  };
+
+  // First step: pick a method. Percentage fees then go to the amount screen.
+  const processPayment = () => {
+    if (!selectedMethod || !selectedFee) return;
+
+    if (needsAmountStep) {
+      setPaymentStep('amount');
+      return;
+    }
+
+    const category = selectedFee.category || selectedFee.type;
+
+    if (selectedMethod === 'card') {
+      setPaymentStep('processing');
+      initializePayment({ onSuccess: onPaystackSuccess, onClose: onPaystackClose });
+      return;
+    }
+
+    // Offline proof-of-payment (bank transfer / wallet): require an attached receipt.
+    if (!paymentProof) return;
+    setPaymentStep('processing');
+    recordPayment(category, chosenAmount);
+  };
+
+  // Second step (percentage fees): confirm the adjusted amount, then pay.
+  const confirmAmountPayment = () => {
+    if (!selectedFee || !selectedMethod) return;
+
+    const clamped = Math.min(Math.max(payAmount, minThisPayment), maxPayment);
+    setPayAmount(clamped);
+    const category = selectedFee.category || selectedFee.type;
+
+    if (selectedMethod === 'card') {
+      setPaymentStep('processing');
+      initializePayment({ onSuccess: onPaystackSuccess, onClose: onPaystackClose });
+      return;
+    }
+
+    if (!paymentProof) return;
+    setPaymentStep('processing');
+    recordPayment(category, clamped);
   };
 
   const handleDownloadReceipt = (record = selectedFee) => {
+    const category = record?.category || record?.type || 'School Fee';
+    const amount = record?.amount ?? record?.remaining ?? 0;
     if (record?.attachmentUrl) {
-      downloadFromUrl(record.attachmentUrl, record.attachmentName || `${record.type}-receipt`);
+      downloadFromUrl(record.attachmentUrl, record.attachmentName || `${category}-receipt`);
       return;
     }
 
     openPaymentReceiptWindow({
-      receiptNumber: `RCP-${String(record?.id || 'TXN').toUpperCase()}`,
+      receiptNumber: `RCP-${String(record?.id || record?.structureKey || 'TXN').toUpperCase()}`,
       payerName: user?.name || record?.studentName || 'Student Payment',
-      feeLabel: record?.type || 'School Fee',
-      amount: format(record?.amount || 0),
+      feeLabel: category,
+      amount: format(amount),
       paymentDate: new Date().toLocaleDateString(),
       paymentMethod: selectedMethod === 'bank' ? 'Direct Bank Transfer' : selectedMethod === 'card' ? 'Debit / Credit Card' : 'Recorded Payment',
       schoolName: user?.schoolName || schools[0]?.name || 'BROCHEST Portal',
@@ -119,8 +257,8 @@ export default function StudentFees() {
     <div className="space-y-6">
       {/* Payment Gateway Modal */}
       {showPayModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg max-h-[90vh] flex flex-col transition-all transform scale-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-300" onClick={() => { if (paymentStep !== 'processing') setShowPayModal(false); }}>
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg max-h-[90vh] flex flex-col transition-all transform scale-100" onClick={(e) => e.stopPropagation()}>
             
             {/* Modal Header - sticky */}
             <div className="shrink-0 px-6 sm:px-10 py-6 sm:py-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
@@ -146,8 +284,8 @@ export default function StudentFees() {
                   <div className="flex justify-between items-center p-6 bg-blue-50 dark:bg-blue-900/10 rounded-3xl border border-blue-100 dark:border-blue-900/20">
                     <div>
                       <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-[0.2em] mb-1">Payable Amount</p>
-                      <h3 className="text-3xl font-black text-slate-900 dark:text-white">{format(selectedFee?.amount)}</h3>
-                      <p className="text-xs text-slate-500 font-medium mt-1">{selectedFee?.type}</p>
+                      <h3 className="text-3xl font-black text-slate-900 dark:text-white">{format(selectedFee?.remaining > 0 && selectedFee?.status === 'Partial' ? selectedFee.remaining : selectedFee?.amount)}</h3>
+                      <p className="text-xs text-slate-500 font-medium mt-1">{selectedFee?.category || selectedFee?.type}</p>
                     </div>
                     <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-blue-600">
                       <ShieldCheck className="w-8 h-8" />
@@ -209,21 +347,92 @@ export default function StudentFees() {
                       Cancel
                     </button>
                     <button 
-                      disabled={!selectedMethod || !paymentProof}
+                      disabled={!selectedMethod || (selectedMethod !== 'card' && !paymentProof)}
                       onClick={processPayment}
                       className={cn(
                         "py-5 rounded-2xl text-sm font-bold shadow-xl transition-all active:scale-95",
-                        selectedMethod && paymentProof
+                        selectedMethod && (selectedMethod === 'card' || paymentProof)
                           ? "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-900/30" 
                           : "bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed"
                       )}
                     >
-                      Make Payment
+                      {needsAmountStep ? 'Continue to Amount' : selectedMethod === 'card' ? 'Pay with Paystack' : 'Make Payment'}
                     </button>
                   </div>
                   <p className="text-xs text-slate-500 text-center">
-                    Select a payment method and attach proof before continuing.
+                    {needsAmountStep
+                      ? `This fee requires at least ${format(minThisPayment)} (${selectedFee?.requiredPercentage}%) to unlock ${selectedFee?.gatedAction === 'course_registration' ? 'course registration' : 'this access'}.`
+                      : selectedMethod === 'card'
+                        ? 'You will be redirected to Paystack to securely complete this payment.'
+                        : 'Select a payment method and attach proof before continuing.'}
                   </p>
+                </div>
+              )}
+
+              {paymentStep === 'amount' && (
+                <div className="space-y-8">
+                  <div className="flex justify-between items-center p-6 bg-blue-50 dark:bg-blue-900/10 rounded-3xl border border-blue-100 dark:border-blue-900/20">
+                    <div>
+                      <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-[0.2em] mb-1">Amount to Pay</p>
+                      <h3 className="text-sm font-black text-slate-900 dark:text-white">{selectedFee?.category || selectedFee?.type}</h3>
+                      <p className="text-xs text-slate-500 font-medium mt-1">
+                        Outstanding: <span className="font-bold text-slate-700">{format(maxPayment)}</span>
+                      </p>
+                    </div>
+                    <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm text-blue-600">
+                      <ShieldCheck className="w-8 h-8" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-2">How much would you like to pay now?</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₦</span>
+                      <input
+                        type="number"
+                        min={minThisPayment}
+                        max={maxPayment}
+                        value={payAmount}
+                        onChange={(e) => setPayAmount(Number(e.target.value))}
+                        className="w-full pl-9 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:border-blue-500 text-lg font-black dark:text-white"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-slate-500">
+                      <span>Minimum to unlock: <span className="font-bold text-blue-600">{format(minThisPayment)} ({selectedFee?.requiredPercentage}%)</span></span>
+                      <span>Full balance: <span className="font-bold text-slate-700">{format(maxPayment)}</span></span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button onClick={() => setPayAmount(Math.min(minThisPayment, maxPayment))} className="py-2.5 rounded-2xl border border-blue-200 bg-blue-50 text-blue-700 text-xs font-bold">Pay Minimum ({format(Math.min(minThisPayment, maxPayment))})</button>
+                      <button onClick={() => setPayAmount(maxPayment)} className="py-2.5 rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-bold">Pay Full ({format(maxPayment)})</button>
+                    </div>
+                    <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 text-amber-800 p-3 text-xs">
+                      <ShieldCheck className="w-4 h-4 shrink-0" />
+                      <span>Paying the required <b>{selectedFee?.requiredPercentage}%</b> unlocks {selectedFee?.gatedAction === 'course_registration' ? 'your course registration' : 'access'}. Paying less than this keeps it locked.</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentStep('select')}
+                      className="py-5 rounded-2xl text-sm font-bold border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!payAmount || payAmount < minThisPayment || payAmount > maxPayment}
+                      onClick={confirmAmountPayment}
+                      className={cn(
+                        "py-5 rounded-2xl text-sm font-bold shadow-xl transition-all active:scale-95",
+                        payAmount && payAmount >= minThisPayment && payAmount <= maxPayment
+                          ? (selectedMethod === 'card' ? "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-900/30" : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-900/30")
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed"
+                      )}
+                    >
+                      {selectedMethod === 'card' ? `Pay ${format(Math.min(Math.max(payAmount, minThisPayment), maxPayment))} with Paystack` : 'Confirm Amount'}
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -255,11 +464,11 @@ export default function StudentFees() {
                   <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 text-left space-y-3">
                     <div className="flex justify-between text-xs">
                       <span className="text-slate-500 font-medium">Payment for</span>
-                      <span className="text-slate-900 dark:text-white font-bold">{selectedFee?.type}</span>
+                      <span className="text-slate-900 dark:text-white font-bold">{selectedFee?.category || selectedFee?.type}</span>
                     </div>
                     <div className="flex justify-between text-xs">
                       <span className="text-slate-500 font-medium">Amount Paid</span>
-                      <span className="text-slate-900 dark:text-white font-bold">{format(selectedFee?.amount)}</span>
+                      <span className="text-slate-900 dark:text-white font-bold">{format(chosenAmount)}</span>
                     </div>
                     <div className="flex justify-between text-xs">
                       <span className="text-slate-500 font-medium">Payment Method</span>
@@ -304,7 +513,9 @@ export default function StudentFees() {
             `Outstanding: ${format(stats.pending)}`,
             '',
             '--- Pending Fees ---',
-            ...pendingFees.map(f => `- ${f.type}: ${format(f.amount)} (Due: ${f.date})`),
+            ...[...pendingFees]
+              .sort((a, b) => Number(b.isUniversal) - Number(a.isUniversal))
+              .map(f => `- [${f.isUniversal ? 'Universal' : (f.className || 'Peculiar')}] ${f.category}: ${format(f.amount)} (Paid: ${format(f.paid)}, Outstanding: ${format(f.remaining)})`),
             '',
             '--- Payment History ---',
             ...feeHistory.map(f => `- ${f.type}: ${format(f.amount)} on ${f.date}`),
@@ -370,18 +581,40 @@ export default function StudentFees() {
             <div className="p-6">
               <div className="space-y-4">
                 {pendingFees.length > 0 ? pendingFees.map((fee) => (
-                  <div key={fee.id} className="flex items-center justify-between p-5 rounded-2xl border border-rose-100 dark:border-rose-900/20 bg-rose-50/30 dark:bg-rose-900/10 group transition-all">
+                  <div key={fee.structureKey} className="flex items-center justify-between p-5 rounded-2xl border border-rose-100 dark:border-rose-900/20 bg-rose-50/30 dark:bg-rose-900/10 group transition-all">
                     <div className="flex items-center gap-4">
                       <div className="p-3 bg-white dark:bg-slate-800 text-rose-600 rounded-2xl shadow-sm">
                         <DollarSign className="w-6 h-6" />
                       </div>
                       <div>
-                        <h4 className="font-bold text-slate-900 dark:text-white">{fee.type}</h4>
-                        <p className="text-xs text-slate-500 font-medium">Due by {fee.date}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-bold text-slate-900 dark:text-white">{fee.category}</h4>
+                          <span className={cn(
+                            "px-2 py-0.5 text-[9px] font-bold uppercase rounded-md tracking-wider",
+                            fee.isUniversal
+                              ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
+                              : "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300"
+                          )}>
+                            {fee.isUniversal ? 'Universal' : (fee.className || 'Peculiar')}
+                          </span>
+                          {fee.status === 'Partial' && (
+                            <span className="px-2 py-0.5 text-[9px] font-bold uppercase rounded-md tracking-wider bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">
+                              Partially Paid
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 font-medium mt-0.5">
+                          {fee.isUniversal ? 'Applies to all students' : `Required for ${fee.className || 'your class'}`}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-6">
-                      <span className="text-xl font-black text-slate-900 dark:text-white">{format(fee.amount)}</span>
+                      <div className="text-right">
+                        <span className="text-xl font-black text-slate-900 dark:text-white">{format(fee.remaining)}</span>
+                        {fee.status === 'Partial' && (
+                          <p className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">of {format(fee.amount)} balance</p>
+                        )}
+                      </div>
                       <button 
                         onClick={() => handlePay(fee)}
                         className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-900/20 active:scale-95"

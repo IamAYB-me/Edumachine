@@ -6,6 +6,8 @@ import { cn } from '@/utils';
 import { KPICard } from '@/components/ui/KPICard';
 import { useToastStore } from '@/store/useToastStore';
 import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
+import Pagination from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 
 export default function MarkAttendance() {
   const { classes, students, markAttendance, generateAttendanceToken, attendanceTokens, schools } = useDataStore();
@@ -27,6 +29,8 @@ export default function MarkAttendance() {
     s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     s.regNo.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const pages = usePagination(filteredStudents, 10);
 
   const activeTokens = attendanceTokens.filter(
     (t) => t.classId === selectedClass && t.date === date && Date.now() <= t.expiresAt,
@@ -261,7 +265,7 @@ export default function MarkAttendance() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {filteredStudents.map((student) => (
+                {pages.slice.map((student) => (
                   <tr key={student.id} className="hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors group">
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-3">
@@ -312,6 +316,7 @@ export default function MarkAttendance() {
               </div>
             )}
           </div>
+          <Pagination page={pages.page} totalPages={pages.totalPages} total={pages.total} start={pages.start} pageSize={pages.pageSize} onPageChange={pages.setPage} />
         </div>
       </div>
     </div>

@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Search, Plus, Edit, Trash2, Book, Bookmark, Filter, X } from 'lucide-react';
 import { cn } from '@/utils';
 import { useToastStore } from '@/store/useToastStore';
+import Pagination from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 
 interface BookItem {
   id: string;
@@ -38,6 +40,8 @@ export default function BooksCatalog() {
       book.isbn.toLowerCase().includes(searchTerm.toLowerCase())) &&
     (statusFilter === 'All' || book.status === statusFilter)
   );
+
+  const pages = usePagination(filteredBooks, 10);
 
   const getStatus = (copies: number, available: number): BookItem['status'] => {
     if (available <= 0) return 'Out of Stock';
@@ -184,7 +188,7 @@ export default function BooksCatalog() {
               </tr>
             </thead>
             <tbody className="text-sm divide-y divide-slate-100 dark:divide-slate-800">
-              {filteredBooks.map((book) => (
+              {pages.slice.map((book) => (
                 <tr key={book.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
                   <td className="py-4 px-6">
                     <div className="flex items-center gap-3">
@@ -250,6 +254,8 @@ export default function BooksCatalog() {
             No books match the current search and stock filter.
           </div>
         ) : null}
+
+        <Pagination page={pages.page} totalPages={pages.totalPages} total={pages.total} start={pages.start} pageSize={pages.pageSize} onPageChange={pages.setPage} />
       </div>
 
       {showModal ? (

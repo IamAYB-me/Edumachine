@@ -742,7 +742,7 @@ export const deleteUserAccount = functions.https.onCall(async (request: any) => 
 
   const callerDoc = await db.collection("users").doc(caller.uid).get();
   const callerRole = callerDoc.exists ? (callerDoc.data() as any)?.role : "";
-  if (callerRole !== "SUPER_ADMIN" && callerRole !== "ADMIN") {
+  if (callerRole !== "SUPER_ADMIN" && callerRole !== "ADMIN" && callerRole !== "REGISTRAR") {
     throw new functions.https.HttpsError(
       "permission-denied",
       "Only an admin can delete a user account."

@@ -6,6 +6,8 @@ import { useDataStore, Notice } from '@/store/useDataStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useToastStore } from '@/store/useToastStore';
 import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
+import Pagination from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 
 export default function AdminNoticeBoard() {
   const { notices, addNotice, updateNotice, deleteNotice, schools } = useDataStore();
@@ -31,6 +33,8 @@ export default function AdminNoticeBoard() {
     const t = searchTerm.toLowerCase();
     return notices.filter((n) => n.title.toLowerCase().includes(t) || n.content.toLowerCase().includes(t));
   }, [notices, searchTerm]);
+
+  const pages = usePagination(filteredNotices, 10);
 
   const stats = {
     total: notices.length,
@@ -102,7 +106,7 @@ export default function AdminNoticeBoard() {
         </div>
 
         <div className="p-6 grid grid-cols-1 gap-4">
-          {filteredNotices.map((notice) => (
+          {pages.slice.map((notice) => (
             <div key={notice.id} className="bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 hover:border-blue-200 dark:hover:border-blue-900/50 transition-all group">
               <div className="flex justify-between items-start mb-3">
                 <div className="flex items-center gap-3">
@@ -136,11 +140,12 @@ export default function AdminNoticeBoard() {
             </div>
           )}
         </div>
+        <Pagination page={pages.page} totalPages={pages.totalPages} total={pages.total} start={pages.start} pageSize={pages.pageSize} onPageChange={pages.setPage} />
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-md flex flex-col overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-md flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
               <h2 className="text-lg font-bold text-slate-900 dark:text-white">{editingNotice ? 'Edit Notice' : 'Create New Notice'}</h2>
               <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors"><X className="w-5 h-5 text-slate-500" /></button>

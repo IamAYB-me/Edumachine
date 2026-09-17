@@ -12,7 +12,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useDataStore } from '@/store/useDataStore';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useAuthStore } from '@/store/useAuthStore';
-import { getPortalLevelLabels, resolveSchoolProfile } from '@/utils/schoolProfile';
+import { getPortalLevelLabels, isTertiaryLevel, resolveSchoolProfile } from '@/utils/schoolProfile';
 import { AnimatedCard } from '@/components/ui/AnimatedCard';
 import { AnimatedPage, AnimatedButton, StaggerContainer, StaggerItem } from '@/components/ui/motion';
 
@@ -151,7 +151,7 @@ export default function AdminDashboard() {
           icon={GraduationCap} 
           iconBgClass="bg-emerald-50 dark:bg-emerald-900/20"
           iconColorClass="text-emerald-600 dark:text-emerald-400"
-          to="/admin/classes"
+          to={isTertiaryLevel(schoolProfile.portalLevel) ? '/admin/departments' : '/admin/classes'}
           delay={0.16}
         />
         <KPICard 
@@ -406,8 +406,8 @@ export default function AdminDashboard() {
           <StaggerContainer className="grid grid-cols-2 lg:grid-cols-3 gap-4" staggerDelay={0.05}>
             {[
               { name: labels.teacherPlural, icon: UserPlus, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20', path: '/admin/teachers', desc: 'Staffing' },
-              { name: labels.curriculumLabel, icon: BookOpen, color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-900/20', path: '/admin/academic', desc: labels.subjectPlural },
-              { name: labels.structurePlural, icon: GraduationCap, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/20', path: '/admin/classes', desc: 'Sections' },
+              { name: labels.curriculumLabel, icon: BookOpen, color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-900/20', path: isTertiaryLevel(schoolProfile.portalLevel) ? '/admin/programmes' : '/admin/academic', desc: labels.subjectPlural },
+              { name: labels.structurePlural, icon: GraduationCap, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/20', path: isTertiaryLevel(schoolProfile.portalLevel) ? '/admin/departments' : '/admin/classes', desc: 'Sections' },
               { name: 'Periods', icon: Clock, color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-900/20', path: '/admin/timetable', desc: 'Timetable' },
               { name: labels.assessmentLabel, icon: Calendar, color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-900/20', path: '/admin/exam-timetable', desc: 'Schedule' },
               { name: 'Notice', icon: Bell, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/20', path: '/admin/notices', desc: 'Broadcast' },

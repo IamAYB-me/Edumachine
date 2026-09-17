@@ -8,6 +8,7 @@ import { resolveSchoolProfile } from '@/utils/schoolProfile';
 import { PrintableIdCardModal } from '@/components/ui/PrintableIdCardModal';
 import { changeUserPassword } from '@/services/authService';
 import { uploadImage } from '@/services/storageService';
+import { friendlyErrorMessage } from '@/utils/errors';
 import { useNavigate } from 'react-router-dom';
 
 const PORTAL_LEVELS = ['Primary', 'Secondary', 'College', 'University'] as const;
@@ -80,7 +81,7 @@ export default function Profile() {
       await updateProfile({ avatarUrl });
       showToast({ title: 'Profile picture updated', description: 'Your new profile picture has been saved.', variant: 'success' });
     } catch (err) {
-      showToast({ title: 'Upload failed', description: (err as Error).message || 'Could not upload your profile picture.', variant: 'error' });
+      showToast({ title: 'Upload failed', description: friendlyErrorMessage(err, 'Could not upload your profile picture.'), variant: 'error' });
     } finally {
       setIsUploadingAvatar(false);
     }
@@ -361,8 +362,8 @@ export default function Profile() {
 
       {/* Change Password Modal (Mock) */}
       {showPasswordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-md overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowPasswordModal(false)}>
+          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-md overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">Change Password</h2>
               <button onClick={() => setShowPasswordModal(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">

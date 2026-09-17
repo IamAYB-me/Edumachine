@@ -10,6 +10,7 @@ import { KPICard } from '@/components/ui/KPICard';
 const ROLE_COLORS: Record<string, string> = {
   SUPER_ADMIN: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
   ADMIN: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  REGISTRAR: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
   TEACHER: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
   STUDENT: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
   PARENT: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
@@ -19,6 +20,7 @@ const ROLE_COLORS: Record<string, string> = {
 const ROLE_LABELS: Record<string, string> = {
   SUPER_ADMIN: 'Super Admin',
   ADMIN: 'School Admin',
+  REGISTRAR: 'Registrar',
   TEACHER: 'Teacher',
   STUDENT: 'Student',
   PARENT: 'Parent',
@@ -297,8 +299,8 @@ export default function CleanupUsers() {
       </div>
 
       {confirmOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-xl">
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setConfirmOpen(false)}>
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-rose-100 dark:bg-rose-900/30 rounded-2xl flex items-center justify-center">
                 <AlertTriangle className="w-6 h-6 text-rose-600 dark:text-rose-400" />

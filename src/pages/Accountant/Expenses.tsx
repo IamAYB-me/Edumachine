@@ -7,6 +7,8 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { useDataStore, Expense } from '@/store/useDataStore';
 import { useToastStore } from '@/store/useToastStore';
 import { downloadFromUrl, downloadTextFile, readFileAsDataUrl } from '@/utils/fileHelpers';
+import Pagination from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 
 export default function AccountantExpenses() {
   const { format } = useCurrency();
@@ -82,6 +84,17 @@ export default function AccountantExpenses() {
     });
   }, [expenses, searchTerm, categoryFilter]);
 
+  const pages = usePagination(filteredExpenses, 10);
+
+  const stats = useMemo(() => {
+    const monthsExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+    const pendingApproval = expenses
+      .filter(e => e.status === 'Pending' || e.status === 'Approved')
+      .reduce((sum, e) => sum + e.amount, 0);
+    const reportCount = expenses.length;
+    return { monthsExpenses, pendingApproval, reportCount };
+  }, [expenses]);
+
   const expenseCategoryData = useMemo(() => {
     const categories: Record<string, number> = {};
     expenses.forEach(exp => {
@@ -131,7 +144,7 @@ export default function AccountantExpenses() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <KPICard 
               title="Month's Expenses" 
-              value={12450} 
+              value={stats.monthsExpenses} 
               isCurrency={true}
               icon={TrendingDown} 
               iconBgClass="bg-rose-50 dark:bg-rose-900/20"
@@ -139,7 +152,7 @@ export default function AccountantExpenses() {
             />
             <KPICard 
               title="Pending Approval" 
-              value={4200} 
+              value={stats.pendingApproval} 
               isCurrency={true}
               icon={Wallet} 
               iconBgClass="bg-amber-50 dark:bg-amber-900/20"
@@ -147,7 +160,7 @@ export default function AccountantExpenses() {
             />
             <KPICard 
               title="Expense Reports" 
-              value="24" 
+              value={stats.reportCount.toString()} 
               icon={FileText} 
               iconBgClass="bg-blue-50 dark:bg-blue-900/20"
               iconColorClass="text-blue-600 dark:text-blue-400"
@@ -197,7 +210,7 @@ export default function AccountantExpenses() {
                   </tr>
                 </thead>
                 <tbody className="text-sm divide-y divide-slate-100 dark:divide-slate-800">
-                  {filteredExpenses.map((exp, i) => (
+                  {pages.slice.map((exp, i) => (
                     <tr key={i} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors group">
                       <td className="py-4 px-6">
                         <p className="font-bold text-slate-900 dark:text-white">{exp.title}</p>
@@ -245,6 +258,8 @@ export default function AccountantExpenses() {
                 </tbody>
               </table>
             </div>
+
+            <Pagination page={pages.page} totalPages={pages.totalPages} total={pages.total} start={pages.start} pageSize={pages.pageSize} onPageChange={pages.setPage} />
           </div>
         </div>
 
@@ -298,16 +313,13 @@ export default function AccountantExpenses() {
               <Wallet className="w-5 h-5" />
               Budget Watch
             </h3>
-            <p className="text-rose-100 text-xs mb-6">You have used 78% of your allocated budget for this academic term.</p>
+            <p className="text-rose-100 text-xs mb-6">Tracking total expenditure recorded this academic session.</p>
             <div className="space-y-2">
               <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-rose-200">
-                <span>Usage</span>
-                <span>78%</span>
+                <span>Recorded Expenses</span>
+                <span>{format(stats.monthsExpenses)}</span>
               </div>
-              <div className="w-full bg-white/20 rounded-full h-1.5 overflow-hidden">
-                <div className="bg-white h-full rounded-full transition-all duration-1000" style={{ width: '78%' }}></div>
-              </div>
-              <p className="text-[10px] text-rose-200 font-medium pt-2">Remaining: {format(45000)}</p>
+              <p className="text-[10px] text-rose-200 font-medium pt-2">{stats.reportCount} expense record(s)</p>
             </div>
           </div>
         </div>
@@ -315,8 +327,8 @@ export default function AccountantExpenses() {
 
       {/* Record Expense Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg overflow-hidden flex flex-col transition-all transform scale-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setIsModalOpen(false)}>
+          <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg overflow-hidden flex flex-col transition-all transform scale-100" onClick={(e) => e.stopPropagation()}>
             <div className="px-10 py-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
               <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                 {editingExpense ? 'Edit Expense' : 'Record New Expense'}

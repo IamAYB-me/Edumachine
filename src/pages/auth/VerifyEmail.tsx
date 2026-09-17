@@ -4,6 +4,7 @@ import { GraduationCap, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { applyActionCode } from 'firebase/auth';
 import { auth } from '@/config/firebase';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { friendlyErrorMessage } from '@/utils/errors';
 
 type VerifyState = 'loading' | 'success' | 'error';
 
@@ -31,9 +32,9 @@ export default function VerifyEmailPage() {
         setState('success');
         setTimeout(() => navigate('/login'), 4000);
       })
-      .catch((error: { message?: string }) => {
+      .catch((error) => {
         setState('error');
-        setErrorMessage(error.message || 'Verification failed. The link may have expired.');
+        setErrorMessage(friendlyErrorMessage(error, 'Verification failed. The link may have expired.'));
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

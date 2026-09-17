@@ -173,6 +173,8 @@ export default function ReportCard() {
         @page { size: A4 portrait; margin: 15mm; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1e293b; margin: 0; padding: 0; font-size: 12px; }
         table { width: 100%; border-collapse: collapse; }
+        thead { display: table-header-group; }
+        tr, th, td { page-break-inside: avoid; }
         th, td { border: 1px solid #e2e8f0; padding: 6px 8px; text-align: left; font-size: 11px; }
         th { background: #f1f5f9; font-weight: 700; text-transform: uppercase; font-size: 9px; letter-spacing: 0.05em; }
         .header { text-align: center; border-bottom: 3px solid #2563eb; padding-bottom: 12px; margin-bottom: 16px; }
@@ -231,7 +233,7 @@ export default function ReportCard() {
           <select value={selectedStudentId || (isStudent ? user?.id : isParent && filteredStudents[0]?.id || '')}
             onChange={(e) => setSelectedStudentId(e.target.value)}
             className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:border-blue-500 dark:text-white">
-            {filteredStudents.map(s => <option key={s.id} value={s.id}>{s.name} ({s.regNo || s.admissionNumber || s.id})</option>)}
+            {filteredStudents.map(s => <option key={s.id} value={s.id}>{s.name}{s.regNo || s.admissionNumber ? ` (${s.regNo || s.admissionNumber})` : ''}</option>)}
           </select>
         </div>
         <div className="flex-1">

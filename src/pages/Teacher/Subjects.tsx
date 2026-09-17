@@ -5,6 +5,8 @@ import { useDataStore, Subject } from '@/store/useDataStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useToastStore } from '@/store/useToastStore';
 import { resolveSchoolProfile, getPortalLevelLabels, isTertiaryLevel } from '@/utils/schoolProfile';
+import Pagination from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 
 export default function TeacherSubjects() {
   const { subjects, addSubject, updateSubject, deleteSubject, classes, schools, departments } = useDataStore();
@@ -35,6 +37,8 @@ export default function TeacherSubjects() {
     }
     return result;
   }, [subjects, searchTerm, filterTerm, isCollege, ownerFilter, user]);
+
+  const pages = usePagination(filteredSubjects, 10);
 
   const termOptions = labels.termOptions;
   const totalStudents = classes.reduce((sum, c) => sum + c.studentsCount, 0);
@@ -197,7 +201,7 @@ export default function TeacherSubjects() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredSubjects.map((subject) => (
+              {pages.slice.map((subject) => (
                 <div key={subject.id} className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4 hover:shadow-md transition-shadow group">
                   <div className="flex items-start justify-between mb-3">
                     <div className="p-2.5 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
@@ -250,6 +254,7 @@ export default function TeacherSubjects() {
             </div>
           )}
         </div>
+        <Pagination page={pages.page} totalPages={pages.totalPages} total={pages.total} start={pages.start} pageSize={pages.pageSize} onPageChange={pages.setPage} />
       </div>
 
       {/* Modal */}

@@ -11,6 +11,7 @@ import { db } from '@/config/firebase';
 const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: 'SUPER_ADMIN', label: 'System Admin' },
   { value: 'ADMIN', label: 'School Admin' },
+  { value: 'REGISTRAR', label: 'Registrar' },
   { value: 'TEACHER', label: 'Teacher' },
   { value: 'STUDENT', label: 'Student' },
   { value: 'PARENT', label: 'Parent / Guardian' },

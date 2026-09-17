@@ -9,8 +9,10 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useDataStore } from '@/store/useDataStore';
 import { useCurrency } from '@/hooks/useCurrency';
 import { checkFeeGate } from '@/utils/feeGating';
+import { resolveSchoolProfile } from '@/utils/schoolProfile';
 import { getDocumentsWhere } from '@/services/firestoreService';
 import type { AdmissionApplication } from '@/store/useDataStore';
+import { openAdmissionLetterWindow, type AdmissionLetterData } from '@/components/admission/AdmissionLetter';
 
 const TIMELINE = [
   { key: 'Pending', label: 'Application Submitted', desc: 'Your application was received and payment confirmed.' },
@@ -27,6 +29,7 @@ export default function AdmissionProgress() {
   const feeRecords = useDataStore((s) => s.feeRecords);
   const feeStructures = useDataStore((s) => s.feeStructures);
   const schools = useDataStore((s) => s.schools);
+  const students = useDataStore((s) => s.students);
   const { format } = useCurrency();
 
   const [directApplication, setDirectApplication] = useState<AdmissionApplication | null>(null);
@@ -79,62 +82,82 @@ export default function AdmissionProgress() {
     return checkFeeGate(feeStructures, feeRecords, application?.courseOfStudy, 'admission_letter');
   }, [isAdmitted, feeStructures, feeRecords, application?.courseOfStudy]);
 
+  const schoolProfile = useMemo(
+    () => resolveSchoolProfile(user, schools),
+    [user, schools],
+  );
+
+  // Compute a stable verification code from the application reference so the
+  // code printed on the letter matches what an officer can re-derive.
+  const verificationCode = useMemo(() => {
+    const ref = application?.applicationFormNumber || application?.id || `${user?.email || ''}`;
+    let hash = 0;
+    for (let i = 0; i < ref.length; i += 1) {
+      hash = ((hash << 5) - hash + ref.charCodeAt(i)) | 0;
+    }
+    return (Math.abs(hash) >>> 0).toString(16).toUpperCase().padStart(12, '0').slice(0, 12);
+  }, [application, user?.email]);
+
+  const formatLongDate = (date: Date) =>
+    date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
   const handlePrintAdmissionLetter = () => {
     if (!application) return;
     if (admissionLetterGate && !admissionLetterGate.isAllowed) return;
 
-    const schoolName = schools.find((sc) => sc.name === user?.schoolName)?.name || user?.schoolName || 'School';
     const fullName = `${application.surname} ${application.firstName} ${application.middleName || ''}`.trim();
-    const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const firstName = application.firstName;
+    const lastName = application.surname;
 
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Admission Letter - ${fullName}</title>
-        <style>
-          body { font-family: 'Segoe UI', system-ui, sans-serif; padding: 48px; color: #1e293b; line-height: 1.7; }
-          .head { text-align: center; border-bottom: 3px double #2563eb; padding-bottom: 20px; margin-bottom: 32px; }
-          .school-name { font-size: 26px; font-weight: 800; letter-spacing: 1px; }
-          .subtitle { font-size: 14px; color: #64748b; margin-top: 4px; }
-          .ref { margin-top: 10px; font-size: 13px; color: #64748b; }
-          h2 { text-align: center; font-size: 20px; margin: 8px 0 24px; text-transform: uppercase; letter-spacing: 2px; color: #2563eb; }
-          p { font-size: 15px; margin-bottom: 14px; }
-          .ta { text-indent: 2.5em; text-align: justify; }
-          .sig { margin-top: 48px; display: flex; justify-content: flex-end; }
-          .sig-inner { text-align: center; }
-          .sig-line { border-top: 1px solid #1e293b; margin-bottom: 6px; padding-top: 6px; font-weight: 700; }
-        </style>
-      </head>
-      <body>
-        <div class="head">
-          <div class="school-name">${schoolName}</div>
-          <div class="subtitle">Office of Admissions & Registration</div>
-          <div class="ref">Ref: ${application.applicationFormNumber || 'N/A'}</div>
-          <div class="ref">Date: ${currentDate}</div>
-        </div>
-        <h2>Admission Letter</h2>
-        <p>Dear ${fullName},</p>
-        <p class="ta">We are pleased to inform you that you have been admitted to study <strong>${application.courseOfStudy || 'your chosen course'}</strong> for the current academic session. Following the review of your application (${application.applicationFormNumber}), you have met the requirements for admission.</p>
-        <p class="ta">Your admission is subject to your compliance with the acceptance procedure, including the payment of the prescribed acceptance fee and other registration charges. Upon completion of these requirements, you will be eligible to register for courses and access campus facilities.</p>
-        <p class="ta">Kindly report to the admissions office with this letter and the required documents for further clearance and course registration.</p>
-        <p class="ta">We congratulate you once again and look forward to welcoming you to our community.</p>
-        <div class="sig">
-          <div class="sig-inner">
-            <div>Admissions Officer</div>
-            <div class="sig-line">Signature</div>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    // Matriculation number: prefer the promoted student record, then admission
+    // references, then fall back to a BROCHEST-prefixed matric.
+    const myStudent = students.find((s) => s.id === user?.id || s.email === user?.email || s.name === fullName);
+    const yearShort = new Date().getFullYear();
+    const matricNumber =
+      myStudent?.matricNumber ||
+      myStudent?.admissionNumber ||
+      myStudent?.regNo ||
+      `BRC/CHW/${yearShort}/${(application.applicationFormNumber || application.id || '0001').replace(/[^0-9]/g, '').slice(-3) || '001'}`;
 
-    const win = window.open('', '_blank', 'width=800,height=900');
-    if (win) {
-      win.document.write(html);
-      win.document.close();
-      setTimeout(() => win.print(), 500);
-    }
+    // Academic session: current year / next year.
+    const academicSession = `${yearShort}/${yearShort + 1}`;
+
+    // Resumption: a configured date via application if present, else a default.
+    const resumptionDate = application.notes || `${yearShort + 1}-01-12`;
+
+    const data: AdmissionLetterData = {
+      documentType: 'ORIGINAL',
+      college: {
+        name: schoolProfile.name,
+        acronym: schoolProfile.code || 'BROCHEST',
+        location: 'IKARE-AKOKO, ONDO STATE, NIGERIA',
+        address: 'Ikare-Akoko, Ondo State, Nigeria',
+        logo: schoolProfile.logoUrl,
+        registrarName: schoolProfile.principalSignatoryName || 'Mrs. T.B. ATANSUYI',
+        registrarCredentials: 'B.Sc., MSc., PhD (in View)',
+      },
+      student: {
+        fullName,
+        firstName,
+        lastName,
+        matricNumber,
+        passportPhoto: myStudent?.passportUrl || application.passportUrl,
+      },
+      admission: {
+        applicationReference: application.applicationFormNumber || application.id,
+        programme: application.courseOfStudy || application.firstChoiceCourse || '',
+        academicSession,
+        level: '100',
+        department: application.courseOfStudy || application.firstChoiceCourse || '',
+        admissionDate: formatLongDate(new Date()),
+        resumptionDate: formatLongDate(new Date(resumptionDate)),
+        verificationCode,
+        status: 'ADMITTED',
+        acceptanceFeeStatus: 'PAID / CLEARED',
+      },
+    };
+
+    openAdmissionLetterWindow(data);
   };
 
   const noAppFound = !application && (!formParam || directLoaded);
@@ -227,16 +250,30 @@ export default function AdmissionProgress() {
           </p>
         </div>
         {isAdmitted && application && (
-          <Link
-            to={`/admission/pay-acceptance?form=${encodeURIComponent(application.applicationFormNumber || '')}`}
-            className={cn(
-              "inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-bold shadow-lg transition-all",
-              "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-900/20",
+          <div className="flex items-center gap-3">
+            {admissionLetterGate && admissionLetterGate.isAllowed && (
+              <button
+                onClick={handlePrintAdmissionLetter}
+                className={cn(
+                  "inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-bold shadow-lg transition-all",
+                  "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-900/20",
+                )}
+              >
+                <Printer className="w-4 h-4" />
+                Print Admission Letter
+              </button>
             )}
-          >
-            <CreditCard className="w-4 h-4" />
-            Pay Acceptance Fees
-          </Link>
+            <Link
+              to={`/admission/pay-acceptance?form=${encodeURIComponent(application.applicationFormNumber || '')}`}
+              className={cn(
+                "inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-bold shadow-lg transition-all",
+                "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-900/20",
+              )}
+            >
+              <CreditCard className="w-4 h-4" />
+              Pay Acceptance Fees
+            </Link>
+          </div>
         )}
       </div>
 

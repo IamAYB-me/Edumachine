@@ -9,6 +9,8 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
 import { PrintableIdCardModal } from '@/components/ui/PrintableIdCardModal';
 import { useToastStore } from '@/store/useToastStore';
+import Pagination from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 
 export default function TeachersDirectory() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -50,6 +52,8 @@ export default function TeachersDirectory() {
     teacher.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
     teacher.subject.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const pages = usePagination(filteredTeachers, 10);
 
   const handleOpenModal = (teacher?: Teacher) => {
     if (teacher) {
@@ -193,7 +197,7 @@ export default function TeachersDirectory() {
                 </tr>
               </thead>
               <tbody className="text-sm divide-y divide-slate-100 dark:divide-slate-800">
-                {filteredTeachers.map((teacher) => (
+                {pages.slice.map((teacher) => (
                   <tr key={teacher.id} className="hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors group">
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-3">
@@ -247,6 +251,7 @@ src={`https://ui-avatars.com/api/?name=${(teacher.name || 'Teacher').replace(' '
               </tbody>
             </table>
           </div>
+          <Pagination page={pages.page} totalPages={pages.totalPages} total={pages.total} start={pages.start} pageSize={pages.pageSize} onPageChange={pages.setPage} />
         </div>
 
         <div className="space-y-6">
@@ -311,8 +316,8 @@ src={`https://ui-avatars.com/api/?name=${(teacher.name || 'Teacher').replace(' '
 
       {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-md flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-md flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
               <h2 className="text-lg font-bold text-slate-900 dark:text-white">
                 {editingTeacher ? `Edit ${labels.teacherSingular}` : `Add New ${labels.teacherSingular}`}

@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useDataStore } from '@/store/useDataStore';
 import { useCurrency } from '@/hooks/useCurrency';
 import { cn } from '@/utils';
+import { checkFeeGate } from '@/utils/feeGating';
 import { getDocumentsWhere } from '@/services/firestoreService';
 import type { AdmissionApplication } from '@/store/useDataStore';
 import {
@@ -21,6 +22,7 @@ export default function AcceptancePayment() {
   const formNumber = searchParams.get('form');
   const user = useAuthStore((s) => s.user);
   const applications = useDataStore((s) => s.admissionApplications);
+  const { feeRecords } = useDataStore();
   const feeStructures = useDataStore((s) => s.feeStructures);
   const { format } = useCurrency();
 
@@ -106,7 +108,14 @@ export default function AcceptancePayment() {
 
   const amount = acceptanceStructure?.amount || 0;
 
-  const alreadyPaid = application?.acceptancePaid === true;
+  const acceptanceFeeGate = useMemo(
+    () => {
+      const allStructures = directFeeStructures.length ? directFeeStructures : feeStructures;
+      return checkFeeGate(allStructures, feeRecords, application?.courseOfStudy, 'admission_letter');
+    },
+    [feeStructures, feeRecords, directFeeStructures, application?.courseOfStudy],
+  );
+  const alreadyPaid = acceptanceFeeGate?.isAllowed ?? false;
 
   const paystackConfig = useMemo(() => ({
     reference: `ACC-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,

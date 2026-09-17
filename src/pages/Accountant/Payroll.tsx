@@ -2,11 +2,14 @@ import React, { useState, useMemo } from 'react';
 import { Search, Filter, Plus, Wallet, Download, Users, TrendingUp, Clock, ArrowUpRight, X, Edit2 } from 'lucide-react';
 import { cn } from '@/utils';
 import { KPICard } from '@/components/ui/KPICard';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { useCurrency } from '@/hooks/useCurrency';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useDataStore, Payroll } from '@/store/useDataStore';
 import { useToastStore } from '@/store/useToastStore';
 import { downloadTextFile } from '@/utils/fileHelpers';
+import Pagination from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 
 export default function AccountantPayroll() {
   const { format } = useCurrency();
@@ -74,6 +77,14 @@ export default function AccountantPayroll() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.staffId) {
+      showToast({
+        title: 'Staff required',
+        description: 'Search for and select the staff member before saving payroll.',
+        variant: 'error',
+      });
+      return;
+    }
     if (editingPayroll) {
       updatePayroll(editingPayroll.id, formData);
     } else {
@@ -90,6 +101,24 @@ export default function AccountantPayroll() {
       return matchesSearch && matchesDept;
     });
   }, [payroll, searchTerm, departmentFilter]);
+
+  const pages = usePagination(filteredPayroll, 10);
+
+  const stats = useMemo(() => {
+    const totalMonthly = payroll.reduce((sum, p) => sum + p.net, 0);
+    const totalTax = payroll.reduce((sum, p) => sum + p.tax, 0);
+    const staffCount = payroll.length;
+    return { totalMonthly, totalTax, staffCount };
+  }, [payroll]);
+
+  const trendData = useMemo(() => {
+    const byMonth: Record<string, number> = {};
+    payroll.forEach(p => {
+      const key = p.month ? p.month.split(' ')[0] : 'Unknown';
+      byMonth[key] = (byMonth[key] || 0) + p.net;
+    });
+    return Object.entries(byMonth).map(([name, amount]) => ({ name, amount }));
+  }, [payroll]);
 
   const handleBulkPayslipExport = () => {
     if (filteredPayroll.length === 0) {
@@ -157,7 +186,7 @@ export default function AccountantPayroll() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <KPICard 
               title="Total Monthly Payroll" 
-              value={45250} 
+              value={stats.totalMonthly} 
               isCurrency={true}
               icon={Wallet} 
               iconBgClass="bg-indigo-50 dark:bg-indigo-900/20"
@@ -165,14 +194,14 @@ export default function AccountantPayroll() {
             />
             <KPICard 
               title="Staff Count" 
-              value="126" 
+              value={stats.staffCount.toString()} 
               icon={Users} 
               iconBgClass="bg-blue-50 dark:bg-blue-900/20"
               iconColorClass="text-blue-600 dark:text-blue-400"
             />
             <KPICard 
               title="Tax Liabilities" 
-              value={4200} 
+              value={stats.totalTax} 
               isCurrency={true}
               icon={ArrowUpRight} 
               iconBgClass="bg-rose-50 dark:bg-rose-900/20"
@@ -223,7 +252,7 @@ export default function AccountantPayroll() {
                   </tr>
                 </thead>
                 <tbody className="text-sm divide-y divide-slate-100 dark:divide-slate-800">
-                  {filteredPayroll.map((pay, i) => (
+                  {pages.slice.map((pay, i) => (
                     <tr key={i} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors group">
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-3">
@@ -264,6 +293,8 @@ export default function AccountantPayroll() {
                 </tbody>
               </table>
             </div>
+
+            <Pagination page={pages.page} totalPages={pages.totalPages} total={pages.total} start={pages.start} pageSize={pages.pageSize} onPageChange={pages.setPage} />
           </div>
         </div>
 
@@ -273,14 +304,7 @@ export default function AccountantPayroll() {
             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-6 text-center">Payroll Trend</h3>
             <div className="h-[240px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={[
-                  { name: 'Feb', amount: 42000 },
-                  { name: 'Mar', amount: 42500 },
-                  { name: 'Apr', amount: 43000 },
-                  { name: 'May', amount: 42800 },
-                  { name: 'Jun', amount: 44000 },
-                  { name: 'Jul', amount: payroll.reduce((acc, p) => acc + p.net, 0) },
-                ]} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <BarChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} dy={10} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} tickFormatter={(val) => format(val).split('.')[0]} />
@@ -311,19 +335,24 @@ export default function AccountantPayroll() {
               Upcoming Tasks
             </h3>
             <div className="space-y-4">
-              {[
-                { task: 'August Salary Batch', date: 'July 25', status: 'Upcoming' },
-                { task: 'Tax Filing Q3', date: 'July 30', status: 'Due Soon' },
-                { task: 'Bonus Review', date: 'Aug 02', status: 'Scheduled' },
-              ].map((item, i) => (
-                <div key={i} className="flex justify-between items-center p-3 border border-slate-100 dark:border-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                  <div>
-                    <p className="text-xs font-bold text-slate-900 dark:text-white">{item.task}</p>
-                    <p className="text-[10px] text-slate-500 font-medium">{item.date}</p>
+              {payroll.filter(p => p.status !== 'Paid').length > 0 ? (
+                payroll.filter(p => p.status !== 'Paid').slice(0, 5).map((p, i) => (
+                  <div key={i} className="flex justify-between items-center p-3 border border-slate-100 dark:border-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                    <div>
+                      <p className="text-xs font-bold text-slate-900 dark:text-white">{p.staffName} — {p.month}</p>
+                      <p className="text-[10px] text-slate-500 font-medium">{p.role} • {p.category}</p>
+                    </div>
+                    <span className={cn(
+                      "text-[10px] font-bold",
+                      p.status === 'Processing' ? "text-blue-600" : "text-amber-600"
+                    )}>
+                      {p.status}
+                    </span>
                   </div>
-                  <span className="text-[10px] font-bold text-blue-600">{item.status}</span>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-xs text-slate-400 text-center py-4">No pending payroll runs.</p>
+              )}
             </div>
           </div>
         </div>
@@ -331,8 +360,8 @@ export default function AccountantPayroll() {
 
       {/* Run New Payroll Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg overflow-hidden flex flex-col transition-all transform scale-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setIsModalOpen(false)}>
+          <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg overflow-hidden flex flex-col transition-all transform scale-100" onClick={(e) => e.stopPropagation()}>
             <div className="px-10 py-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
               <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                 {editingPayroll ? 'Edit Payroll Record' : 'Run New Payroll'}
@@ -344,17 +373,16 @@ export default function AccountantPayroll() {
             <form onSubmit={handleSubmit} className="p-10 space-y-6">
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-2">Select Staff</label>
-                <select 
-                  required 
-                  value={formData.staffId} 
-                  onChange={(e) => handleFormChange({ staffId: e.target.value })}
-                  className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-medium focus:outline-none focus:border-blue-500 transition-all dark:text-white"
-                >
-                  <option value="">Select a staff member...</option>
-                  {staff.map(s => (
-                    <option key={s.id} value={s.id}>{s.name} ({s.role})</option>
-                  ))}
-                </select>
+                <SearchableSelect
+                  options={staff.map((s) => ({
+                    value: s.id,
+                    label: s.name,
+                    sublabel: s.role,
+                  }))}
+                  value={formData.staffId}
+                  onChange={(v) => handleFormChange({ staffId: v })}
+                  placeholder="Search or select a staff member..."
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">

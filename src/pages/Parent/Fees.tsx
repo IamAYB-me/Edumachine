@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useCurrency } from '@/hooks/useCurrency';
 import { 
   CreditCard, Receipt, Download,
@@ -45,13 +45,15 @@ export default function FeesAndPayments() {
     setShowPayModal(true);
   };
 
+  const autoOpenedRef = React.useRef(false);
   React.useEffect(() => {
     const state = location.state as { openPayment?: boolean } | null;
-    if (state?.openPayment && outstandingFees.length > 0 && !showPayModal) {
+    if (state?.openPayment && outstandingFees.length > 0 && !autoOpenedRef.current) {
+      autoOpenedRef.current = true;
       handlePayAllOutstanding();
       window.history.replaceState({}, document.title);
     }
-  }, [location.state, outstandingFees, showPayModal]);
+  }, [location.state, outstandingFees]);
 
   const handleProofUpload = async (file?: File) => {
     if (!file) return;
@@ -128,8 +130,8 @@ export default function FeesAndPayments() {
     <div className="space-y-6">
       {/* Shared Payment Gateway Modal */}
       {showPayModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg max-h-[90vh] flex flex-col transition-all transform scale-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-300" onClick={() => { if (paymentStep !== 'processing') setShowPayModal(false); }}>
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg max-h-[90vh] flex flex-col transition-all transform scale-100" onClick={(e) => e.stopPropagation()}>
             <div className="shrink-0 px-6 sm:px-10 py-6 sm:py-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
               <div className="min-w-0">
                 <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">

@@ -1,11 +1,15 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { DollarSign, TrendingUp, TrendingDown, FileText, CreditCard, Receipt, Wallet } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, FileText, CreditCard, Receipt, Wallet, AlertTriangle, SlidersHorizontal, RotateCcw, Percent } from 'lucide-react';
 import { KPICard } from '@/components/ui/KPICard';
 import { useCurrency } from '@/hooks/useCurrency';
 import { cn } from '@/utils';
 import { useNavigate } from 'react-router-dom';
 import { useDataStore } from '@/store/useDataStore';
+import { useAuthStore } from '@/store/useAuthStore';
+import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
+import { studentStructureKey, buildOnRollLookup } from '@/utils/studentFilters';
+import { useOnRollFilters } from '@/hooks/useOnRollFilters';
 import { AnimatedCard } from '@/components/ui/AnimatedCard';
 import { AnimatedPage, StaggerContainer, StaggerItem, AnimatedButton, AnimatedProgress } from '@/components/ui/motion';
 
@@ -13,13 +17,56 @@ export default function AccountantDashboard() {
   const { format } = useCurrency();
   const navigate = useNavigate();
   const feeRecords = useDataStore((s) => s.feeRecords);
+  const feeStructures = useDataStore((s) => s.feeStructures);
   const expenses = useDataStore((s) => s.expenses);
   const payroll = useDataStore((s) => s.payroll);
+  const students = useDataStore((s) => s.students);
+  const schools = useDataStore((s) => s.schools);
+  const { user } = useAuthStore();
+  const schoolProfile = resolveSchoolProfile(user ?? null, schools);
+  const labels = getPortalLevelLabels(schoolProfile.portalLevel);
 
-  const totalRevenue = feeRecords.filter(f => f.status === 'Paid').reduce((sum, f) => sum + f.amount, 0);
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0) + payroll.reduce((sum, p) => sum + p.net, 0);
+  const totalRevenue = feeRecords.filter(f => f.status === 'Paid').reduce((sum, f) => sum + f.amount, 0);
   const netProfit = totalRevenue - totalExpenses;
-  const pendingReceivables = feeRecords.filter(f => f.status === 'Pending' || f.status === 'Partial').reduce((sum, f) => sum + f.amount, 0);
+
+  const onRoll = useOnRollFilters(students, labels.termOptions);
+  const onRollStudents = onRoll.onRollStudents;
+
+  // Expected fees = every active, non-optional structure that applies to each
+  // student on roll (universal + their class/department). Collected fees are the
+  // 'Paid' records belonging to those same students; the remainder is outstanding.
+  const feeCollection = useMemo(() => {
+    const activeStructures = feeStructures.filter((fee) => fee.status === 'Active' && !fee.isOptional);
+    const { ids, regNos } = buildOnRollLookup(onRollStudents);
+
+    let expected = 0;
+
+    onRollStudents.forEach((student) => {
+      const structure = studentStructureKey(student);
+      const applicable = activeStructures.filter((fee) => fee.isUniversal || fee.className === structure);
+      if (applicable.length === 0) return;
+      expected += applicable.reduce((sum, fee) => sum + fee.amount, 0);
+    });
+
+    const collected = feeRecords
+      .filter((fee) => fee.status === 'Paid' && (ids.has(fee.studentId) || regNos.has(fee.studentId)))
+      .reduce((sum, fee) => sum + fee.amount, 0);
+
+    const outstanding = Math.max(0, expected - collected);
+    const collectionRate = expected > 0 ? Math.min(100, Math.round((collected / expected) * 100)) : 0;
+
+    return { expected, collected, outstanding, collectionRate };
+  }, [onRollStudents, feeStructures, feeRecords]);
+
+  const hasActiveFilters = onRoll.hasActiveFilters;
+  const filtersSummary = [
+    onRoll.session !== 'all' ? `Session: ${onRoll.session}` : '',
+    onRoll.term !== 'all' ? `${labels.termLabel}: ${onRoll.term}` : '',
+    onRoll.structure !== 'all' ? `${labels.structureSingular}: ${onRoll.structure}` : '',
+  ].filter(Boolean).join(' · ');
+
+  const resetFilters = onRoll.reset;
 
   const recentTransactions = [
     ...feeRecords.filter(f => f.status === 'Paid').slice(0, 5).map(f => ({
@@ -58,18 +105,134 @@ export default function AccountantDashboard() {
         </div>
       </motion.div>
 
+      {/* Fee Collection Filters */}
+      <AnimatedCard delay={0.06} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20">
+              <SlidersHorizontal className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Fee Collection Filters</h3>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Expected fees cover{' '}
+                <span className="font-bold text-slate-700 dark:text-slate-200">{onRollStudents.length}</span>{' '}
+                {labels.learnerPlural.toLowerCase()} on roll
+                {filtersSummary ? ` · ${filtersSummary}` : ''}.
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:w-[640px]">
+            <label className="space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Session</span>
+              <select
+                value={onRoll.session}
+                onChange={(e) => onRoll.setSession(e.target.value)}
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-900 outline-none transition-all focus:border-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+              >
+                <option value="all">All Sessions</option>
+                {onRoll.sessionOptions.map((session) => (
+                  <option key={session} value={session}>{session}</option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{labels.termLabel}</span>
+              <select
+                value={onRoll.term}
+                onChange={(e) => onRoll.setTerm(e.target.value)}
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-900 outline-none transition-all focus:border-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+              >
+                <option value="all">All {labels.termLabel}s</option>
+                {onRoll.termOptions.map((term) => (
+                  <option key={term} value={term}>{term}</option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{labels.structureSingular}</span>
+              <select
+                value={onRoll.structure}
+                onChange={(e) => onRoll.setStructure(e.target.value)}
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-900 outline-none transition-all focus:border-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+              >
+                <option value="all">All {labels.structurePlural}</option>
+                {onRoll.structureOptions.map((structure) => (
+                  <option key={structure} value={structure}>{structure}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </div>
+        <div className="mt-5 border-t border-slate-100 pt-4 dark:border-slate-800">
+          <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-400">
+            <span>Collection Progress</span>
+            <span className="text-slate-700 dark:text-slate-200">{feeCollection.collectionRate}% of expected</span>
+          </div>
+          <div className="mt-2">
+            <AnimatedProgress value={feeCollection.collectionRate} colorClass="bg-emerald-500" height="h-1.5" />
+          </div>
+        </div>
+        {hasActiveFilters ? (
+          <div className="mt-4 flex justify-end">
+            <AnimatedButton
+              onClick={resetFilters}
+              className="inline-flex items-center gap-2 text-xs font-bold text-blue-600 hover:underline dark:text-blue-400"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Reset filters
+            </AnimatedButton>
+          </div>
+        ) : null}
+      </AnimatedCard>
+
       {/* KPIs */}
-      <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" staggerDelay={0.08}>
+      <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" staggerDelay={0.08}>
         <StaggerItem>
           <KPICard
-            title="Total Revenue"
-            value={totalRevenue}
+            title="Total Expected Fees"
+            value={feeCollection.expected}
+            isCurrency={true}
+            icon={Wallet}
+            iconBgClass="bg-indigo-50 dark:bg-indigo-900/20"
+            iconColorClass="text-indigo-600 dark:text-indigo-400"
+            to="/accountant/fees"
+            delay={0}
+          />
+        </StaggerItem>
+        <StaggerItem>
+          <KPICard
+            title="Collected Fees"
+            value={feeCollection.collected}
             isCurrency={true}
             icon={TrendingUp}
             iconBgClass="bg-emerald-50 dark:bg-emerald-900/20"
             iconColorClass="text-emerald-600 dark:text-emerald-400"
             to="/accountant/fees"
-            delay={0}
+            delay={0.08}
+          />
+        </StaggerItem>
+        <StaggerItem>
+          <KPICard
+            title="Outstanding / Pending"
+            value={feeCollection.outstanding}
+            isCurrency={true}
+            icon={AlertTriangle}
+            iconBgClass="bg-amber-50 dark:bg-amber-900/20"
+            iconColorClass="text-amber-600 dark:text-amber-400"
+            to="/accountant/fees"
+            delay={0.16}
+          />
+        </StaggerItem>
+        <StaggerItem>
+          <KPICard
+            title="Collection Rate"
+            value={feeCollection.collectionRate}
+            icon={Percent}
+            iconBgClass="bg-teal-50 dark:bg-teal-900/20"
+            iconColorClass="text-teal-600 dark:text-teal-400"
+            to="/accountant/fees"
+            delay={0.24}
           />
         </StaggerItem>
         <StaggerItem>
@@ -81,7 +244,7 @@ export default function AccountantDashboard() {
             iconBgClass="bg-rose-50 dark:bg-rose-900/20"
             iconColorClass="text-rose-600 dark:text-rose-400"
             to="/accountant/expenses"
-            delay={0.08}
+            delay={0.32}
           />
         </StaggerItem>
         <StaggerItem>
@@ -93,19 +256,7 @@ export default function AccountantDashboard() {
             iconBgClass="bg-blue-50 dark:bg-blue-900/20"
             iconColorClass="text-blue-600 dark:text-blue-400"
             to="/accountant/fees"
-            delay={0.16}
-          />
-        </StaggerItem>
-        <StaggerItem>
-          <KPICard
-            title="Pending Receivables"
-            value={pendingReceivables}
-            isCurrency={true}
-            icon={FileText}
-            iconBgClass="bg-amber-50 dark:bg-amber-900/20"
-            iconColorClass="text-amber-600 dark:text-amber-400"
-            to="/accountant/fees"
-            delay={0.24}
+            delay={0.4}
           />
         </StaggerItem>
       </StaggerContainer>
@@ -113,7 +264,13 @@ export default function AccountantDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Expense Breakdown */}
         <AnimatedCard delay={0.3} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm lg:col-span-2">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">Expense Breakdown</h3>
+          <div className="mb-6 flex items-center justify-between">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Expense Breakdown</h3>
+            <div className="text-right">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Expenses</p>
+              <p className="text-lg font-black text-rose-600 dark:text-rose-400">{format(totalExpenses)}</p>
+            </div>
+          </div>
           <div className="space-y-6">
             {[
               { label: 'Staff Salaries', amount: payroll.reduce((sum, p) => sum + p.net, 0), color: 'bg-blue-500' },

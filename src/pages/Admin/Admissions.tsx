@@ -10,9 +10,15 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useToastStore } from '@/store/useToastStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useCurrency } from '@/hooks/useCurrency';
+import { friendlyErrorMessage } from '@/utils/errors';
 import { KPICard } from '@/components/ui/KPICard';
+import CourseRegistrationToggle from '@/components/ui/CourseRegistrationToggle';
+import Pagination from '@/components/ui/Pagination';
+import AllocateAdmissionNumbersButton from '@/components/ui/AllocateAdmissionNumbersButton';
+import { usePagination } from '@/hooks/usePagination';
 import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
 import { promoteApplicantToStudent } from '@/services/authService';
+import { buildStudentPayloadFromApplication } from '@/utils/applicantMapper';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '@/config/firebase';
 
@@ -53,6 +59,8 @@ export default function AdmissionsManagement() {
     return result.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
   }, [admissionApplications, searchTerm, statusFilter]);
 
+  const pages = usePagination(filtered, 10);
+
   const stats = {
     total: admissionApplications.length,
     pending: admissionApplications.filter((a) => a.applicationStatus === 'Pending').length,
@@ -81,40 +89,14 @@ export default function AdmissionsManagement() {
     setAdmitting(true);
 
     const regNo = 'REG-' + Date.now().toString(36).toUpperCase();
-    const classValue = app.courseOfStudy || '';
+    const classValue = app.courseOfStudy || app.firstChoiceCourse || '';
     const portalLevel = schoolProfile.portalLevel;
 
-    const studentPayload: Parameters<typeof addStudent>[0] = {
-      name: `${app.surname} ${app.firstName}`,
-      email: app.email,
+    const studentPayload = buildStudentPayloadFromApplication(app, {
       regNo,
-      admissionNumber: '',
-      class: classValue,
-      parentName: app.sponsorFullName || app.parentName || '',
-      status: 'Active',
-      phone: app.phone,
-      surname: app.surname,
-      firstName: app.firstName,
-      middleName: app.middleName,
-      gender: app.gender,
-      dateOfBirth: app.dateOfBirth,
-      placeOfBirth: app.placeOfBirth,
-      nationality: app.nationality,
-      stateOfOrigin: app.stateOfOrigin,
-      lga: app.lga,
-      maritalStatus: app.maritalStatus,
-      passportUrl: app.passportUrl,
-      residentialAddress: app.residentialAddress,
-      sponsorName: app.sponsorFullName,
-      sponsorPhone: app.sponsorPhone,
-      classDepartment: classValue,
-      department: classValue,
       portalLevel,
-      feeCategory: '',
-      feePaymentPlan: 'Full Payment',
       dateOfAdmission: new Date().toISOString().split('T')[0],
-      admissionStatus: 'Admitted',
-    };
+    });
 
     addStudent(studentPayload);
 
@@ -168,7 +150,7 @@ export default function AdmissionsManagement() {
   const handlePromoteToStudent = async (app: AdmissionApplication) => {
     setAdmitting(true);
     const regNo = 'REG-' + Date.now().toString(36).toUpperCase();
-    const classValue = app.courseOfStudy || '';
+    const classValue = app.courseOfStudy || app.firstChoiceCourse || '';
     await promoteApplicant(app, regNo, classValue, schoolProfile.portalLevel);
     showToast({
       title: 'Account promoted to student',
@@ -209,7 +191,7 @@ export default function AdmissionsManagement() {
         });
       }
     } catch (error) {
-      showToast({ title: 'Deletion failed', description: (error as Error).message, variant: 'error' });
+      showToast({ title: 'Deletion failed', description: friendlyErrorMessage(error, 'Could not delete the account. Please try again.'), variant: 'error' });
     } finally {
       setDeletingAccount(false);
     }
@@ -277,6 +259,9 @@ export default function AdmissionsManagement() {
           Form Settings
         </button>
       </div>
+
+      {/* Admission Number Allocation */}
+      <AllocateAdmissionNumbersButton />
 
       {/* Settings Panel */}
       {showSettings && (
@@ -351,6 +336,9 @@ export default function AdmissionsManagement() {
                 <p className="text-[11px] text-slate-400 mt-1">
                   {globalSettings.admissionsEnabled ? 'Public can access the apply link.' : 'Public apply link is hidden. Only admins can process admissions.'}
                 </p>
+                <div className="mt-3">
+                  <CourseRegistrationToggle />
+                </div>
               </div>
 
               {/* Admission Fee */}
@@ -488,7 +476,7 @@ export default function AdmissionsManagement() {
               </tr>
             </thead>
             <tbody className="text-sm divide-y divide-slate-100 dark:divide-slate-800">
-              {filtered.map((app) => (
+              {pages.slice.map((app) => (
                 <tr key={app.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 group transition-colors">
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-3">
@@ -557,6 +545,7 @@ export default function AdmissionsManagement() {
             </tbody>
           </table>
         </div>
+        <Pagination page={pages.page} totalPages={pages.totalPages} total={pages.total} start={pages.start} pageSize={pages.pageSize} onPageChange={pages.setPage} />
       </div>
 
       {/* Detail Modal */}

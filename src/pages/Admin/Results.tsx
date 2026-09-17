@@ -7,6 +7,8 @@ import { KPICard } from '@/components/ui/KPICard';
 import { useToastStore } from '@/store/useToastStore';
 import { downloadTextFile } from '@/utils/fileHelpers';
 import { getPortalLevelLabels, resolveSchoolProfile } from '@/utils/schoolProfile';
+import Pagination from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 
 export default function ResultSheet() {
   const { examResults, students, classes, schools } = useDataStore();
@@ -49,6 +51,8 @@ export default function ResultSheet() {
     const matchesType = selectedType === 'all' || result.type === selectedType;
     return matchesSearch && matchesClass && matchesSubject && matchesType;
   });
+
+  const pages = usePagination(filteredResults, 10);
 
   const getGrade = (score: number, total: number) => {
     if (!total || total <= 0) return { label: 'N/A', color: 'text-slate-400', bg: 'bg-slate-50' };
@@ -284,7 +288,7 @@ export default function ResultSheet() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filteredResults.map((result) => {
+              {pages.slice.map((result) => {
                 const grade = getGrade(result.score, result.totalMarks);
                 const percentage = Math.round((result.score / result.totalMarks) * 100);
                 const position = getPosition(result.score, result.examTitle);
@@ -356,6 +360,8 @@ export default function ResultSheet() {
             </div>
           )}
         </div>
+
+        <Pagination page={pages.page} totalPages={pages.totalPages} total={pages.total} start={pages.start} pageSize={pages.pageSize} onPageChange={pages.setPage} />
 
         <div className="grid gap-4 border-t border-slate-200 px-6 py-6 md:grid-cols-3 print:px-0">
           {[

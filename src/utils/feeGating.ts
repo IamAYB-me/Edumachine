@@ -76,6 +76,73 @@ export function checkFeeGate(
   };
 }
 
+export interface DerivedFee {
+  structureKey: string;
+  category: string;
+  amount: number;
+  isUniversal: boolean;
+  className?: string;
+  paid: number;
+  remaining: number;
+  status: 'Paid' | 'Pending' | 'Partial';
+  requiredPercentage?: number;
+  gatedAction?: GatedAction;
+  isGated: boolean;
+  isOptional: boolean;
+  minPayable: number;
+}
+
+export const DEFAULT_REQUIRED_PERCENTAGE = 100;
+
+/**
+ * The minimum amount required to satisfy a fee's gating percentage, if any.
+ * For gated fees this is `amount * requiredPercentage / 100` (e.g. Tuition's
+ * 50% => half the amount). For ungated fees it equals the full amount.
+ */
+export function minimumPayableFor(fee: Pick<DerivedFee, 'amount' | 'requiredPercentage'>): number {
+  const pct = fee.requiredPercentage ?? DEFAULT_REQUIRED_PERCENTAGE;
+  return Math.round((fee.amount * pct) / 100);
+}
+
+/**
+ * Derives the complete list of fees a student is expected to pay from the
+ * active fee structures that apply to them. Universal fees apply to every
+ * student; peculiar (class-specific) fees apply to the student's class.
+ * Each item is reconciled against the student's actual fee records so paid /
+ * partial / pending status and remaining balance are accurate.
+ */
+export function deriveStudentFees(
+  feeStructures: FeeStructure[],
+  feeRecords: FeeRecord[],
+  studentClass: string | undefined,
+): DerivedFee[] {
+  const applicable = feeStructures.filter(
+    (s) => s.status === 'Active' && (s.isUniversal || s.className === studentClass),
+  );
+  return applicable.map((s) => {
+    const paidAmount = getPaidForCategory(feeRecords, s.category);
+    const remaining = Math.max(0, s.amount - paidAmount);
+    const requiredPercentage = s.requiredPercentage ?? (s.isGated ? DEFAULT_REQUIRED_PERCENTAGE : undefined);
+    const status: DerivedFee['status'] =
+      paidAmount >= s.amount ? 'Paid' : paidAmount > 0 ? 'Partial' : 'Pending';
+    return {
+      structureKey: s.id,
+      category: s.category,
+      amount: s.amount,
+      isUniversal: !!s.isUniversal,
+      className: s.className,
+      paid: paidAmount,
+      remaining,
+      status,
+      requiredPercentage,
+      gatedAction: (s.gatedAction as GatedAction) || undefined,
+      isGated: !!s.isGated,
+      isOptional: !!s.isOptional,
+      minPayable: minimumPayableFor({ amount: s.amount, requiredPercentage }),
+    };
+  });
+}
+
 /**
  * Human readable description of a blocked action.
  */

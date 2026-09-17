@@ -61,6 +61,7 @@ export default function SchoolUsers() {
     const roleMap: Record<string, string> = {
       SUPER_ADMIN: 'Platform Admin',
       ADMIN: 'School Admin',
+      REGISTRAR: 'Registrar',
       PARENT: 'Parent',
       STAFF: 'Staff',
     };

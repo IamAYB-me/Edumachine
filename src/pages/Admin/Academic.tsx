@@ -6,12 +6,14 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useToastStore } from '@/store/useToastStore';
 import { resolveSchoolProfile, getPortalLevelLabels, isTertiaryLevel } from '@/utils/schoolProfile';
 import { filterDepartmentsByPortal } from '@/utils/portalProgrammes';
+import Pagination from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 
 type TabKey = 'subjects' | 'courses' | 'faculties' | 'sessions';
 type ModalKind = 'subject' | 'faculty' | 'department' | 'session' | null;
 
 export default function AcademicManagement() {
-  const { subjects, addSubject, updateSubject, deleteSubject, faculties, addFaculty, updateFaculty, deleteFaculty, departments, addDepartment, updateDepartment, deleteDepartment, academicSessions, addAcademicSession, updateAcademicSession, deleteAcademicSession, schools } = useDataStore();
+  const { subjects, addSubject, updateSubject, deleteSubject, faculties, addFaculty, updateFaculty, deleteFaculty, departments, addDepartment, updateDepartment, deleteDepartment, academicSessions, addAcademicSession, updateAcademicSession, deleteAcademicSession, setActiveSession, schools } = useDataStore();
   const user = useAuthStore((state) => state.user);
   const showToast = useToastStore((state) => state.showToast);
 
@@ -77,6 +79,10 @@ export default function AcademicManagement() {
     return academicSessions.filter((s) => s.name.toLowerCase().includes(t));
   }, [academicSessions, searchTerm]);
 
+  const subjectPages = usePagination(filteredPrimarySubjects, 10);
+  const coursePages = usePagination(filteredCollegeCourses, 10);
+  const sessionPages = usePagination(filteredSessions, 10);
+
   const departmentsByFaculty = useMemo(() => {
     const map: Record<string, Department[]> = {};
     safeDepartments.forEach((d) => {
@@ -95,10 +101,19 @@ export default function AcademicManagement() {
     return map;
   }, [collegeCourses]);
 
+  const coursesByFaculty = useMemo(() => {
+    const map: Record<string, number> = {};
+    collegeCourses.forEach((c) => {
+      const key = c.facultyId || '_none';
+      map[key] = (map[key] || 0) + 1;
+    });
+    return map;
+  }, [collegeCourses]);
+
   const [subjectForm, setSubjectForm] = useState({ name: '', code: '', type: 'Core' as 'Core' | 'Elective', creditHours: 3, term: '', session: '', facultyId: '', departmentId: '' });
   const [facultyForm, setFacultyForm] = useState({ name: '', code: '', headName: '' });
   const [deptForm, setDeptForm] = useState<{ name: string; code: string; headName: string; facultyId: string; portalLevel: PortalLevel }>({ name: '', code: '', headName: '', facultyId: '', portalLevel: schoolProfile.portalLevel });
-  const [sessionForm, setSessionForm] = useState({ name: '' });
+  const [sessionForm, setSessionForm] = useState<{ name: string; semester: 'First Semester' | 'Second Semester'; active: boolean }>({ name: '', semester: 'First Semester', active: false });
 
   const coreCount = safeSubjects.filter((s) => s.type === 'Core').length;
   const electiveCount = safeSubjects.filter((s) => s.type === 'Elective').length;
@@ -144,10 +159,10 @@ export default function AcademicManagement() {
   const openSessionModal = (session?: AcademicSession) => {
     if (session) {
       setEditingItem(session);
-      setSessionForm({ name: session.name });
+      setSessionForm({ name: session.name, semester: session.semester || 'First Semester', active: !!session.active });
     } else {
       setEditingItem(null);
-      setSessionForm({ name: '' });
+      setSessionForm({ name: '', semester: 'First Semester', active: false });
     }
     setModalKind('session');
   };
@@ -196,7 +211,8 @@ export default function AcademicManagement() {
   const handleSaveSession = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingItem && modalKind === 'session') {
-      updateAcademicSession(editingItem.id, sessionForm);
+      if (sessionForm.active) setActiveSession(editingItem.id);
+      updateAcademicSession(editingItem.id, { name: sessionForm.name, semester: sessionForm.semester, active: sessionForm.active });
       showToast({ title: 'Updated', description: `${sessionForm.name} has been saved.`, variant: 'success' });
     } else {
       addAcademicSession(sessionForm);
@@ -339,7 +355,7 @@ export default function AcademicManagement() {
                 </tr>
               </thead>
               <tbody className="text-sm divide-y divide-slate-100 dark:divide-slate-800">
-                {filteredPrimarySubjects.map((subject) => (
+                {subjectPages.slice.map((subject) => (
                   <tr key={subject.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors group">
                     <td className="py-3 px-6">
                       <div className="flex items-center gap-3">
@@ -384,7 +400,7 @@ export default function AcademicManagement() {
                 </tr>
               </thead>
               <tbody className="text-sm divide-y divide-slate-100 dark:divide-slate-800">
-                {filteredCollegeCourses.map((course) => {
+                {coursePages.slice.map((course) => {
                   const fac = safeFaculties.find((f) => f.id === course.facultyId);
                   const dept = safeDepartments.find((d) => d.id === course.departmentId);
                   return (
@@ -441,7 +457,7 @@ export default function AcademicManagement() {
                         <p className="text-xs text-slate-500">{faculty.code} {faculty.headName ? `• Dean: ${faculty.headName}` : ''}</p>
                       </div>
                       <span className="text-xs font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-full">
-                        {depts.length} dept{depts.length !== 1 ? 's' : ''} • {coursesByDepartment[faculty.id] || 0} {labels.subjectPlural.toLowerCase()}
+                        {depts.length} dept{depts.length !== 1 ? 's' : ''} • {coursesByFaculty[faculty.id] || 0} {labels.subjectPlural.toLowerCase()}
                       </span>
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={() => openDeptModal(undefined, faculty.id)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded" title="Add Department"><Plus className="w-4 h-4" /></button>
@@ -500,20 +516,42 @@ export default function AcademicManagement() {
               <thead className="bg-slate-50 dark:bg-slate-800 sticky top-0 z-10">
                 <tr className="border-b border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   <th className="py-3 px-6">Session Name</th>
+                  <th className="py-3 px-6 text-center">Status</th>
                   <th className="py-3 px-6 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="text-sm divide-y divide-slate-100 dark:divide-slate-800">
-                {filteredSessions.map((session) => (
+                {sessionPages.slice.map((session) => (
                   <tr key={session.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors group">
                     <td className="py-3 px-6">
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-amber-50 dark:bg-amber-900/20 text-amber-600 rounded-lg"><GraduationCap className="w-4 h-4" /></div>
                         <span className="font-bold text-slate-900 dark:text-white">{session.name}</span>
+                        {session.semester && (
+                          <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-[10px] font-bold uppercase rounded-md tracking-wide">{session.semester}</span>
+                        )}
                       </div>
+                    </td>
+                    <td className="py-3 px-6 text-center">
+                      {session.active ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase rounded-full">
+                          <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" /> Active
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase rounded-full">Inactive</span>
+                      )}
                     </td>
                     <td className="py-3 px-6">
                       <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {!session.active && (
+                          <button
+                            onClick={() => { setActiveSession(session.id); showToast({ title: 'Activated', description: `${session.name}${session.semester ? ` • ${session.semester}` : ''} is now the active session.`, variant: 'success' }); }}
+                            className="p-1.5 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded inline-flex items-center gap-1 text-xs font-bold"
+                            title="Set as Active"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Activate
+                          </button>
+                        )}
                         <button onClick={() => openSessionModal(session)} className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded" title="Edit"><Edit className="w-4 h-4" /></button>
                         <button onClick={() => { deleteAcademicSession(session.id); showToast({ title: 'Deleted', description: `${session.name} has been removed.`, variant: 'info' }); }} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded" title="Delete"><Trash2 className="w-4 h-4" /></button>
                       </div>
@@ -521,13 +559,17 @@ export default function AcademicManagement() {
                   </tr>
                 ))}
                 {filteredSessions.length === 0 && (
-                  <tr><td colSpan={2} className="py-12 text-center text-slate-400">No academic sessions found.</td></tr>
+                  <tr><td colSpan={3} className="py-12 text-center text-slate-400">No academic sessions found.</td></tr>
                 )}
               </tbody>
             </table>
           )}
         </div>
       </div>
+
+      {activeTab === 'subjects' && <Pagination page={subjectPages.page} totalPages={subjectPages.totalPages} total={subjectPages.total} start={subjectPages.start} pageSize={subjectPages.pageSize} onPageChange={subjectPages.setPage} />}
+      {activeTab === 'courses' && <Pagination page={coursePages.page} totalPages={coursePages.totalPages} total={coursePages.total} start={coursePages.start} pageSize={coursePages.pageSize} onPageChange={coursePages.setPage} />}
+      {activeTab === 'sessions' && <Pagination page={sessionPages.page} totalPages={sessionPages.totalPages} total={sessionPages.total} start={sessionPages.start} pageSize={sessionPages.pageSize} onPageChange={sessionPages.setPage} />}
 
       {modalKind === 'subject' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={closeModal}>
@@ -722,6 +764,28 @@ export default function AcademicManagement() {
                   placeholder="e.g. 2024/2025"
                   className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500 dark:text-white" />
               </div>
+              {isCollege && (
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-500 uppercase">Semester</label>
+                  <select
+                    value={sessionForm.semester}
+                    onChange={(e) => setSessionForm({ ...sessionForm, semester: e.target.value as 'First Semester' | 'Second Semester' })}
+                    className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500 dark:text-white"
+                  >
+                    <option value="First Semester">First Semester</option>
+                    <option value="Second Semester">Second Semester</option>
+                  </select>
+                </div>
+              )}
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={sessionForm.active}
+                  onChange={(e) => setSessionForm({ ...sessionForm, active: e.target.checked })}
+                  className="w-4 h-4 accent-emerald-600"
+                />
+                <span className="text-sm font-bold text-emerald-700 dark:text-emerald-400">Set as active {labels.termLabel.toLowerCase()}</span>
+              </label>
               <div className="pt-4 flex gap-3">
                 <button type="button" onClick={closeModal} className="flex-1 px-4 py-2.5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">Cancel</button>
                 <button type="submit" className="flex-1 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-amber-900/20 transition-all">

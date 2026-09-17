@@ -5,6 +5,7 @@ import { cn } from '@/utils';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useToastStore } from '@/store/useToastStore';
 import { useDataStore } from '@/store/useDataStore';
+import CourseRegistrationToggle from '@/components/ui/CourseRegistrationToggle';
 
 export default function GlobalSettings() {
   const [activeSection, setActiveSection] = useState<string | null>(null);
@@ -224,6 +225,7 @@ function GeneralSettingsView({ settings, onUpdate }: { settings: any, onUpdate: 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
       <div className="p-8 space-y-8">
+        <CourseRegistrationToggle />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="space-y-4">
             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Platform Branding</h3>
@@ -762,8 +764,8 @@ function DatabaseSettingsView() {
 
       {/* Clear Confirmation Modal */}
       {clearTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-md overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm" onClick={() => setClearTarget(null)}>
+          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-md overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="p-8 text-center">
               <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
                 <AlertCircle className="w-8 h-8 text-red-600" />

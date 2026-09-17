@@ -56,6 +56,25 @@
     height: auto !important;
   }
 
+  /* Paginate long documents cleanly onto further pages */
+  table thead {
+    display: table-header-group;
+  }
+  table tr,
+  table th,
+  table td {
+    page-break-inside: avoid;
+  }
+  .print-section {
+    page-break-before: auto;
+    page-break-inside: avoid;
+  }
+  .print-section h1,
+  .print-section h2,
+  .print-section h3 {
+    page-break-after: avoid;
+  }
+
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;

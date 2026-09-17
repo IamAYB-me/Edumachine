@@ -16,17 +16,26 @@ import {
   Mail,
   Phone,
   MapPin,
+  SlidersHorizontal,
+  RotateCcw,
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { cn } from '@/utils';
 import { KPICard } from '@/components/ui/KPICard';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { FeeStructureManager } from '@/components/ui/FeeStructureManager';
+import CourseRegistrationToggle from '@/components/ui/CourseRegistrationToggle';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useDataStore, FeeRecord } from '@/store/useDataStore';
+import { buildOnRollLookup } from '@/utils/studentFilters';
+import { useOnRollFilters } from '@/hooks/useOnRollFilters';
+import { deriveStudentFees } from '@/utils/feeGating';
 import { useToastStore } from '@/store/useToastStore';
 import { downloadFromUrl, readFileAsDataUrl } from '@/utils/fileHelpers';
 import { useAuthStore } from '@/store/useAuthStore';
 import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
+import Pagination from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 
 export default function AccountantFees() {
   const { format } = useCurrency();
@@ -39,10 +48,18 @@ export default function AccountantFees() {
     deleteFeeRecord,
     students,
     schools,
+    addNotification,
   } = useDataStore();
   const { user } = useAuthStore();
   const schoolProfile = resolveSchoolProfile(user ?? null, schools);
   const labels = getPortalLevelLabels(schoolProfile.portalLevel ?? 'Secondary');
+
+  const onRoll = useOnRollFilters(students, labels.termOptions);
+  const filtersSummary = [
+    onRoll.session !== 'all' ? `Session: ${onRoll.session}` : '',
+    onRoll.term !== 'all' ? `${labels.termLabel}: ${onRoll.term}` : '',
+    onRoll.structure !== 'all' ? `${labels.structureSingular}: ${onRoll.structure}` : '',
+  ].filter(Boolean).join(' · ');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Paid' | 'Pending' | 'Partial'>('All');
@@ -65,8 +82,13 @@ export default function AccountantFees() {
     (item) => item.status === 'Active' && (item.isUniversal || item.className === selectedStudent?.class)
   );
 
+  const scopeFees = useMemo(() => {
+    const { ids, regNos } = buildOnRollLookup(onRoll.onRollStudents);
+    return feeRecords.filter((fee) => ids.has(fee.studentId) || regNos.has(fee.studentId));
+  }, [feeRecords, onRoll.onRollStudents]);
+
   const filteredFees = useMemo(() => {
-    return feeRecords.filter(
+    return scopeFees.filter(
       (fee) => {
         const matchesSearch = fee.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
           fee.studentId.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -75,27 +97,29 @@ export default function AccountantFees() {
         return matchesSearch && matchesStatus;
       }
     );
-  }, [feeRecords, searchTerm, statusFilter]);
+  }, [scopeFees, searchTerm, statusFilter]);
+
+  const pages = usePagination(filteredFees, 10);
 
   const stats = useMemo(() => {
-    const totalPaid = feeRecords
+    const totalPaid = scopeFees
       .filter((item) => item.status === 'Paid')
       .reduce((sum, item) => sum + item.amount, 0);
-    const totalPending = feeRecords
+    const totalPending = scopeFees
       .filter((item) => item.status !== 'Paid')
       .reduce((sum, item) => sum + item.amount, 0);
-    const uniquePayers = new Set(feeRecords.map((item) => item.studentId)).size;
+    const uniquePayers = new Set(scopeFees.map((item) => item.studentId)).size;
     const today = new Date().toISOString().split('T')[0];
-    const todaysCollection = feeRecords
+    const todaysCollection = scopeFees
       .filter((item) => item.status === 'Paid' && item.date === today)
       .reduce((sum, item) => sum + item.amount, 0);
     const collectionProgress =
-      feeRecords.length > 0
-        ? Math.round((feeRecords.filter((item) => item.status === 'Paid').length / feeRecords.length) * 100)
+      scopeFees.length > 0
+        ? Math.round((scopeFees.filter((item) => item.status === 'Paid').length / scopeFees.length) * 100)
         : 0;
 
     return { totalPaid, totalPending, uniquePayers, todaysCollection, collectionProgress };
-  }, [feeRecords]);
+  }, [scopeFees]);
 
   const feeStatusData = [
     { name: 'Collected', value: stats.collectionProgress, color: '#10b981' },
@@ -165,6 +189,16 @@ export default function AccountantFees() {
     e.preventDefault();
 
     const student = students.find((item) => item.id === formData.studentId);
+
+    if (!student) {
+      showToast({
+        title: 'Student required',
+        description: 'Search for and select the student before recording the payment.',
+        variant: 'error',
+      });
+      return;
+    }
+
     const dataToSave = {
       ...formData,
       studentName: student ? student.name : formData.studentName,
@@ -206,14 +240,54 @@ export default function AccountantFees() {
   };
 
   const handleSendReminder = () => {
-    const student = students.find(s => s.regNo === quickInvoiceReg || s.id === quickInvoiceReg);
-    showToast({
-      title: student ? 'Reminder sent' : `${labels.learnerSingular} not found`,
-      description: student
-        ? `Outstanding fee reminder queued for ${student.name}.`
-        : `No ${labels.learnerSingular.toLowerCase()} matched reg number "${quickInvoiceReg}".`,
-      variant: student ? 'success' : 'warning',
+    const query = quickInvoiceReg.trim().toLowerCase();
+    const student = students.find(
+      (item) => item.regNo?.toLowerCase() === query || item.id.toLowerCase() === query,
+    );
+
+    if (!student) {
+      showToast({
+        title: `${labels.learnerSingular} not found`,
+        description: `No ${labels.learnerSingular.toLowerCase()} matched reg number "${quickInvoiceReg}".`,
+        variant: 'warning',
+      });
+      return;
+    }
+
+    // Expected fees for this student (universal + their class/department),
+    // reconciled against what they have actually paid.
+    const studentFeeRecords = feeRecords.filter(
+      (fee) => fee.studentId === student.id || (student.regNo && fee.studentId === student.regNo),
+    );
+    const outstanding = deriveStudentFees(feeStructures, studentFeeRecords, student.class)
+      .filter((fee) => !fee.isOptional)
+      .reduce((sum, fee) => sum + fee.remaining, 0);
+
+    if (outstanding <= 0) {
+      showToast({
+        title: 'No outstanding balance',
+        description: `${student.name} has settled all expected fees.`,
+        variant: 'info',
+      });
+      return;
+    }
+
+    addNotification({
+      userId: student.id,
+      title: 'Outstanding Fee Reminder',
+      description: `You have an outstanding balance of ${format(outstanding)}. Kindly settle your fees to avoid service disruption.`,
+      time: new Date().toLocaleString(),
+      read: false,
+      type: 'warning',
+      link: '/student/fees',
     });
+
+    showToast({
+      title: 'Reminder sent',
+      description: `Outstanding balance of ${format(outstanding)} sent to ${student.name}.`,
+      variant: 'success',
+    });
+    setQuickInvoiceReg('');
   };
 
   return (
@@ -243,6 +317,83 @@ export default function AccountantFees() {
             Record Payment
           </button>
         </div>
+      </div>
+
+      <div className="max-w-2xl print:hidden">
+        <CourseRegistrationToggle />
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 print:hidden">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 rounded-2xl bg-blue-50 dark:bg-blue-900/20">
+              <SlidersHorizontal className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                Filter by Session / {labels.termLabel} / {labels.structureSingular}
+              </h3>
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                Showing payments for{' '}
+                <span className="font-bold text-slate-700 dark:text-slate-200">{onRoll.onRollStudents.length}</span>{' '}
+                {labels.learnerPlural.toLowerCase()} on roll
+                {filtersSummary ? ` · ${filtersSummary}` : ''}.
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:w-[620px]">
+            <label className="space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Session</span>
+              <select
+                value={onRoll.session}
+                onChange={(e) => onRoll.setSession(e.target.value)}
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-900 outline-none transition-all focus:border-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+              >
+                <option value="all">All Sessions</option>
+                {onRoll.sessionOptions.map((session) => (
+                  <option key={session} value={session}>{session}</option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{labels.termLabel}</span>
+              <select
+                value={onRoll.term}
+                onChange={(e) => onRoll.setTerm(e.target.value)}
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-900 outline-none transition-all focus:border-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+              >
+                <option value="all">All {labels.termLabel}s</option>
+                {onRoll.termOptions.map((term) => (
+                  <option key={term} value={term}>{term}</option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{labels.structureSingular}</span>
+              <select
+                value={onRoll.structure}
+                onChange={(e) => onRoll.setStructure(e.target.value)}
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-900 outline-none transition-all focus:border-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+              >
+                <option value="all">All {labels.structurePlural}</option>
+                {onRoll.structureOptions.map((structure) => (
+                  <option key={structure} value={structure}>{structure}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </div>
+        {onRoll.hasActiveFilters ? (
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={onRoll.reset}
+              className="inline-flex items-center gap-2 text-xs font-bold text-blue-600 hover:underline dark:text-blue-400"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Reset filters
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <div className="hidden border-b-2 border-slate-900 pb-8 print:block">
@@ -283,7 +434,6 @@ export default function AccountantFees() {
               icon={TrendingUp}
               iconBgClass="bg-emerald-50 dark:bg-emerald-900/20"
               iconColorClass="text-emerald-600 dark:text-emerald-400"
-              trend={{ value: 12, label: 'vs yesterday' }}
             />
             <KPICard
               title="Global Pending"
@@ -292,7 +442,6 @@ export default function AccountantFees() {
               icon={Wallet}
               iconBgClass="bg-amber-50 dark:bg-amber-900/20"
               iconColorClass="text-amber-600 dark:text-amber-400"
-              trend={{ value: -5, label: 'vs last month' }}
             />
             <KPICard
               title="Active Payers"
@@ -300,7 +449,6 @@ export default function AccountantFees() {
               icon={Users}
               iconBgClass="bg-blue-50 dark:bg-blue-900/20"
               iconColorClass="text-blue-600 dark:text-blue-400"
-              trend={{ value: 8, label: 'new students' }}
             />
           </div>
 
@@ -342,7 +490,7 @@ export default function AccountantFees() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm dark:divide-slate-800">
-                  {filteredFees.map((fee) => (
+                  {pages.slice.map((fee) => (
                     <tr key={fee.id} className="group transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
                       <td className="px-8 py-5">
                         <div>
@@ -401,6 +549,8 @@ export default function AccountantFees() {
                 </tbody>
               </table>
             </div>
+
+            <Pagination page={pages.page} totalPages={pages.totalPages} total={pages.total} start={pages.start} pageSize={pages.pageSize} onPageChange={pages.setPage} />
           </div>
         </div>
 
@@ -534,19 +684,16 @@ export default function AccountantFees() {
                 <label className="px-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
                   Select Student
                 </label>
-                <select
-                  required
+                <SearchableSelect
+                  options={students.map((item) => ({
+                    value: item.id,
+                    label: item.name,
+                    sublabel: item.regNo,
+                  }))}
                   value={formData.studentId}
-                  onChange={(e) => handleStudentChange(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-100 bg-slate-50 px-5 py-3.5 text-sm font-medium outline-none transition-all focus:border-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                >
-                  <option value="">Select a student...</option>
-                  {students.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name} ({item.regNo})
-                    </option>
-                  ))}
-                </select>
+                  onChange={handleStudentChange}
+                  placeholder="Search or select a student..."
+                />
               </div>
 
               <div className="space-y-2">

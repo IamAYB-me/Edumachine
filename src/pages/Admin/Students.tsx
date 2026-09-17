@@ -9,6 +9,8 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
 import { COLLEGE_PROGRAMMES, POLYTECHNIC_PROGRAMMES } from '@/utils/portalProgrammes';
 import { PrintableIdCardModal } from '@/components/ui/PrintableIdCardModal';
+import Pagination from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 import { adminCreateUser } from '@/services/authService';
 
 type StudentFormState = Omit<Student, 'id'>;
@@ -557,6 +559,8 @@ export default function StudentsDirectory() {
   }, [activePortalLevel, portalLevelFilter, searchTerm, statusFilter, students]);
 
   const activeFilterCount = [statusFilter !== 'All', portalLevelFilter !== 'All', searchTerm.trim().length > 0].filter(Boolean).length;
+
+  const pages = usePagination(filteredStudents, 10);
 
   const resetFilters = () => {
     setSearchTerm('');
@@ -1184,7 +1188,7 @@ export default function StudentsDirectory() {
               </tr>
             </thead>
             <tbody className="text-sm divide-y divide-slate-100 dark:divide-slate-800">
-              {filteredStudents.map((student) => (
+              {pages.slice.map((student) => (
                 <tr key={student.id} className="hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors group">
                   <td className="py-4 px-3">
                     <input
@@ -1281,6 +1285,7 @@ export default function StudentsDirectory() {
             </div>
           )}
         </div>
+        <Pagination page={pages.page} totalPages={pages.totalPages} total={pages.total} start={pages.start} pageSize={pages.pageSize} onPageChange={pages.setPage} />
       </div>
 
       {studentToDelete && (

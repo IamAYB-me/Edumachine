@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { DollarSign, FileText, CreditCard, TrendingUp, ArrowUpRight, Wallet, Download, Plus, Search, Filter, Users, X, Edit2, Printer, Paperclip, Mail, Phone, MapPin } from 'lucide-react';
 import { KPICard } from '@/components/ui/KPICard';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { FeeStructureManager } from '@/components/ui/FeeStructureManager';
 import { cn } from '@/utils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
@@ -122,6 +123,16 @@ export default function AdminFinanceDashboard() {
   const handleFeeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const student = students.find(s => s.id === formData.studentId);
+
+    if (!student) {
+      showToast({
+        title: `${labels.learnerSingular} required`,
+        description: `Search for and select the ${labels.learnerSingular.toLowerCase()} before saving.`,
+        variant: 'error',
+      });
+      return;
+    }
+
     const dataToSave = {
       ...formData,
       studentName: student ? student.name : formData.studentName
@@ -221,17 +232,16 @@ export default function AdminFinanceDashboard() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{labels.learnerSingular}</label>
-                  <select 
-                    required 
-                    value={formData.studentId} 
-                    onChange={(e) => handleStudentChange(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:border-emerald-500 dark:text-white text-sm"
-                  >
-                    <option value="">                    Select {labels.learnerSingular}...</option>
-                    {students.map(s => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
+                  <SearchableSelect
+                    options={students.map((s) => ({
+                      value: s.id,
+                      label: s.name,
+                      sublabel: s.regNo,
+                    }))}
+                    value={formData.studentId}
+                    onChange={handleStudentChange}
+                    placeholder={`Search or select ${labels.learnerSingular.toLowerCase()}...`}
+                  />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Fee Category</label>

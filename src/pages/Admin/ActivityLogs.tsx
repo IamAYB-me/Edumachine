@@ -5,6 +5,8 @@ import { KPICard } from '@/components/ui/KPICard';
 import { useDataStore, type ActivityLog, type ActivityAction } from '@/store/useDataStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useToastStore } from '@/store/useToastStore';
+import Pagination from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 
 const ACTION_COLORS: Record<ActivityAction, string> = {
   CREATE: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
@@ -96,6 +98,8 @@ export default function AdminActivityLogs() {
 
     return result.sort((a, b) => getLogTime(b) - getLogTime(a));
   }, [activityLogs, searchTerm, filterRole, filterAction, filterModule, dateFrom, dateTo]);
+
+  const pages = usePagination(filteredLogs, 10);
 
   const stats = {
     total: activityLogs.length,
@@ -226,7 +230,7 @@ export default function AdminActivityLogs() {
                   </td>
                 </tr>
               ) : (
-                filteredLogs.slice(0, 200).map((log) => {
+                pages.slice.map((log) => {
                   const pendingDeletion = log.deletionRequested && !log.deletionApproved && !log.deletionRejected;
                   const deletionRejected = log.deletionRejected;
                   return (
@@ -277,6 +281,8 @@ export default function AdminActivityLogs() {
             </tbody>
           </table>
         </div>
+
+        <Pagination page={pages.page} totalPages={pages.totalPages} total={pages.total} start={pages.start} pageSize={pages.pageSize} onPageChange={pages.setPage} />
 
         {filteredLogs.length > 200 && (
           <div className="p-4 text-center text-sm text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800">

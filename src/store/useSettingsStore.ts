@@ -44,6 +44,7 @@ interface GlobalSettings {
   admissionFormNextSequence: number;
   admissionsEnabled: boolean;
   admissionsEmail: string;
+  courseRegistrationEnabled: boolean;
 }
 
 const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
@@ -87,6 +88,7 @@ const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   admissionFormNextSequence: 1,
   admissionsEnabled: true,
   admissionsEmail: 'admissions@brochest.com.ng',
+  courseRegistrationEnabled: true,
 };
 
 const STALE_FIELDS: string[] = [];

@@ -3,6 +3,8 @@ import { Search, Filter, Plus, BookOpen, Clock, CheckCircle, AlertCircle, Chevro
 import { cn } from '@/utils';
 import { KPICard } from '@/components/ui/KPICard';
 import { useToastStore } from '@/store/useToastStore';
+import Pagination from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 
 export default function IssueReturn() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -34,6 +36,8 @@ export default function IssueReturn() {
 
     return matchesSearch && matchesStatus;
   });
+
+  const pages = usePagination(filteredTransactions, 10);
 
   const cycleStatusFilter = () => {
     setStatusFilter((current) => {
@@ -209,7 +213,7 @@ export default function IssueReturn() {
               </tr>
             </thead>
             <tbody className="text-sm divide-y divide-slate-100 dark:divide-slate-800">
-              {filteredTransactions.map((tx, i) => (
+              {pages.slice.map((tx, i) => (
                 <tr key={i} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors group">
                   <td className="py-4 px-6">
                     <p className="font-bold text-slate-900 dark:text-white">{tx.book}</p>
@@ -257,6 +261,8 @@ export default function IssueReturn() {
             No transactions match the current search and status filter.
           </div>
         ) : null}
+
+        <Pagination page={pages.page} totalPages={pages.totalPages} total={pages.total} start={pages.start} pageSize={pages.pageSize} onPageChange={pages.setPage} />
       </div>
 
       {showModal ? (

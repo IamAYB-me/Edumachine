@@ -76,8 +76,8 @@ service cloud.firestore {
     // (the students doc id equals their auth uid).
     match /students/{studentId} {
       allow read: if isAuth();
-      allow create: if isAuth() && (request.auth.uid == studentId || isAdmin() || hasRole('TEACHER'));
-      allow update: if isAuth() && (request.auth.uid == studentId || isAdmin() || hasRole('TEACHER'));
+      allow create: if isAuth() && (request.auth.uid == studentId || isAdmin() || hasRole('TEACHER') || hasRole('REGISTRAR'));
+      allow update: if isAuth() && (request.auth.uid == studentId || isAdmin() || hasRole('TEACHER') || hasRole('REGISTRAR'));
       allow delete: if isAdmin() || hasRole('TEACHER');
     }
 
@@ -130,13 +130,25 @@ service cloud.firestore {
     // ─── Fee Records ──────────────────────────────────────────────────
     match /feeRecords/{feeId} {
       allow read: if isAuth();
-      allow write: if isAdmin() || hasRole('ACCOUNTANT');
+      allow create: if isAuth();
+      allow update: if isAdmin() || hasRole('ACCOUNTANT');
+      allow delete: if isAdmin() || hasRole('ACCOUNTANT');
     }
 
     // ─── Fee Structures ───────────────────────────────────────────────
     match /feeStructures/{fsId} {
       allow read: if isAuth();
       allow write: if isAdmin() || hasRole('ACCOUNTANT');
+    }
+
+    // ─── Course Registrations ─────────────────────────────────────────
+    // Any authenticated user may view; a student may create/update their own
+    // registration; admins/registrars manage all registrations.
+    match /courseRegistrations/{regId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && (request.auth.uid == request.resource.data.studentId || isAdmin() || hasRole('REGISTRAR'));
+      allow update: if isAuth() && (request.resource.data.studentId == request.auth.uid || isAdmin() || hasRole('REGISTRAR'));
+      allow delete: if isAdmin() || hasRole('REGISTRAR');
     }
 
     // ─── Exams ────────────────────────────────────────────────────────
@@ -189,8 +201,8 @@ service cloud.firestore {
     match /admissionApplications/{appId} {
       allow read: if isAuth();
       allow create: if true;
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow update: if isAdmin() || hasRole('REGISTRAR');
+      allow delete: if isAdmin() || hasRole('REGISTRAR');
     }
 
     // ─── Notices ──────────────────────────────────────────────────────

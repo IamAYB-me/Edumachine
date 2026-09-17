@@ -16,13 +16,6 @@ export default function ClassesManagement() {
   const isCollege = isTertiaryLevel(schoolProfile.portalLevel);
   const structureLabel = isCollege ? 'Programme' : '';
   
-  const stats = {
-    totalClasses: classes.length,
-    avgStudents: Math.round(classes.reduce((acc, c) => acc + c.studentsCount, 0) / (classes.length || 1)),
-    maxCapacity: Math.max(...classes.map(c => c.studentsCount), 0),
-    totalTeachers: new Set(classes.map(c => c.teacherId)).size
-  };
-
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<Class | null>(null);
   const [reportClass, setReportClass] = useState<Class | null>(null);
@@ -42,7 +35,28 @@ export default function ClassesManagement() {
     ? safeDepartments.filter((d) => d.facultyId === formData.facultyId)
     : safeDepartments;
 
-  const filteredClasses = classes.filter(cls => 
+  const enrolledByClass = useMemo(() => {
+    const map: Record<string, number> = {};
+    classes.forEach((cls) => { map[cls.id] = 0; });
+    (students || []).forEach((student) => {
+      const cls = classes.find((c) =>
+        (student.departmentId && c.departmentId && student.departmentId === c.departmentId) ||
+        (student.class && student.class.trim().toLowerCase() === c.name.trim().toLowerCase()) ||
+        (student.classDepartment && student.classDepartment.trim().toLowerCase() === c.name.trim().toLowerCase())
+      );
+      if (cls) map[cls.id] = (map[cls.id] || 0) + 1;
+    });
+    return map;
+  }, [students, classes]);
+
+  const stats = {
+    totalClasses: classes.length,
+    avgStudents: Math.round(classes.reduce((acc, c) => acc + (enrolledByClass[c.id] ?? c.studentsCount), 0) / (classes.length || 1)),
+    maxCapacity: Math.max(...classes.map(c => enrolledByClass[c.id] ?? c.studentsCount), 0),
+    totalTeachers: new Set(classes.map(c => c.teacherId)).size
+  };
+
+  const filteredClasses = classes.filter(cls =>
     cls.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     cls.teacherName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     cls.room.toLowerCase().includes(searchTerm.toLowerCase())
@@ -92,7 +106,11 @@ export default function ClassesManagement() {
   };
 
   const reportStudents = reportClass
-    ? students.filter((student) => student.class === reportClass.name)
+    ? students.filter((student) =>
+        (student.departmentId && reportClass.departmentId && student.departmentId === reportClass.departmentId) ||
+        (student.class && student.class.trim().toLowerCase() === reportClass.name.trim().toLowerCase()) ||
+        (student.classDepartment && student.classDepartment.trim().toLowerCase() === reportClass.name.trim().toLowerCase())
+      )
     : [];
   const paidStudents = reportStudents.filter((student) =>
     feeRecords.some((record) => record.studentId === student.id && record.status === 'Paid')
@@ -227,7 +245,7 @@ export default function ClassesManagement() {
                   <span className="text-slate-500 font-medium">Enrolled</span>
                   <div className="flex items-center gap-1.5 font-bold text-blue-600 dark:text-blue-400">
                     <Users className="w-4 h-4" />
-                    {cls.studentsCount} {labels.learnerPlural}
+                    {enrolledByClass[cls.id] ?? cls.studentsCount} {labels.learnerPlural}
                   </div>
                 </div>
               </div>
@@ -253,8 +271,8 @@ export default function ClassesManagement() {
 
       {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-md flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-md flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
               <h2 className="text-lg font-bold text-slate-900 dark:text-white">
                 {editingClass ? `Edit ${labels.structureSingular}` : `Create New ${labels.structureSingular}`}

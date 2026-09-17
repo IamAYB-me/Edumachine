@@ -5,6 +5,8 @@ import { Clock, CheckCircle, ChevronLeft, ChevronRight, Send, Calendar, MapPin, 
 import { cn } from '@/utils';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getPortalLevelLabels, resolveSchoolProfile } from '@/utils/schoolProfile';
+import { checkFeeGate } from '@/utils/feeGating';
+import { Lock } from 'lucide-react';
 
 export default function ExamSession() {
   const { exams, addExamResult, examTimetable, students, schools } = useDataStore();
@@ -31,6 +33,13 @@ export default function ExamSession() {
   const studentClass = currentStudent?.class ?? '';
   const schoolProfile = resolveSchoolProfile(user ?? null, schools);
   const labels = getPortalLevelLabels(schoolProfile.portalLevel);
+
+  const { feeStructures, feeRecords } = useDataStore();
+  const examGate = useMemo(
+    () => checkFeeGate(feeStructures, feeRecords, studentClass, 'exam_access'),
+    [feeStructures, feeRecords, studentClass],
+  );
+  const examLocked = !!examGate && !examGate.isAllowed;
 
   // Filter timetable for the logged-in student's class
   const studentTimetable = useMemo(() => {
@@ -96,6 +105,34 @@ export default function ExamSession() {
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  if (examLocked) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white uppercase tracking-tight">{labels.assessmentLabel} Portal</h1>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 font-medium">Access your {labels.assessmentLabel.toLowerCase()} timetable and CBT assessments.</p>
+          </div>
+        </div>
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-10 sm:p-14 text-center">
+          <div className="w-20 h-20 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mx-auto mb-6">
+            <Lock className="w-10 h-10 text-amber-600 dark:text-amber-400" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-3">{labels.assessmentLabel} Access Locked</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+            You must complete the required fee payments before you can access your {labels.assessmentLabel.toLowerCase()} timetable and assessments.
+          </p>
+          <button
+            onClick={() => navigate('/student/fees')}
+            className="mt-6 inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-900/20 transition-all active:scale-95"
+          >
+            Go to Fees
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (isFinished) {
     return (

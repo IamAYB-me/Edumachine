@@ -12,6 +12,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
+import { friendlyErrorMessage } from '@/utils/errors';
 
 export interface FirestoreUser {
   uid: string;
@@ -138,7 +139,7 @@ export async function registerUser(
     if (err.code === 'auth/email-already-in-use') {
       return { success: false, error: 'An account with this email already exists.' };
     }
-    return { success: false, error: (error as Error).message || 'Registration failed.' };
+    return { success: false, error: friendlyErrorMessage(error, 'Registration failed. Please try again.') };
   }
 }
 
@@ -185,7 +186,7 @@ export async function adminCreateUser(
     if (err.code === 'auth/email-already-in-use') {
       return { success: false, error: 'An account with this email already exists.' };
     }
-    return { success: false, error: (error as Error).message || 'Account creation failed.' };
+    return { success: false, error: friendlyErrorMessage(error, 'Account creation failed. Please try again.') };
   }
 }
 
@@ -213,7 +214,7 @@ export async function loginUser(
     if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
       return { success: false, error: 'Incorrect email or password.' };
     }
-    return { success: false, error: (error as Error).message || 'Login failed.' };
+    return { success: false, error: friendlyErrorMessage(error, 'Login failed. Please try again.') };
   }
 }
 
@@ -349,7 +350,7 @@ export async function promoteApplicantToStudent(
 
     return { success: true };
   } catch (error: unknown) {
-    return { success: false, error: (error as Error).message || 'Could not promote applicant.' };
+    return { success: false, error: friendlyErrorMessage(error, 'Could not promote applicant. Please try again.') };
   }
 }
 
@@ -374,7 +375,7 @@ export async function changeUserPassword(
     if (err.code === 'auth/weak-password') {
       return { success: false, error: 'New password is too weak. Use at least 6 characters.' };
     }
-    return { success: false, error: (error as Error).message || 'Password update failed.' };
+    return { success: false, error: friendlyErrorMessage(error, 'Password update failed. Please try again.') };
   }
 }
 

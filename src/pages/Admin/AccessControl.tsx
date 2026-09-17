@@ -5,6 +5,8 @@ import { DelegatedPortalAccess, PortalPrivilegeKey, useDataStore } from '@/store
 import { useAuthStore } from '@/store/useAuthStore';
 import { useToastStore } from '@/store/useToastStore';
 import { getPortalLevelLabels, resolveSchoolProfile } from '@/utils/schoolProfile';
+import Pagination from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 
 const getPrivilegeOptions = (labels: ReturnType<typeof getPortalLevelLabels>): Array<{ key: PortalPrivilegeKey; label: string; description: string; path: string }> => [
   { key: 'manage_students', label: labels.learnerPlural, description: `Handle ${labels.learnerSingular.toLowerCase()} directory and registration.`, path: '/admin/students' },
@@ -52,6 +54,8 @@ export default function AdminAccessControl() {
       .filter(Boolean)
       .some((value) => value!.toLowerCase().includes(searchTerm.toLowerCase()))
   ), [delegatedAccess, searchTerm]);
+
+  const pages = usePagination(filteredAccess, 10);
 
   const suggestedUsers = useMemo(() => {
     const combined = [
@@ -208,7 +212,7 @@ export default function AdminAccessControl() {
               </tr>
             </thead>
             <tbody className="text-sm divide-y divide-slate-100 dark:divide-slate-800">
-              {filteredAccess.map((entry) => (
+              {pages.slice.map((entry) => (
                 <tr key={entry.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors group">
                   <td className="py-4 px-6">
                     <p className="font-bold text-slate-900 dark:text-white">{entry.userName}</p>
@@ -260,6 +264,8 @@ export default function AdminAccessControl() {
             </div>
           ) : null}
         </div>
+
+        <Pagination page={pages.page} totalPages={pages.totalPages} total={pages.total} start={pages.start} pageSize={pages.pageSize} onPageChange={pages.setPage} />
       </div>
 
       {isModalOpen ? (

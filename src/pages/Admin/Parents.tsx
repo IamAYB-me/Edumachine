@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Search, Filter, Plus, Mail, Edit, Trash2, X, Users, UserCheck, Heart, ShieldCheck, Briefcase } from 'lucide-react';
 import { cn } from '@/utils';
 import { useDataStore, Parent } from '@/store/useDataStore';
 import { KPICard } from '@/components/ui/KPICard';
 import ExcelImport from '@/components/ui/ExcelImport';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useToastStore } from '@/store/useToastStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
+import Pagination from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 
 export default function AdminParents() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -58,6 +61,18 @@ export default function AdminParents() {
   const filteredParents = parents.filter(parent => 
     parent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     parent.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const pages = usePagination(filteredParents, 10);
+
+  const studentOptions = useMemo(
+    () =>
+      students.map((s) => ({
+        value: s.id,
+        label: s.name,
+        sublabel: s.regNo || s.email || undefined,
+      })),
+    [students]
   );
 
   const handleOpenModal = (parent?: Parent) => {
@@ -201,7 +216,7 @@ export default function AdminParents() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {filteredParents.map((parent) => (
+                {pages.slice.map((parent) => (
                   <tr key={parent.id} className="hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors group">
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-3">
@@ -237,6 +252,7 @@ export default function AdminParents() {
               </tbody>
             </table>
           </div>
+          <Pagination page={pages.page} totalPages={pages.totalPages} total={pages.total} start={pages.start} pageSize={pages.pageSize} onPageChange={pages.setPage} />
         </div>
 
         <div className="space-y-6">
@@ -337,8 +353,8 @@ export default function AdminParents() {
 
       {/* CRUD Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-md flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-md flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
               <h2 className="text-lg font-bold text-slate-900 dark:text-white">
                 {editingParent ? 'Edit Parent' : 'Add New Parent'}
@@ -392,14 +408,14 @@ export default function AdminParents() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-500 uppercase">Linked {labels.learnerPlural} (IDs)</label>
-                  <p className="text-[10px] text-slate-400 mb-1">Separate IDs with commas (e.g., 1, 2)</p>
-                  <input 
-                    type="text" 
-                    value={formData.children.join(', ')}
-                    onChange={(e) => setFormData({...formData, children: e.target.value.split(',').map(id => id.trim()).filter(id => id !== '')})}
-                    className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500 dark:text-white"
-                    placeholder="e.g. 1, 2"
+                  <label className="text-xs font-bold text-slate-500 uppercase">Linked {labels.learnerPlural}</label>
+                  <SearchableSelect
+                    multiple
+                    options={studentOptions}
+                    value={formData.children}
+                    onChange={(v) => setFormData({ ...formData, children: v })}
+                    placeholder="Search and select students..."
+                    emptyText={`No ${labels.learnerPlural.toLowerCase()} match your search`}
                   />
                 </div>
               </div>

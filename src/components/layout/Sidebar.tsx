@@ -104,6 +104,17 @@ const roleNavLinks: Record<Role, NavItem[]> = {
     { name: 'Admissions', icon: UserPlus, path: '/admin/admissions' },
     { name: 'Activity Logs', icon: ScrollText, path: '/admin/activity-logs' },
   ],
+  REGISTRAR: [
+    { name: 'Dashboard', icon: LayoutDashboard, path: '/registrar' },
+    { 
+      name: 'Admissions', 
+      icon: UserPlus, 
+      subItems: [
+        { name: 'Applications', path: '/registrar/admissions', icon: ClipboardList },
+      ]
+    },
+    { name: 'Student Records', icon: GraduationCap, path: '/registrar/students' },
+  ],
   TEACHER: [
     { name: 'Dashboard', icon: LayoutDashboard, path: '/teacher' },
     { 
@@ -146,6 +157,7 @@ const roleNavLinks: Record<Role, NavItem[]> = {
       ]
     },
     { name: 'My Fees', icon: DollarSign, path: '/student/fees' },
+    { name: 'Admission Letter', icon: GraduationCap, path: '/student/admission-letter' },
   ],
   PARENT: [
     { name: 'Dashboard', icon: LayoutDashboard, path: '/parent' },
@@ -232,6 +244,7 @@ const roleNavLinks: Record<Role, NavItem[]> = {
 const roleColors: Record<Role, string> = {
   SUPER_ADMIN: "bg-slate-700 shadow-slate-900/40",
   ADMIN: "bg-blue-600 shadow-blue-900/40",
+  REGISTRAR: "bg-violet-600 shadow-violet-900/40",
   TEACHER: "bg-indigo-600 shadow-indigo-900/40",
   STUDENT: "bg-emerald-600 shadow-emerald-900/40",
   PARENT: "bg-purple-600 shadow-purple-900/40",
@@ -264,6 +277,8 @@ export default function Sidebar({ role, open, onClose }: SidebarProps) {
   const portalLabels = getPortalLevelLabels(schoolProfile.portalLevel);
   const portalTitle = role === 'TEACHER'
     ? `${portalLabels.teacherPlural.replace(/s$/i, '')} Portal`
+    : role === 'REGISTRAR'
+    ? 'Registrar Portal'
     : role.replace('_', ' ');
   
   const links = useMemo(() => {
@@ -286,22 +301,23 @@ export default function Sidebar({ role, open, onClose }: SidebarProps) {
             subItem.path === '/admin/students'
               ? { ...subItem, name: labels.learnerPlural }
               : subItem.path === '/admin/teachers'
-              ? { ...subItem, name: labels.teacherPlural }
+              ? { ...subItem, name: labels.teacherPlural, path: '/admin/teachers' }
               : subItem
           ),
         };
       }
 
       if (role === 'ADMIN' && link.name === 'Academic Hub' && link.subItems) {
+        const isTertiary = schoolProfile.portalLevel === 'College' || schoolProfile.portalLevel === 'Polytechnic' || schoolProfile.portalLevel === 'University';
         return {
           ...link,
           name: `${labels.curriculumLabel} Hub`,
           subItems: link.subItems.map((subItem) => {
             if (subItem.path === '/admin/classes') {
-              return { ...subItem, name: labels.structurePlural };
+              return { ...subItem, name: labels.structurePlural, path: isTertiary ? '/admin/departments' : '/admin/classes' };
             }
             if (subItem.path === '/admin/academic') {
-              return { ...subItem, name: labels.curriculumLabel };
+              return { ...subItem, name: labels.curriculumLabel, path: isTertiary ? '/admin/programmes' : '/admin/academic' };
             }
             return subItem;
           }),

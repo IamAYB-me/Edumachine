@@ -11,9 +11,43 @@ import {
 } from '@/services/authService';
 import { logActivity } from '@/utils/activityLogger';
 
+const AUTH_SESSION_KEY = 'brochest:auth-session-v1';
+
+function readCachedUser(): User | null {
+  try {
+    const raw = localStorage.getItem(AUTH_SESSION_KEY);
+    return raw ? (JSON.parse(raw) as User) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedUser(user: User | null) {
+  try {
+    if (user) {
+      localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(AUTH_SESSION_KEY);
+    }
+  } catch {
+    /* localStorage unavailable */
+  }
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error('Request timed out')), ms);
+    promise.then(
+      (v) => { window.clearTimeout(timer); resolve(v); },
+      (e) => { window.clearTimeout(timer); reject(e); },
+    );
+  });
+}
+
 export type Role =
   | 'SUPER_ADMIN'
   | 'ADMIN'
+  | 'REGISTRAR'
   | 'TEACHER'
   | 'STUDENT'
   | 'PARENT'
@@ -54,6 +88,7 @@ export interface RegisteredUser {
 const ROLE_LABELS: Record<Role, string> = {
   SUPER_ADMIN: 'System Admin',
   ADMIN: 'Administrator',
+  REGISTRAR: 'Registrar',
   TEACHER: 'Teacher',
   STUDENT: 'Student',
   PARENT: 'Parent',
@@ -68,6 +103,7 @@ const ROLE_LABELS: Record<Role, string> = {
 const ROLE_DASHBOARDS: Record<Role, string> = {
   SUPER_ADMIN: '/super-admin',
   ADMIN: '/admin',
+  REGISTRAR: '/registrar',
   TEACHER: '/teacher',
   STUDENT: '/student',
   PARENT: '/parent',
@@ -110,24 +146,43 @@ interface AuthState {
   updateProfile: (updates: Partial<User>) => Promise<void>;
 }
 
+const cachedSession = readCachedUser();
+
 export const useAuthStore = create<AuthState>()((set, get) => ({
-  user: null,
-  isAuthenticated: false,
-  isLoading: true,
-  _hasHydrated: false,
+  user: cachedSession,
+  isAuthenticated: !!cachedSession,
+  isLoading: false,
+  _hasHydrated: !!cachedSession,
 
   setHasHydrated: () => {},
 
   initAuthListener: () => {
+    const cachedUser = readCachedUser();
+    if (cachedUser) {
+      set({
+        user: cachedUser,
+        isAuthenticated: true,
+        isLoading: false,
+        _hasHydrated: true,
+      });
+    }
+
     onAuthStateChange(async (firebaseUser) => {
-      let nextUser = null;
+      let nextUser: User | null = null;
       if (firebaseUser) {
-        const profile = await getUserProfile(firebaseUser.uid);
-        if (profile) {
-          const promotedProfile = await autoPromoteApplicantIfAdmitted(firebaseUser.uid, profile);
-          nextUser = firestoreUserToUser(promotedProfile);
+        try {
+          const profile = await withTimeout(getUserProfile(firebaseUser.uid), 8000);
+          if (profile) {
+            const promotedUser = await autoPromoteApplicantIfAdmitted(firebaseUser.uid, profile);
+            nextUser = firestoreUserToUser(promotedUser);
+          } else {
+            nextUser = cachedUser;
+          }
+        } catch {
+          nextUser = cachedUser;
         }
       }
+      writeCachedUser(nextUser);
       set({
         user: nextUser,
         isAuthenticated: !!nextUser,
@@ -143,6 +198,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       const promotedUser = await autoPromoteApplicantIfAdmitted(result.user.uid, result.user);
       const user = firestoreUserToUser(promotedUser);
       set({ user, isAuthenticated: true });
+      writeCachedUser(user);
       logActivity({ action: 'LOGIN', module: 'auth', description: `User logged in: ${user.email}`, user: { id: user.id, name: user.name, role: user.role } });
       return { success: true };
     }
@@ -170,6 +226,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     if (user) {
       logActivity({ action: 'LOGOUT', module: 'auth', description: `User logged out: ${user.email}`, user: { id: user.id, name: user.name, role: user.role } });
     }
+    writeCachedUser(null);
     await logoutUser();
     set({ user: null, isAuthenticated: false });
   },
@@ -184,6 +241,8 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       avatarUrl: updates.avatarUrl,
       portalLevel: updates.portalLevel,
     });
-    set({ user: { ...user, ...updates } });
+    const nextUser = { ...user, ...updates };
+    set({ user: nextUser });
+    writeCachedUser(nextUser);
   },
 }));
