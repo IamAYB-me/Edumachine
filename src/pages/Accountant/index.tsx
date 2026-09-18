@@ -22,6 +22,7 @@ export default function AccountantDashboard() {
   const payroll = useDataStore((s) => s.payroll);
   const students = useDataStore((s) => s.students);
   const schools = useDataStore((s) => s.schools);
+  const academicSessions = useDataStore((s) => s.academicSessions);
   const { user } = useAuthStore();
   const schoolProfile = resolveSchoolProfile(user ?? null, schools);
   const labels = getPortalLevelLabels(schoolProfile.portalLevel);
@@ -30,7 +31,11 @@ export default function AccountantDashboard() {
   const totalRevenue = feeRecords.filter(f => f.status === 'Paid').reduce((sum, f) => sum + f.amount, 0);
   const netProfit = totalRevenue - totalExpenses;
 
-  const onRoll = useOnRollFilters(students, labels.termOptions);
+  const sessionNames = useMemo(
+    () => academicSessions.map((session) => session.name).filter(Boolean),
+    [academicSessions],
+  );
+  const onRoll = useOnRollFilters(students, labels.termOptions, sessionNames);
   const onRollStudents = onRoll.onRollStudents;
 
   // Expected fees = every active, non-optional structure that applies to each

@@ -14,14 +14,24 @@ export const ON_ROLL_ALL = 'all';
  * Options are derived from the students themselves so no extra collections are
  * required by the ACCOUNTANT role.
  */
-export function useOnRollFilters(students: Student[], termBase: string[] = []) {
+export function useOnRollFilters(
+  students: Student[],
+  termBase: string[] = [],
+  sessionBase: string[] = [],
+) {
   const [session, setSession] = useState(ON_ROLL_ALL);
   const [term, setTerm] = useState(ON_ROLL_ALL);
   const [structure, setStructure] = useState(ON_ROLL_ALL);
 
   const sessionOptions = useMemo(
-    () => Array.from(new Set(students.map(studentSessionKey).filter(Boolean))).sort(),
-    [students],
+    () =>
+      Array.from(
+        new Set([
+          ...sessionBase,
+          ...students.map(studentSessionKey).filter(Boolean),
+        ]),
+      ).sort(),
+    [students, sessionBase],
   );
   const structureOptions = useMemo(
     () => Array.from(new Set(students.map(studentStructureKey).filter(Boolean))).sort(),

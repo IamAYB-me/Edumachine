@@ -44,46 +44,11 @@ var __rest = (this && this.__rest) || function (s, e) {
     return t;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteUserAccount = exports.submitAdmissionApplication = exports.handlePaystackWebhook = exports.payAcceptanceFee = exports.verifyPaystackPayment = exports.adminBatchUpdateEmails = void 0;
+exports.deleteUserAccount = exports.submitAdmissionApplication = exports.handlePaystackWebhook = exports.payAcceptanceFee = exports.verifyPaystackPayment = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 admin.initializeApp();
 const db = admin.firestore();
-exports.adminBatchUpdateEmails = functions.https.onRequest(async (req, res) => {
-    var _a;
-    res.set("Access-Control-Allow-Origin", "*");
-    if (req.method === "OPTIONS") {
-        res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
-        res.set("Access-Control-Allow-Headers", "Content-Type");
-        res.status(204).end();
-        return;
-    }
-    const secret = process.env.ADMIN_RESET_SECRET || "";
-    const auth = req.headers["x-admin-secret"] || (String(req.query.secret) || "");
-    if (!secret || auth !== secret) {
-        res.status(403).json({ ok: false, error: "forbidden" });
-        return;
-    }
-    const updates = Array.isArray((_a = req.body) === null || _a === void 0 ? void 0 : _a.updates) ? req.body.updates : [];
-    const results = [];
-    for (const u of updates) {
-        const uid = String((u === null || u === void 0 ? void 0 : u.uid) || "");
-        const email = String((u === null || u === void 0 ? void 0 : u.email) || "");
-        if (!uid || !email) {
-            results.push({ uid, email, ok: false, error: "missing" });
-            continue;
-        }
-        try {
-            await admin.auth().getUser(uid);
-            await admin.auth().updateUser(uid, { email });
-            results.push({ uid, email, ok: true });
-        }
-        catch (e) {
-            results.push({ uid, email, ok: false, error: (e === null || e === void 0 ? void 0 : e.message) || String(e) });
-        }
-    }
-    res.json({ ok: true, results });
-});
 // Secrets live in server-side environment configuration (functions/.env.<project>),
 // never in the publicly-readable portal settings doc.
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || "";

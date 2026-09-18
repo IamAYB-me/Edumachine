@@ -9,6 +9,9 @@ import {
   TrendingUp,
   Wallet,
   Users,
+  AlertTriangle,
+  Percent,
+  ChevronDown,
   X,
   Edit2,
   Trash2,
@@ -27,7 +30,7 @@ import { FeeStructureManager } from '@/components/ui/FeeStructureManager';
 import CourseRegistrationToggle from '@/components/ui/CourseRegistrationToggle';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useDataStore, FeeRecord } from '@/store/useDataStore';
-import { buildOnRollLookup } from '@/utils/studentFilters';
+import { buildOnRollLookup, studentStructureKey } from '@/utils/studentFilters';
 import { useOnRollFilters } from '@/hooks/useOnRollFilters';
 import { deriveStudentFees } from '@/utils/feeGating';
 import { useToastStore } from '@/store/useToastStore';
@@ -48,20 +51,34 @@ export default function AccountantFees() {
     deleteFeeRecord,
     students,
     schools,
+    academicSessions,
     addNotification,
   } = useDataStore();
   const { user } = useAuthStore();
   const schoolProfile = resolveSchoolProfile(user ?? null, schools);
   const labels = getPortalLevelLabels(schoolProfile.portalLevel ?? 'Secondary');
 
-  const onRoll = useOnRollFilters(students, labels.termOptions);
+  const sessionNames = useMemo(
+    () => academicSessions.map((session) => session.name).filter(Boolean),
+    [academicSessions],
+  );
+  const onRoll = useOnRollFilters(students, labels.termOptions, sessionNames);
+
+  const [studentFilter, setStudentFilter] = useState('');
+  const selectedFilterStudent = useMemo(
+    () => onRoll.onRollStudents.find((student) => student.id === studentFilter),
+    [onRoll.onRollStudents, studentFilter],
+  );
+
   const filtersSummary = [
     onRoll.session !== 'all' ? `Session: ${onRoll.session}` : '',
     onRoll.term !== 'all' ? `${labels.termLabel}: ${onRoll.term}` : '',
     onRoll.structure !== 'all' ? `${labels.structureSingular}: ${onRoll.structure}` : '',
+    selectedFilterStudent ? `${labels.learnerSingular}: ${selectedFilterStudent.name}` : '',
   ].filter(Boolean).join(' · ');
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [showBreakdown, setShowBreakdown] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'All' | 'Paid' | 'Pending' | 'Partial'>('All');
   const [quickInvoiceReg, setQuickInvoiceReg] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -84,8 +101,46 @@ export default function AccountantFees() {
 
   const scopeFees = useMemo(() => {
     const { ids, regNos } = buildOnRollLookup(onRoll.onRollStudents);
-    return feeRecords.filter((fee) => ids.has(fee.studentId) || regNos.has(fee.studentId));
-  }, [feeRecords, onRoll.onRollStudents]);
+    return feeRecords.filter((fee) => {
+      const inScope = ids.has(fee.studentId) || regNos.has(fee.studentId);
+      if (!inScope) return false;
+      if (!selectedFilterStudent) return true;
+      return (
+        fee.studentId === selectedFilterStudent.id ||
+        (!!selectedFilterStudent.regNo && fee.studentId === selectedFilterStudent.regNo)
+      );
+    });
+  }, [feeRecords, onRoll.onRollStudents, selectedFilterStudent]);
+
+  const studentOutstanding = useMemo(() => {
+    if (!selectedFilterStudent) return 0;
+    const records = feeRecords.filter(
+      (fee) =>
+        fee.studentId === selectedFilterStudent.id ||
+        (!!selectedFilterStudent.regNo && fee.studentId === selectedFilterStudent.regNo),
+    );
+    return deriveStudentFees(feeStructures, records, selectedFilterStudent.class)
+      .filter((fee) => !fee.isOptional)
+      .reduce((sum, fee) => sum + fee.remaining, 0);
+  }, [selectedFilterStudent, feeRecords, feeStructures]);
+
+  const studentFilterOptions = useMemo(
+    () => [
+      { value: '', label: `All ${labels.learnerPlural}` },
+      ...onRoll.onRollStudents.map((student) => ({
+        value: student.id,
+        label: student.name,
+        sublabel: student.regNo,
+      })),
+    ],
+    [onRoll.onRollStudents, labels.learnerPlural],
+  );
+
+  const hasActiveFilters = onRoll.hasActiveFilters || !!selectedFilterStudent;
+  const resetFilters = () => {
+    onRoll.reset();
+    setStudentFilter('');
+  };
 
   const filteredFees = useMemo(() => {
     return scopeFees.filter(
@@ -120,6 +175,61 @@ export default function AccountantFees() {
 
     return { totalPaid, totalPending, uniquePayers, todaysCollection, collectionProgress };
   }, [scopeFees]);
+
+  // Overall expected vs collected vs outstanding for the students currently on
+  // roll (already narrowed by session / semester / structure / student), broken
+  // down by fee category.
+  const feeOverview = useMemo(() => {
+    const activeStructures = feeStructures.filter(
+      (structure) => structure.status === 'Active' && !structure.isOptional,
+    );
+    const termStructures =
+      onRoll.term !== 'all'
+        ? activeStructures.filter((structure) => !structure.term || structure.term === onRoll.term)
+        : activeStructures;
+
+    const { ids, regNos } = buildOnRollLookup(onRoll.onRollStudents);
+    const records = feeRecords.filter(
+      (fee) => ids.has(fee.studentId) || regNos.has(fee.studentId),
+    );
+
+    const rows = new Map<string, { category: string; expected: number; collected: number }>();
+    const ensureRow = (category: string) => {
+      let row = rows.get(category);
+      if (!row) {
+        row = { category, expected: 0, collected: 0 };
+        rows.set(category, row);
+      }
+      return row;
+    };
+
+    let expected = 0;
+    onRoll.onRollStudents.forEach((student) => {
+      const structureKey = studentStructureKey(student);
+      termStructures.forEach((structure) => {
+        if (!structure.isUniversal && structure.className !== structureKey) return;
+        ensureRow(structure.category).expected += structure.amount;
+        expected += structure.amount;
+      });
+    });
+
+    let collected = 0;
+    records.forEach((record) => {
+      if (record.status !== 'Paid' && record.status !== 'Partial') return;
+      collected += record.amount;
+      ensureRow(record.type).collected += record.amount;
+    });
+
+    const breakdown = Array.from(rows.values())
+      .map((row) => ({ ...row, outstanding: Math.max(0, row.expected - row.collected) }))
+      .filter((row) => row.expected > 0 || row.collected > 0)
+      .sort((a, b) => b.expected - a.expected || b.collected - a.collected);
+
+    const outstanding = Math.max(0, expected - collected);
+    const rate = expected > 0 ? Math.min(100, Math.round((collected / expected) * 100)) : 0;
+
+    return { expected, collected, outstanding, rate, breakdown };
+  }, [feeStructures, feeRecords, onRoll.onRollStudents, onRoll.term]);
 
   const feeStatusData = [
     { name: 'Collected', value: stats.collectionProgress, color: '#10b981' },
@@ -341,7 +451,7 @@ export default function AccountantFees() {
               </p>
             </div>
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:w-[620px]">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:w-[880px]">
             <label className="space-y-1">
               <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Session</span>
               <select
@@ -381,18 +491,159 @@ export default function AccountantFees() {
                 ))}
               </select>
             </label>
+            <label className="space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{labels.learnerSingular}</span>
+              <SearchableSelect
+                options={studentFilterOptions}
+                value={studentFilter}
+                onChange={setStudentFilter}
+                placeholder={`All ${labels.learnerPlural}`}
+                emptyText={`No ${labels.learnerPlural.toLowerCase()} found`}
+              />
+            </label>
           </div>
         </div>
-        {onRoll.hasActiveFilters ? (
+        {selectedFilterStudent ? (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-100 bg-amber-50/60 px-4 py-3 dark:border-amber-900/40 dark:bg-amber-900/10">
+            <div className="flex items-center gap-2 text-sm">
+              <Wallet className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <span className="font-bold text-slate-700 dark:text-slate-200">
+                {selectedFilterStudent.name}
+              </span>
+              <span className="text-xs font-medium text-slate-400">
+                {selectedFilterStudent.regNo || selectedFilterStudent.id}
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Outstanding</span>
+              <span
+                className={cn(
+                  'text-lg font-black',
+                  studentOutstanding > 0
+                    ? 'text-rose-600 dark:text-rose-400'
+                    : 'text-emerald-600 dark:text-emerald-400',
+                )}
+              >
+                {format(studentOutstanding)}
+              </span>
+            </div>
+          </div>
+        ) : null}
+        {hasActiveFilters ? (
           <div className="mt-4 flex justify-end">
             <button
-              onClick={onRoll.reset}
+              onClick={resetFilters}
               className="inline-flex items-center gap-2 text-xs font-bold text-blue-600 hover:underline dark:text-blue-400"
             >
               <RotateCcw className="h-3.5 w-3.5" />
               Reset filters
             </button>
           </div>
+        ) : null}
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50/50 p-6 dark:border-slate-800 dark:bg-slate-800/50 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Fee Collection Overview</h3>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              Overall expected and outstanding for{' '}
+              <span className="font-bold text-slate-700 dark:text-slate-200">{onRoll.onRollStudents.length}</span>{' '}
+              {labels.learnerPlural.toLowerCase()} on roll, by fee category
+              {filtersSummary ? ` · ${filtersSummary}` : ''}.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 self-start rounded-2xl bg-slate-100 px-4 py-2 dark:bg-slate-800">
+            <Percent className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Collection Rate</span>
+            <span className="text-lg font-black text-slate-900 dark:text-white">{feeOverview.rate}%</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-3">
+          <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-5 dark:border-indigo-900/40 dark:bg-indigo-900/10">
+            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-indigo-500 dark:text-indigo-400">
+              <Wallet className="h-4 w-4" />
+              Overall Expected
+            </div>
+            <p className="mt-2 text-2xl font-black text-slate-900 dark:text-white">{format(feeOverview.expected)}</p>
+          </div>
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-5 dark:border-emerald-900/40 dark:bg-emerald-900/10">
+            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+              <TrendingUp className="h-4 w-4" />
+              Collected
+            </div>
+            <p className="mt-2 text-2xl font-black text-slate-900 dark:text-white">{format(feeOverview.collected)}</p>
+          </div>
+          <div className="rounded-2xl border border-amber-100 bg-amber-50/50 p-5 dark:border-amber-900/40 dark:bg-amber-900/10">
+            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="h-4 w-4" />
+              Overall Outstanding
+            </div>
+            <p className={cn('mt-2 text-2xl font-black', feeOverview.outstanding > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-900 dark:text-white')}>
+              {format(feeOverview.outstanding)}
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setShowBreakdown((current) => !current)}
+          aria-expanded={showBreakdown}
+          className="flex w-full items-center justify-between gap-3 border-t border-slate-100 px-6 py-4 text-left transition-colors hover:bg-slate-50/70 dark:border-slate-800 dark:hover:bg-slate-800/40"
+        >
+          <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+            Breakdown by Fee Category
+          </span>
+          <span className="inline-flex items-center gap-2 text-xs font-bold text-blue-600 dark:text-blue-400">
+            {showBreakdown ? 'Hide' : 'Show'}
+            <ChevronDown className={cn('h-4 w-4 transition-transform', showBreakdown && 'rotate-180')} />
+          </span>
+        </button>
+
+        {showBreakdown ? (
+        <div className="overflow-x-auto border-t border-slate-100 dark:border-slate-800">
+          <table className="w-full border-collapse text-left">
+            <thead>
+              <tr className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:border-slate-800 dark:text-slate-500">
+                <th className="px-6 py-4">Fee Category</th>
+                <th className="px-6 py-4 text-right">Expected</th>
+                <th className="px-6 py-4 text-right">Collected</th>
+                <th className="px-6 py-4 text-right">Outstanding</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+              {feeOverview.breakdown.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-6 py-8 text-center text-sm text-slate-400">
+                    No active fee categories match the current filters.
+                  </td>
+                </tr>
+              ) : (
+                feeOverview.breakdown.map((row) => (
+                  <tr key={row.category} className="transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                    <td className="px-6 py-4 font-bold text-slate-700 dark:text-slate-200">{row.category}</td>
+                    <td className="px-6 py-4 text-right font-medium text-slate-600 dark:text-slate-300">{format(row.expected)}</td>
+                    <td className="px-6 py-4 text-right font-medium text-emerald-600 dark:text-emerald-400">{format(row.collected)}</td>
+                    <td className={cn('px-6 py-4 text-right font-black', row.outstanding > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400')}>
+                      {format(row.outstanding)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+            {feeOverview.breakdown.length > 0 ? (
+              <tfoot>
+                <tr className="border-t border-slate-200 text-sm dark:border-slate-700">
+                  <td className="px-6 py-4 font-black uppercase tracking-tight text-slate-900 dark:text-white">Total</td>
+                  <td className="px-6 py-4 text-right font-black text-slate-900 dark:text-white">{format(feeOverview.expected)}</td>
+                  <td className="px-6 py-4 text-right font-black text-emerald-600 dark:text-emerald-400">{format(feeOverview.collected)}</td>
+                  <td className="px-6 py-4 text-right font-black text-rose-600 dark:text-rose-400">{format(feeOverview.outstanding)}</td>
+                </tr>
+              </tfoot>
+            ) : null}
+          </table>
+        </div>
         ) : null}
       </div>
 

@@ -985,7 +985,7 @@ export const useDataStore = create<DataState>()((set, get) => ({
       PARENT: ['students', 'attendance', 'feeRecords', 'notifications', 'notices', 'schools'],
       HR: ['staff', 'attendance', 'payroll', 'notifications', 'notices', 'schools'],
       WARDEN: ['students', 'notifications', 'schools'],
-      ACCOUNTANT: ['students', 'feeRecords', 'feeStructures', 'expenses', 'payroll', 'notifications', 'schools'],
+      ACCOUNTANT: ['students', 'feeRecords', 'feeStructures', 'academicSessions', 'expenses', 'payroll', 'notifications', 'schools'],
       TRANSPORT: ['students', 'notifications', 'schools'],
       LIBRARIAN: ['students', 'notifications', 'schools'],
       APPLICANT: ['admissionApplications', 'notifications'],
