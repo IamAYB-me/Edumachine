@@ -581,12 +581,12 @@ export default function StudentFees() {
             <div className="p-6">
               <div className="space-y-4">
                 {pendingFees.length > 0 ? pendingFees.map((fee) => (
-                  <div key={fee.structureKey} className="flex items-center justify-between p-5 rounded-2xl border border-rose-100 dark:border-rose-900/20 bg-rose-50/30 dark:bg-rose-900/10 group transition-all">
-                    <div className="flex items-center gap-4">
-                      <div className="p-3 bg-white dark:bg-slate-800 text-rose-600 rounded-2xl shadow-sm">
-                        <DollarSign className="w-6 h-6" />
+                  <div key={fee.structureKey} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl border border-rose-100 dark:border-rose-900/20 bg-rose-50/30 dark:bg-rose-900/10 group transition-all">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="p-2.5 sm:p-3 bg-white dark:bg-slate-800 text-rose-600 rounded-2xl shadow-sm">
+                        <DollarSign className="w-5 h-5 sm:w-6 sm:h-6" />
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="font-bold text-slate-900 dark:text-white">{fee.category}</h4>
                           <span className={cn(
@@ -608,7 +608,7 @@ export default function StudentFees() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-6">
+                    <div className="flex items-center justify-between gap-4 w-full sm:w-auto sm:justify-end sm:gap-6">
                       <div className="text-right">
                         <span className="text-xl font-black text-slate-900 dark:text-white">{format(fee.remaining)}</span>
                         {fee.status === 'Partial' && (
@@ -617,7 +617,7 @@ export default function StudentFees() {
                       </div>
                       <button 
                         onClick={() => handlePay(fee)}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-900/20 active:scale-95"
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-5 sm:px-6 py-2 rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-900/20 active:scale-95"
                       >
                         Pay Now
                       </button>

@@ -1,6 +1,6 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { BookOpen, Award, UserCheck, Bell, Download, DollarSign, ShieldCheck, FileText, Camera, GraduationCap, Mail, IdCard, Lock, Pencil, X } from 'lucide-react';
+import { BookOpen, Award, UserCheck, Bell, Download, DollarSign, ShieldCheck, FileText, Camera, GraduationCap, Mail, IdCard, Lock, CalendarClock, Pencil, X } from 'lucide-react';
 import { KPICard } from '@/components/ui/KPICard';
 import { AnimatedCard } from '@/components/ui/AnimatedCard';
 import { AnimatedPage, StaggerContainer, StaggerItem, AnimatedButton } from '@/components/ui/motion';
@@ -88,6 +88,40 @@ export default function StudentDashboard() {
     .reduce((sum, f) => sum + f.remaining, 0);
   const isFinanciallyCleared = pendingFeeTotal === 0;
   const unreadNotifs = notifications.filter(n => n.userId === user?.id && !n.read).length;
+
+  const examTimetable = useDataStore((state) => state.examTimetable);
+  const myExamTimetable = useMemo(
+    () => examTimetable.filter((e) => e.class === myStudent?.class),
+    [examTimetable, myStudent?.class]
+  );
+  const nextExamDate = useMemo(() => {
+    if (myExamTimetable.length === 0) return null;
+    const weekdayOrder = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const days = new Set(myExamTimetable.map((e) => e.day));
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    for (let offset = 0; offset < 7; offset++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + offset);
+      if (days.has(weekdayOrder[d.getDay()])) return d;
+    }
+    return null;
+  }, [myExamTimetable]);
+  const [examCountdown, setExamCountdown] = useState('');
+  useEffect(() => {
+    if (!nextExamDate) return;
+    const tick = () => {
+      const diff = nextExamDate.getTime() - Date.now();
+      if (diff <= 0) { setExamCountdown('Exam day'); return; }
+      const days = Math.floor(diff / 86400000);
+      const hours = Math.floor((diff % 86400000) / 3600000);
+      const mins = Math.floor((diff % 3600000) / 60000);
+      setExamCountdown(days > 0 ? `${days}d ${hours}h ${mins}m` : `${hours}h ${mins}m`);
+    };
+    tick();
+    const id = setInterval(tick, 60000);
+    return () => clearInterval(id);
+  }, [nextExamDate]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
@@ -219,10 +253,10 @@ return (
                     {stageValue}
                   </span>
                 )}
-                {myStudent?.regNo && (
+                {(myStudent?.admissionNumber || myStudent?.regNo || myStudent?.matricNumber) && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold sm:text-[11px]">
                     <IdCard className="h-3 w-3" />
-                    {myStudent.regNo || myStudent.matricNumber}
+                    {myStudent.admissionNumber || myStudent.regNo || myStudent.matricNumber}
                   </span>
                 )}
               </div>
@@ -511,6 +545,30 @@ return (
 
           {/* Right column */}
           <div className="space-y-4 sm:space-y-6">
+            {nextExamDate && (
+              <AnimatedCard delay={0.26} className="rounded-xl border border-violet-100 bg-gradient-to-b from-violet-50/70 to-white shadow-sm dark:border-violet-900/50 dark:from-violet-950/30 dark:to-slate-900">
+                <div className="flex items-center gap-2 px-4 pt-4 sm:px-6 sm:pt-6">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-900/50">
+                    <CalendarClock className="h-4 w-4 text-violet-600 dark:text-violet-300" />
+                  </div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Next {labels.assessmentLabel}</h3>
+                </div>
+                <div className="px-4 pb-4 pt-2 sm:px-6 sm:pb-5">
+                  <p className="text-2xl font-black text-violet-700 sm:text-3xl dark:text-violet-300">{examCountdown}</p>
+                  <p className="mt-1 text-[11px] text-slate-500 sm:text-xs dark:text-slate-400">
+                    {nextExamDate.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })} · {myExamTimetable.length} {labels.assessmentLabel.toLowerCase()} scheduled
+                  </p>
+                  <Link
+                    to="/student/exams"
+                    state={{ tab: 'timetable' }}
+                    className="mt-3 block w-full rounded-lg bg-violet-50 py-2 text-center text-[11px] font-semibold text-violet-700 transition-colors hover:bg-violet-100 sm:text-sm dark:bg-violet-900/40 dark:text-violet-300"
+                  >
+                    View Timetable
+                  </Link>
+                </div>
+              </AnimatedCard>
+            )}
+
             {/* Quick Links */}
             <AnimatedCard delay={0.26} className="rounded-xl border border-purple-100 bg-gradient-to-b from-purple-50/70 to-white shadow-sm dark:border-purple-900/50 dark:from-purple-950/30 dark:to-slate-900">
               <div className="flex items-center gap-2 px-4 pt-4 sm:px-6 sm:pt-6">

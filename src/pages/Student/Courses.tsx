@@ -333,7 +333,7 @@ export default function StudentCourses() {
   const selectedSubjectData = selectedSubject ? subjects.find((s) => s.id === selectedSubject) : null;
 
   return (
-    <div className="space-y-6 h-full flex flex-col">
+    <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{labels.studyLabel}</h1>
@@ -375,16 +375,16 @@ export default function StudentCourses() {
       </div>
 
       {registrationClosed && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 dark:border-amber-900/40 dark:bg-amber-950/30 p-5">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <div className="shrink-0 w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
-              <Lock className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 dark:border-amber-900/40 dark:bg-amber-950/30 p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="shrink-0 w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+              <Lock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
             </div>
             <div className="flex-1">
               <h3 className="text-sm font-bold text-amber-900 dark:text-amber-300 uppercase tracking-wide">
                 Course Registration Closed
               </h3>
-              <p className="text-sm text-amber-800 dark:text-amber-400 mt-1">
+              <p className="text-xs sm:text-sm text-amber-800 dark:text-amber-400 mt-0.5">
                 Registration has been temporarily closed by the school. Your previously registered {labels.subjectPlural.toLowerCase()} (if any) remain intact and can still be printed below.
               </p>
             </div>
@@ -393,24 +393,24 @@ export default function StudentCourses() {
       )}
 
       {registrationBlocked && !registrationClosed && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 dark:border-rose-900/40 dark:bg-rose-950/30 p-5">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <div className="shrink-0 w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-900/40 flex items-center justify-center">
-              <Lock className="w-6 h-6 text-rose-600 dark:text-rose-400" />
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 dark:border-rose-900/40 dark:bg-rose-950/30 p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="shrink-0 w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-900/40 flex items-center justify-center">
+              <Lock className="w-5 h-5 text-rose-600 dark:text-rose-400" />
             </div>
             <div className="flex-1">
               <h3 className="text-sm font-bold text-rose-900 dark:text-rose-300 uppercase tracking-wide">
                 Registration Locked — Fees Required
               </h3>
-              <p className="text-sm text-rose-700 dark:text-rose-400 mt-1">
+              <p className="text-xs sm:text-sm text-rose-700 dark:text-rose-400 mt-0.5">
                 {gatingBlockerMessage('course_registration', myStudent?.class)}
               </p>
-              <div className="mt-3 space-y-2">
+              <div className="mt-2.5 space-y-1.5">
                 {gating.blockers.map((b) => (
-                  <div key={b.structure.id} className="flex items-center justify-between gap-3 rounded-xl bg-white/60 dark:bg-white/5 px-4 py-2.5 border border-rose-100 dark:border-rose-900/30">
+                  <div key={b.structure.id} className="flex items-center justify-between gap-2.5 rounded-lg bg-white/60 dark:bg-white/5 px-3 py-2 border border-rose-100 dark:border-rose-900/30">
                     <div>
-                      <p className="text-sm font-bold text-slate-900 dark:text-white">{b.structure.category}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                      <p className="text-[13px] font-bold text-slate-900 dark:text-white">{b.structure.category}</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
                         Paid {format(b.studentsPaid)} / Required {format(b.required)} ({b.structure.requiredPercentage ?? 100}%)
                       </p>
                     </div>
@@ -421,7 +421,7 @@ export default function StudentCourses() {
             </div>
             <button
               onClick={() => navigate('/student/fees')}
-              className="shrink-0 inline-flex items-center justify-center gap-2 px-6 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-rose-900/20 transition-all"
+              className="shrink-0 self-start sm:self-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs sm:text-sm font-bold shadow-lg shadow-rose-900/20 transition-all"
             >
               Pay Fees Now
             </button>
@@ -513,7 +513,7 @@ export default function StudentCourses() {
       </div>
 
       {/* Course Cards - Print hidden area */}
-      <div ref={printRef} className="flex-1 overflow-y-auto">
+      <div ref={printRef}>
         {filteredSubjects.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <BookOpen className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-4" />
