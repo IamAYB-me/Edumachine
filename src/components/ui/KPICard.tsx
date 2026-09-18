@@ -11,6 +11,7 @@ interface KPICardProps {
   icon: LucideIcon;
   iconColorClass?: string;
   iconBgClass?: string;
+  toneClass?: string;
   isCurrency?: boolean;
   delay?: number;
   to?: string;
@@ -63,6 +64,7 @@ export function KPICard({
   icon: Icon,
   iconColorClass = "text-blue-600",
   iconBgClass = "bg-blue-50 dark:bg-blue-900/20",
+  toneClass = "",
   isCurrency = false,
   delay = 0,
   to,
@@ -85,16 +87,17 @@ export function KPICard({
       onClick={onClick}
       transition={{ type: 'spring', stiffness: 400, damping: 25 }}
       className={cn(
-        "bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col transition-colors",
+        "bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col transition-colors",
+        toneClass,
         isClickable
           ? "cursor-pointer hover:border-blue-400/60 dark:hover:border-blue-500/60 group"
           : "cursor-default"
       )}
     >
-      <div className="flex justify-between items-start mb-4">
+      <div className="flex justify-between items-start mb-3 sm:mb-4">
         <div>
-          <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">{title}</p>
-          <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
+          <p className="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">{title}</p>
+          <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
             {hasNumericValue && numericValue !== 0 ? (
               <AnimatedNumber value={numericValue} isCurrency={isCurrency} format={format} />
             ) : (
@@ -105,9 +108,9 @@ export function KPICard({
         <motion.div
           whileHover={{ rotate: 12, scale: 1.1 }}
           transition={{ type: 'spring', stiffness: 300, damping: 15 }}
-          className={cn("p-3 rounded-lg", iconBgClass)}
+          className={cn("p-2 sm:p-3 rounded-lg", iconBgClass)}
         >
-          <Icon className={cn("w-6 h-6", iconColorClass)} />
+          <Icon className={cn("w-5 h-5 sm:w-6 sm:h-6", iconColorClass)} />
         </motion.div>
       </div>
 

@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { BookOpen, Award, UserCheck, Bell, Download, Calendar, DollarSign, ShieldCheck, Search, RotateCcw, BellRing, FileText, Camera, GraduationCap, Mail, IdCard, Lock, Pencil, X } from 'lucide-react';
+import { BookOpen, Award, UserCheck, Bell, Download, DollarSign, ShieldCheck, FileText, Camera, GraduationCap, Mail, IdCard, Lock, Pencil, X } from 'lucide-react';
 import { KPICard } from '@/components/ui/KPICard';
 import { AnimatedCard } from '@/components/ui/AnimatedCard';
 import { AnimatedPage, StaggerContainer, StaggerItem, AnimatedButton } from '@/components/ui/motion';
@@ -124,40 +124,6 @@ export default function StudentDashboard() {
     }
   };
 
-  const handleQuickAction = (action: 'issue' | 'return' | 'catalog' | 'reminder') => {
-    if (action === 'issue') {
-      navigate('/librarian/issue');
-      showToast({
-        title: 'Library issue desk opened',
-        description: 'You can now proceed to request a book issue.',
-        variant: 'info',
-      });
-      return;
-    }
-
-    if (action === 'return') {
-      navigate('/librarian/issue');
-      showToast({
-        title: 'Book return opened',
-        description: 'Use the library desk to process your return request.',
-        variant: 'info',
-      });
-      return;
-    }
-
-    if (action === 'catalog') {
-      navigate('/librarian/books');
-      showToast({
-        title: 'Catalog opened',
-        description: 'Search the library catalog for available books and materials.',
-        variant: 'success',
-      });
-      return;
-    }
-
-    navigate('/student/attendance');
-  };
-
   const [editOpen, setEditOpen] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [form, setForm] = useState({ phone: '', residentialAddress: '', townCity: '', state: '', lga: '', guardianName: '', guardianRelationship: '', guardianPhone: '', guardianAddress: '' });
@@ -206,523 +172,539 @@ export default function StudentDashboard() {
   const fieldCls = "w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
   const labelCls = "block text-xs font-semibold text-slate-600 mb-1";
 
-  return (
+return (
     <AnimatedPage>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
+
+        {/* ── Hero ─────────────────────────────────────────────────────────── */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
-          className="flex justify-between items-end"
+          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-600 text-white p-4 sm:p-6 shadow-lg shadow-indigo-900/20"
         >
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Welcome back, {user?.name || 'Student'} 👋</h1>
-            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Here's what's happening in your academic journey.</p>
+          <div className="pointer-events-none absolute -right-8 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+          <div className="pointer-events-none absolute -bottom-12 -left-6 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+
+          <div className="relative flex items-center gap-3 sm:gap-4">
+            <div className="relative shrink-0">
+              <img
+                src={passportUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'Student')}&size=256&background=2563eb&color=fff&bold=true`}
+                alt={user?.name || 'Student'}
+                className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl border-2 border-white/50 object-cover shadow-md"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingPhoto}
+                title="Upload passport photo"
+                className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-white text-blue-600 shadow-md transition-transform hover:scale-110 disabled:opacity-60"
+              >
+                {isUploadingPhoto ? (
+                  <div className="h-3 w-3 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
+                ) : (
+                  <Camera className="h-3 w-3" />
+                )}
+              </button>
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/70 sm:text-[11px]">Welcome back</p>
+              <h1 className="mt-0.5 truncate text-lg font-bold leading-tight sm:text-2xl">{user?.name || 'Student'}</h1>
+              <p className="mt-0.5 truncate text-xs text-white/85 sm:text-sm">{(programmeText || stageValue || 'Student Portal').trim()}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                {stageValue && programmeText && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold sm:text-[11px]">
+                    <GraduationCap className="h-3 w-3" />
+                    {stageValue}
+                  </span>
+                )}
+                {myStudent?.regNo && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold sm:text-[11px]">
+                    <IdCard className="h-3 w-3" />
+                    {myStudent.regNo || myStudent.matricNumber}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
-          
-          {/* Financial Clearance Notice */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.2 }}
+
+          <div
             className={cn(
-              "flex items-center gap-3 px-4 py-2 rounded-xl border animate-pulse shadow-sm",
-              isFinanciallyCleared 
-                ? "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-400"
-                : "bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-900/20 dark:border-rose-800 dark:text-rose-400"
+              "relative mt-3.5 flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold sm:text-sm",
+              isFinanciallyCleared
+                ? "border-emerald-300/40 bg-emerald-400/20 text-emerald-50"
+                : "border-rose-300/40 bg-rose-400/20 text-rose-50"
             )}
           >
-            {isFinanciallyCleared ? <ShieldCheck className="w-5 h-5" /> : <Bell className="w-5 h-5" />}
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider">Financial Status</p>
-              <p className="text-sm font-bold">{isFinanciallyCleared ? 'Cleared for Exams' : 'Outstanding Balance - Clearance Required'}</p>
-            </div>
-          </motion.div>
+            {isFinanciallyCleared ? <ShieldCheck className="h-4 w-4 shrink-0" /> : <Bell className="h-4 w-4 shrink-0" />}
+            <span className="truncate">
+              {isFinanciallyCleared
+                ? 'Financial clearance — Cleared for exams'
+                : `Outstanding balance — ${format(pendingFeeTotal)} remaining`}
+            </span>
+          </div>
         </motion.div>
 
-        {/* Start Course Registration CTA */}
+        {/* ── Course registration CTAs ─────────────────────────────────────── */}
         {courseRegStructure && courseRegEnabled && courseRegLocked && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 20, delay: 0.15 }}
-            className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 dark:border-blue-800 dark:from-blue-950/30 dark:to-indigo-950/20 p-5 shadow-sm"
+            transition={{ type: 'spring', stiffness: 260, damping: 20, delay: 0.1 }}
+            className="flex flex-col gap-3 rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-3.5 shadow-sm sm:flex-row sm:items-center sm:gap-4 sm:p-5 dark:border-blue-800 dark:from-blue-950/30 dark:to-indigo-950/20"
           >
-            <div className="shrink-0 w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
-              <GraduationCap className="w-6 h-6 text-blue-700 dark:text-blue-300" />
+            <div className="flex items-center gap-3 sm:items-start">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 sm:h-12 sm:w-12 dark:bg-blue-900/40">
+                <GraduationCap className="h-5 w-5 text-blue-700 sm:h-6 sm:w-6 dark:text-blue-300" />
+              </div>
+              <div className="flex-1 sm:hidden">
+                <h3 className="text-xs font-bold uppercase tracking-wide text-slate-900 dark:text-white">Course Registration Locked</h3>
+                <p className="mt-0.5 text-[11px] text-slate-600 dark:text-slate-300">
+                  Pay at least {format(courseRegStructure.minPayable)} ({courseRegStructure.requiredPercentage}% of {courseRegStructure.category}) to unlock registration.
+                </p>
+              </div>
             </div>
-            <div className="flex-1">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide">
-                Course Registration Locked — Fees Required
-              </h3>
-              <p className="text-sm text-slate-600 dark:text-slate-300 mt-0.5">
+            <div className="hidden sm:block sm:flex-1">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-900 dark:text-white">Course Registration Locked — Fees Required</h3>
+              <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-300">
                 Pay at least {format(courseRegStructure.minPayable)} (the required {courseRegStructure.requiredPercentage}% of {courseRegStructure.category}) to unlock course registration and begin lectures.
               </p>
             </div>
             <button
               onClick={() => navigate(`/student/fees?pay=${encodeURIComponent(courseRegStructure.category)}`)}
-              className="shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-900/20 transition-all active:scale-95"
+              className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-blue-900/20 transition-all hover:bg-blue-700 active:scale-95 sm:text-sm"
             >
-              <DollarSign className="w-4 h-4" />
+              <DollarSign className="h-4 w-4" />
               Pay Now
             </button>
           </motion.div>
         )}
 
-        {/* Courses Open CTA */}
         {courseRegStructure && courseRegEnabled && !courseRegLocked && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 20, delay: 0.15 }}
-            className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 dark:border-emerald-800 dark:from-emerald-950/30 dark:to-teal-950/20 p-5 shadow-sm"
+            transition={{ type: 'spring', stiffness: 260, damping: 20, delay: 0.1 }}
+            className="flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 p-3.5 shadow-sm sm:flex-row sm:items-center sm:gap-4 sm:p-5 dark:border-emerald-800 dark:from-emerald-950/30 dark:to-teal-950/20"
           >
-            <div className="shrink-0 w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
-              <GraduationCap className="w-6 h-6 text-emerald-700 dark:text-emerald-300" />
+            <div className="flex items-center gap-3 sm:items-start">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 sm:h-12 sm:w-12 dark:bg-emerald-900/40">
+                <GraduationCap className="h-5 w-5 text-emerald-700 sm:h-6 sm:w-6 dark:text-emerald-300" />
+              </div>
+              <div className="flex-1 sm:hidden">
+                <h3 className="text-xs font-bold uppercase tracking-wide text-slate-900 dark:text-white">Course Registration Is Open</h3>
+                <p className="mt-0.5 text-[11px] text-slate-600 dark:text-slate-300">
+                  You have met the fee requirement for {stageValue}. Choose your {labels.subjectPlural.toLowerCase()} now.
+                </p>
+              </div>
             </div>
-            <div className="flex-1">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide">
-                Course Registration Is Open
-              </h3>
-              <p className="text-sm text-slate-600 dark:text-slate-300 mt-0.5">
+            <div className="hidden sm:block sm:flex-1">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-900 dark:text-white">Course Registration Is Open</h3>
+              <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-300">
                 You have met the fee requirement for {stageValue}. Select your {labels.subjectPlural.toLowerCase()} now to complete your registration.
               </p>
             </div>
             <button
               onClick={() => navigate('/student/courses')}
-              className="shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-900/20 transition-all active:scale-95"
+              className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-emerald-900/20 transition-all hover:bg-emerald-700 active:scale-95 sm:text-sm"
             >
-              <GraduationCap className="w-5 h-5" />
+              <GraduationCap className="h-4 w-4" />
               Start Registration
             </button>
           </motion.div>
         )}
 
-        {/* Courses Closed CTA */}
         {courseRegStructure && !courseRegEnabled && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 20, delay: 0.15 }}
-            className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 dark:border-amber-800 dark:from-amber-950/30 dark:to-orange-950/20 p-5 shadow-sm"
+            transition={{ type: 'spring', stiffness: 260, damping: 20, delay: 0.1 }}
+            className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 p-3.5 shadow-sm sm:p-4 dark:border-amber-800 dark:from-amber-950/30 dark:to-orange-950/20"
           >
-            <div className="shrink-0 w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
-              <Lock className="w-6 h-6 text-amber-700 dark:text-amber-300" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 sm:h-11 sm:w-11 dark:bg-amber-900/40">
+              <Lock className="h-5 w-5 text-amber-700 sm:h-5.5 sm:w-5.5 dark:text-amber-300" />
             </div>
-            <div className="flex-1">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide">
-                Course Registration Closed
-              </h3>
-              <p className="text-sm text-slate-600 dark:text-slate-300 mt-0.5">
-                The school has temporarily closed course registration. Your registered courses remain available until it reopens.
+            <div className="min-w-0 flex-1">
+              <h3 className="text-xs font-bold uppercase tracking-wide text-slate-900 sm:text-sm dark:text-white">Course Registration Closed</h3>
+              <p className="mt-0.5 text-[11px] text-slate-600 sm:text-sm dark:text-slate-300">
+                The school has temporarily closed registration. Your registered courses remain available.
               </p>
             </div>
           </motion.div>
         )}
 
-        {/* KPIs */}
-        <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <StaggerItem>
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm col-span-1 lg:col-span-1">
-              <p className="text-sm font-medium text-slate-500 mb-1">{labels.stageLabel}</p>
-              <h3 className="text-xl font-bold text-blue-600 mb-1">{stageValue}</h3>
-              {programmeText && <p className="text-xs text-slate-500">{programmeText}</p>}
+        {/* ── Stat tiles ───────────────────────────────────────────────────── */}
+        <StaggerContainer className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
+          <StaggerItem className="col-span-2 lg:col-span-1">
+            <div className="flex h-full flex-col justify-between rounded-xl border border-sky-200 bg-sky-50 p-3.5 shadow-sm sm:p-4 dark:border-sky-900 dark:bg-sky-950/40">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-sky-700 sm:text-xs dark:text-sky-300">{labels.stageLabel}</p>
+              <div className="mt-2">
+                <h3 className="text-sm font-bold leading-snug text-sky-900 sm:text-base dark:text-sky-100">{stageValue}</h3>
+                {programmeText && <p className="mt-1 truncate text-[10px] text-sky-600 sm:text-xs dark:text-sky-400">{programmeText}</p>}
+              </div>
             </div>
           </StaggerItem>
+
           <StaggerItem>
-            <KPICard 
-              title={labels.scoreMetricLabel} 
-              value={resultLocked ? 'Locked' : (avgScore === null ? '—' : `${avgScore}%`)} 
-              icon={Award} 
-              iconBgClass="bg-purple-50"
-              iconColorClass="text-purple-600"
+            <KPICard
+              title={labels.scoreMetricLabel}
+              value={resultLocked ? 'Locked' : (avgScore === null ? '—' : `${avgScore}%`)}
+              icon={Award}
+              toneClass="border-purple-200 bg-purple-50 dark:border-purple-900 dark:bg-purple-950/40"
+              iconBgClass="bg-purple-100 dark:bg-purple-900/40"
+              iconColorClass="text-purple-600 dark:text-purple-300"
               trend={{ value: 0, label: resultLocked ? 'Pay fees to unlock' : (avgScore === null ? 'No results yet' : labels.scoreMetricTrend) }}
               to={resultLocked ? undefined : "/student/exams"}
               delay={0.08}
             />
           </StaggerItem>
           <StaggerItem>
-            <KPICard 
-              title="Attendance" 
-              value={`${attendanceRate}%`} 
-              icon={UserCheck} 
-              iconBgClass="bg-emerald-50"
-              iconColorClass="text-emerald-600"
+            <KPICard
+              title="Attendance"
+              value={`${attendanceRate}%`}
+              icon={UserCheck}
+              toneClass="border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/40"
+              iconBgClass="bg-emerald-100 dark:bg-emerald-900/40"
+              iconColorClass="text-emerald-600 dark:text-emerald-300"
               trend={{ value: 0, label: "This Month" }}
               to="/student/attendance"
               delay={0.16}
             />
           </StaggerItem>
           <StaggerItem>
-            <KPICard 
-              title="Pending Fees" 
-              value={pendingFeeTotal} 
+            <KPICard
+              title="Pending Fees"
+              value={pendingFeeTotal}
               isCurrency={true}
-              icon={Bell} 
-              iconBgClass="bg-rose-50"
-              iconColorClass="text-rose-600"
+              icon={Bell}
+              toneClass="border-rose-200 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/40"
+              iconBgClass="bg-rose-100 dark:bg-rose-900/40"
+              iconColorClass="text-rose-600 dark:text-rose-300"
               to="/student/fees"
               delay={0.24}
             />
           </StaggerItem>
           <StaggerItem>
-            <KPICard 
-              title="Unread Notices" 
-              value={unreadNotifs} 
-              icon={Bell} 
-              iconBgClass="bg-amber-50"
-              iconColorClass="text-amber-600"
+            <KPICard
+              title="Unread Notices"
+              value={unreadNotifs}
+              icon={Bell}
+              toneClass="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40"
+              iconBgClass="bg-amber-100 dark:bg-amber-900/40"
+              iconColorClass="text-amber-600 dark:text-amber-300"
               delay={0.32}
             />
           </StaggerItem>
         </StaggerContainer>
 
-        {/* Main Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* ── Main grid ────────────────────────────────────────────────────── */}
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
           {/* My Courses */}
-          <AnimatedCard delay={0.1} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-semibold text-slate-900">{labels.studyLabel}{currentSemester ? ` · ${currentSemester}` : ''}</h3>
+          <AnimatedCard delay={0.1} className="rounded-xl border border-indigo-100 bg-gradient-to-b from-indigo-50/70 to-white shadow-sm dark:border-indigo-900/50 dark:from-indigo-950/30 dark:to-slate-900">
+            <div className="flex items-center justify-between px-4 pt-4 sm:px-6 sm:pt-6">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900/50">
+                  <BookOpen className="h-4 w-4 text-indigo-600 dark:text-indigo-300" />
+                </div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  {labels.studyLabel}{currentSemester ? ` · ${currentSemester}` : ''}
+                </h3>
+              </div>
               {myCourses.length > 0 && (
-                <span className="px-2 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-bold">{myCourses.length} registered</span>
+                <span className="rounded-lg bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-700 sm:text-xs dark:bg-indigo-900/50 dark:text-indigo-300">
+                  {myCourses.length} registered
+                </span>
               )}
             </div>
-            <StaggerContainer className="space-y-4">
-              {myCourses.length > 0 ? myCoursesPagination.slice.map((course) => (
-                <StaggerItem key={course.id}>
-                  <div className="flex items-center justify-between p-3 rounded-lg border border-slate-100 hover:border-blue-100 hover:bg-blue-50/50 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-slate-100 text-slate-600 rounded-lg">
-                        <BookOpen className="w-4 h-4" />
+
+            <div className="px-4 py-4 sm:px-6 sm:py-5">
+              <StaggerContainer className="space-y-2.5">
+                {myCourses.length > 0 ? myCoursesPagination.slice.map((course) => (
+                  <StaggerItem key={course.id}>
+                    <div className="flex items-center justify-between rounded-lg border bg-white p-2.5 transition-colors hover:border-indigo-200 dark:border-slate-800 dark:bg-slate-900/70">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300">
+                          <BookOpen className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-medium text-slate-900 sm:text-sm" title={course.name}>{course.name}</p>
+                          <p className="text-[10px] text-slate-500 sm:text-xs">{course.code}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-slate-900 truncate max-w-[150px]" title={course.name}>{course.name}</p>
-                        <p className="text-xs text-slate-500">{course.code}</p>
+                      <div className="ml-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-700">
+                        ✓
                       </div>
                     </div>
-                    <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">
-                      ✓
-                    </div>
+                  </StaggerItem>
+                )) : (
+                  <div className="rounded-lg bg-white/70 px-4 py-6 text-center dark:bg-slate-900/70">
+                    <p className="text-xs font-medium text-slate-500 sm:text-sm">No registered {labels.subjectPlural.toLowerCase()} for {currentSemester || 'this session'} yet.</p>
+                    {courseRegEnabled && (
+                      <Link to="/student/courses" className="mt-1.5 inline-block text-[11px] font-bold text-blue-600 hover:underline sm:text-xs">
+                        Register {labels.subjectPlural.toLowerCase()}
+                      </Link>
+                    )}
                   </div>
-                </StaggerItem>
-              )) : (
-                <div className="text-center py-8">
-                  <p className="text-sm font-medium text-slate-500">No registered {labels.subjectPlural.toLowerCase()} for {currentSemester || 'this session'} yet.</p>
-                  {courseRegEnabled && (
-                    <Link to="/student/courses" className="inline-block mt-2 text-xs font-bold text-blue-600 hover:underline">Register {labels.subjectPlural.toLowerCase()}</Link>
-                  )}
-                </div>
+                )}
+              </StaggerContainer>
+              {myCourses.length > 0 && (
+                <Pagination
+                  page={myCoursesPagination.page}
+                  totalPages={myCoursesPagination.totalPages}
+                  total={myCoursesPagination.total}
+                  start={myCoursesPagination.start}
+                  pageSize={myCoursesPagination.pageSize}
+                  onPageChange={myCoursesPagination.setPage}
+                  className="mt-3"
+                />
               )}
-            </StaggerContainer>
-            {myCourses.length > 0 && (
-              <Pagination
-                page={myCoursesPagination.page}
-                totalPages={myCoursesPagination.totalPages}
-                total={myCoursesPagination.total}
-                start={myCoursesPagination.start}
-                pageSize={myCoursesPagination.pageSize}
-                onPageChange={myCoursesPagination.setPage}
-                className="mt-4"
-              />
-            )}
+            </div>
           </AnimatedCard>
 
           {/* Today's Schedule */}
-          <AnimatedCard delay={0.18} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-semibold text-slate-900">Today's Schedule</h3>
+          <AnimatedCard delay={0.18} className="rounded-xl border border-sky-100 bg-gradient-to-b from-sky-50/70 to-white shadow-sm dark:border-sky-900/50 dark:from-sky-950/30 dark:to-slate-900">
+            <div className="flex items-center justify-between px-4 pt-4 sm:px-6 sm:pt-6">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-900/50">
+                  <GraduationCap className="h-4 w-4 text-sky-600 dark:text-sky-300" />
+                </div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Today's Schedule</h3>
+              </div>
             </div>
-            <StaggerContainer className="space-y-4">
-              {[
-                ...labels.scheduleList,
-              ].map((schedule, i) => (
-                <StaggerItem key={i}>
-                  <div className="flex items-start gap-4">
-                    <div className="text-xs font-semibold text-blue-600 w-16 pt-1 shrink-0">{schedule.time}</div>
-                    <div className="flex-1 bg-slate-50 p-3 rounded-lg border border-slate-100 relative overflow-hidden group hover:shadow-sm transition-all cursor-pointer">
-                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500"></div>
-                      <div className="flex justify-between items-start mb-1">
-                        <span className="font-medium text-sm text-slate-900">{schedule.course}</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
-                        <span>{schedule.room}</span>
-                        <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-                        <span>{schedule.type}</span>
+
+            <div className="px-4 py-4 sm:px-6 sm:py-5">
+              <StaggerContainer className="space-y-2.5">
+                {labels.scheduleList.map((schedule, i) => (
+                  <StaggerItem key={i}>
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-14 shrink-0 pt-1.5 text-[10px] font-semibold text-sky-600 sm:text-xs">{schedule.time}</div>
+                      <div className="relative flex-1 overflow-hidden rounded-lg border bg-white p-2.5 dark:border-slate-800 dark:bg-slate-900/70">
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-sky-500"></div>
+                        <p className="text-xs font-medium text-slate-900 sm:text-sm">{schedule.course}</p>
+                        <div className="mt-1 flex items-center gap-1.5 text-[10px] text-slate-500 sm:text-xs">
+                          <span>{schedule.room}</span>
+                          <span className="h-0.5 w-0.5 rounded-full bg-slate-300"></span>
+                          <span>{schedule.type}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </StaggerItem>
-              ))}
-            </StaggerContainer>
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-              className="w-full mt-4"
-            >
-              <Link
-                to="/student/exams"
-                state={{ tab: 'timetable' }}
-                className="block w-full text-sm text-blue-600 font-medium py-2 hover:bg-blue-50 rounded-lg transition-colors text-center"
+                  </StaggerItem>
+                ))}
+              </StaggerContainer>
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.97 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                className="mt-3 w-full"
               >
-                View Full Timetable
-              </Link>
-            </motion.div>
+                <Link
+                  to="/student/exams"
+                  state={{ tab: 'timetable' }}
+                  className="block w-full rounded-lg bg-sky-50 py-2 text-center text-[11px] font-semibold text-sky-700 transition-colors hover:bg-sky-100 sm:text-sm dark:bg-sky-900/40 dark:text-sky-300"
+                >
+                  View Full Timetable
+                </Link>
+              </motion.div>
+            </div>
           </AnimatedCard>
 
-          {/* Right Column */}
-          <div className="space-y-6">
-            {/* My Profile / Passport */}
-            <AnimatedCard delay={0.26} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-slate-900">My Profile</h3>
+          {/* Right column */}
+          <div className="space-y-4 sm:space-y-6">
+            {/* Quick Links */}
+            <AnimatedCard delay={0.26} className="rounded-xl border border-purple-100 bg-gradient-to-b from-purple-50/70 to-white shadow-sm dark:border-purple-900/50 dark:from-purple-950/30 dark:to-slate-900">
+              <div className="flex items-center gap-2 px-4 pt-4 sm:px-6 sm:pt-6">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900/50">
+                  <Download className="h-4 w-4 text-purple-600 dark:text-purple-300" />
+                </div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Quick Links</h3>
+              </div>
+              <div className="px-4 py-4 sm:px-6 sm:py-5">
+                <StaggerContainer className="grid grid-cols-4 gap-1.5 sm:gap-2">
+                  {[
+                    { name: 'Course Material', icon: BookOpen, bg: 'bg-indigo-100 dark:bg-indigo-900/50', color: 'text-indigo-600 dark:text-indigo-300', path: '/student/courses' },
+                    { name: 'Pay Fees', icon: DollarSign, bg: 'bg-emerald-100 dark:bg-emerald-900/50', color: 'text-emerald-600 dark:text-emerald-300', path: '/student/fees' },
+                    { name: 'Admission Letter', icon: FileText, bg: 'bg-blue-100 dark:bg-blue-900/50', color: 'text-blue-600 dark:text-blue-300', path: '/student/admission-letter' },
+                    { name: 'Library', icon: BookOpen, bg: 'bg-purple-100 dark:bg-purple-900/50', color: 'text-purple-600 dark:text-purple-300', path: '/librarian' },
+                    { name: labels.hallPassLabel, icon: Download, bg: 'bg-amber-100 dark:bg-amber-900/50', color: 'text-amber-600 dark:text-amber-300', action: 'hallpass' as const },
+                  ].map((link, i) => (
+                    <StaggerItem key={i}>
+                      {link.path ? (
+                        <Link to={link.path} className="group flex flex-col items-center gap-1.5 text-center">
+                          <div className={cn("rounded-xl p-2.5 transition-transform group-hover:-translate-y-1 sm:p-3", link.bg, link.color)}>
+                            <link.icon className="h-4 w-4 sm:h-5 sm:w-5" />
+                          </div>
+                          <span className="text-[9px] font-medium leading-tight text-slate-600 sm:text-[10px] dark:text-slate-300">{link.name}</span>
+                        </Link>
+                      ) : (
+                        <button
+                          onClick={() => { showToast({ title: 'Hall Pass', description: 'Hall pass download is being prepared...', variant: 'info' }); }}
+                          className="group flex flex-col items-center gap-1.5 text-center"
+                        >
+                          <div className={cn("rounded-xl p-2.5 transition-transform group-hover:-translate-y-1 sm:p-3", link.bg, link.color)}>
+                            <link.icon className="h-4 w-4 sm:h-5 sm:w-5" />
+                          </div>
+                          <span className="text-[9px] font-medium leading-tight text-slate-600 sm:text-[10px] dark:text-slate-300">{link.name}</span>
+                        </button>
+                      )}
+                    </StaggerItem>
+                  ))}
+                </StaggerContainer>
+              </div>
+            </AnimatedCard>
+
+            {/* My Profile */}
+            <AnimatedCard delay={0.34} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">My Profile</h3>
                 <button
                   onClick={openEdit}
                   disabled={!canSelfUpdate}
                   title={canSelfUpdate ? 'Update your contact and next of kin details' : 'You can update your details again next month'}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white rounded-lg text-xs font-bold transition-colors"
+                  className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-2.5 py-1.5 text-[10px] font-bold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 sm:text-xs dark:disabled:bg-slate-800 dark:disabled:text-slate-500"
                 >
-                  <Pencil className="w-3.5 h-3.5" />
+                  <Pencil className="h-3 w-3" />
                   {canSelfUpdate ? 'Edit Profile' : 'Updated'}
                 </button>
               </div>
-              <div className="flex items-center gap-4">
-                <div className="relative group shrink-0">
-                  <img
-                    src={passportUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'Student')}&size=256&background=2563eb&color=fff&bold=true`}
-                    alt={user?.name || 'Student'}
-                    className="w-24 h-24 rounded-xl border-4 border-slate-100 object-cover shadow-sm transition-transform duration-500 group-hover:scale-105"
-                  />
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploadingPhoto}
-                    className="absolute inset-0 flex items-center justify-center bg-black/40 text-white rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-300 backdrop-blur-sm disabled:cursor-not-allowed"
-                    title="Upload passport photo"
+              <div className="mt-3 space-y-2">
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-500 sm:text-xs dark:text-slate-400">
+                  <Mail className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{user?.email}</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-500 sm:text-xs dark:text-slate-400">
+                  <GraduationCap className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{user?.schoolName ? resolveSchoolProfile(user, schools).portalLevel : 'Student'}</span>
+                </div>
+                {myStudent?.phone && (
+                  <div className="flex items-center gap-1.5 text-[11px] text-slate-500 sm:text-xs dark:text-slate-400">
+                    <IdCard className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{myStudent.phone}</span>
+                  </div>
+                )}
+              </div>
+            </AnimatedCard>
+
+            {/* Results */}
+            <AnimatedCard delay={0.42} className={cn(
+              "rounded-xl border shadow-sm p-4 sm:p-6",
+              resultLocked
+                ? "border-amber-200 bg-gradient-to-b from-amber-50/80 to-white dark:border-amber-900/50 dark:from-amber-950/30 dark:to-slate-900"
+                : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
+            )}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg", resultLocked ? "bg-amber-100 dark:bg-amber-900/50" : "bg-slate-100 dark:bg-slate-800")}>
+                    <Award className={cn("h-4 w-4", resultLocked ? "text-amber-600 dark:text-amber-300" : "text-slate-500")} />
+                  </div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">{labels.resultsLabel}</h3>
+                </div>
+                {!resultLocked && (
+                  <AnimatedButton
+                    onClick={() => navigate('/student/exams')}
+                    className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 sm:text-sm"
                   >
-                    {isUploadingPhoto ? (
-                      <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    ) : (
-                      <Camera className="w-6 h-6" />
-                    )}
-                  </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handlePhotoUpload}
-                    className="hidden"
-                  />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-base font-bold text-slate-900 truncate">{user?.name || 'Student'}</p>
-                  <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1">
-                    <GraduationCap className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate">{user?.schoolName ? resolveSchoolProfile(user, schools).portalLevel : 'Student'}</span>
+                    View All
+                  </AnimatedButton>
+                )}
+              </div>
+              <div className="mt-3">
+                {resultLocked ? (
+                  <div className="flex items-center gap-3 rounded-lg bg-white/70 px-3 py-2.5 dark:bg-slate-900/70">
+                    <Lock className="h-4 w-4 shrink-0 text-amber-500" />
+                    <p className="text-[11px] text-slate-500 sm:text-xs">
+                      {labels.resultsLabel} locked. Complete the required fee payments to view your {labels.resultsLabel.toLowerCase()}.
+                    </p>
                   </div>
-                  <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1">
-                    <Mail className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate">{user?.email}</span>
-                  </div>
-                  {myStudent?.regNo && (
-                    <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1">
-                      <IdCard className="w-3.5 h-3.5 shrink-0" />
-                      <span className="truncate">{myStudent.regNo || myStudent.matricNumber}</span>
-                    </div>
-                  )}
-                  <p className="text-[10px] text-slate-400 mt-2">Hover the photo to upload your passport.</p>
-                </div>
+                ) : (
+                  <p className="py-1 text-center text-xs text-slate-400 sm:text-sm">No results yet</p>
+                )}
               </div>
             </AnimatedCard>
+          </div>
+        </div>
 
-            {/* Quick Links */}
-            <AnimatedCard delay={0.26} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-              <h3 className="text-lg font-semibold text-slate-900 mb-4">Quick Links</h3>
-              <StaggerContainer className="grid grid-cols-4 gap-2">
-                {[
-                  { name: 'Course Material', icon: BookOpen, bg: 'bg-indigo-50', color: 'text-indigo-600', path: '/student/courses' },
-                  { name: 'Pay Fees', icon: DollarSign, bg: 'bg-emerald-50', color: 'text-emerald-600', path: '/student/fees' },
-                  { name: 'Admission Letter', icon: FileText, bg: 'bg-blue-50', color: 'text-blue-600', path: '/student/admission-letter' },
-                  { name: 'Library', icon: BookOpen, bg: 'bg-purple-50', color: 'text-purple-600', path: '/librarian' },
-                  { name: labels.hallPassLabel, icon: Download, bg: 'bg-amber-50', color: 'text-amber-600', action: 'hallpass' as const },
-                ].map((link, i) => (
-                  <StaggerItem key={i}>
-                    {link.path ? (
-                      <Link to={link.path} className="flex flex-col items-center text-center gap-2 group">
-                        <div className={cn("p-3 rounded-xl transition-transform group-hover:-translate-y-1", link.bg, link.color)}>
-                          <link.icon className="w-5 h-5" />
-                        </div>
-                        <span className="text-[10px] font-medium text-slate-600 leading-tight">{link.name}</span>
-                      </Link>
-                    ) : (
-                      <button onClick={() => { showToast({ title: 'Hall Pass', description: 'Hall pass download is being prepared...', variant: 'info' }); }} className="flex flex-col items-center text-center gap-2 group">
-                        <div className={cn("p-3 rounded-xl transition-transform group-hover:-translate-y-1", link.bg, link.color)}>
-                          <link.icon className="w-5 h-5" />
-                        </div>
-                        <span className="text-[10px] font-medium text-slate-600 leading-tight">{link.name}</span>
-                      </button>
-                    )}
-                  </StaggerItem>
-                ))}
-              </StaggerContainer>
-            </AnimatedCard>
-
-            <AnimatedCard delay={0.34} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-              <h3 className="text-lg font-semibold text-slate-900 mb-4">Quick Actions</h3>
-              <StaggerContainer className="grid grid-cols-2 gap-3">
-                {[
-                  { name: 'Issue Book', icon: BookOpen, color: 'text-blue-600', bg: 'bg-blue-50', action: 'issue' as const },
-                  { name: 'Return Book', icon: RotateCcw, color: 'text-emerald-600', bg: 'bg-emerald-50', action: 'return' as const },
-                  { name: 'Search Catalog', icon: Search, color: 'text-purple-600', bg: 'bg-purple-50', action: 'catalog' as const },
-                  { name: 'Send Reminders', icon: BellRing, color: 'text-rose-600', bg: 'bg-rose-50', action: 'reminder' as const },
-                ].map((item) => (
-                  <StaggerItem key={item.name}>
-                    <AnimatedButton
-                      onClick={() => handleQuickAction(item.action)}
-                      className="rounded-2xl border border-slate-200 p-5 text-center transition-all hover:border-blue-200 hover:bg-slate-50 w-full"
-                    >
-                      <div className={cn('mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl', item.bg, item.color)}>
-                        <item.icon className="w-5 h-5" />
-                      </div>
-                      <span className="text-sm font-medium text-slate-800">{item.name}</span>
-                    </AnimatedButton>
-                  </StaggerItem>
-                ))}
-              </StaggerContainer>
-            </AnimatedCard>
-
-            {/* Announcements */}
-            <AnimatedCard delay={0.42} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-              <h3 className="text-lg font-semibold text-slate-900 mb-4">Recent Announcements</h3>
+        {editOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" onClick={() => setEditOpen(false)}>
+            <div
+              className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Update My Profile</h3>
+                <button onClick={() => setEditOpen(false)} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+                Update your contact and next of kin details. You can edit these once per month.
+              </p>
               <div className="space-y-4">
-                <p className="text-sm text-slate-400 text-center py-4">No recent announcements</p>
+                <div>
+                  <label className={labelCls}>Phone Number</label>
+                  <input className={fieldCls} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Your phone number" />
+                </div>
+                <div>
+                  <label className={labelCls}>Residential Address</label>
+                  <input className={fieldCls} value={form.residentialAddress} onChange={(e) => setForm({ ...form, residentialAddress: e.target.value })} placeholder="Home address" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelCls}>Town / City</label>
+                    <input className={fieldCls} value={form.townCity} onChange={(e) => setForm({ ...form, townCity: e.target.value })} placeholder="Town / city" />
+                  </div>
+                  <div>
+                    <label className={labelCls}>State</label>
+                    <input className={fieldCls} value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} placeholder="State" />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelCls}>LGA</label>
+                  <input className={fieldCls} value={form.lga} onChange={(e) => setForm({ ...form, lga: e.target.value })} placeholder="Local Government Area" />
+                </div>
+                <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Next of Kin / Guardian</p>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className={labelCls}>Full Name</label>
+                        <input className={fieldCls} value={form.guardianName} onChange={(e) => setForm({ ...form, guardianName: e.target.value })} placeholder="Name" />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Relationship</label>
+                        <input className={fieldCls} value={form.guardianRelationship} onChange={(e) => setForm({ ...form, guardianRelationship: e.target.value })} placeholder="e.g. Mother" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className={labelCls}>Phone Number</label>
+                      <input className={fieldCls} value={form.guardianPhone} onChange={(e) => setForm({ ...form, guardianPhone: e.target.value })} placeholder="Guardian phone" />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Address</label>
+                      <input className={fieldCls} value={form.guardianAddress} onChange={(e) => setForm({ ...form, guardianAddress: e.target.value })} placeholder="Guardian address" />
+                    </div>
+                  </div>
+                </div>
               </div>
-            </AnimatedCard>
-          </div>
-        </div>
-
-        {/* Bottom Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <AnimatedCard delay={0.5} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2 text-slate-500 mb-1">
-                <Calendar className="w-4 h-4" />
-                <span className="text-sm font-medium">{labels.assessmentLabel} Countdown</span>
+              <div className="pt-6 flex gap-3">
+                <button
+                  onClick={() => setEditOpen(false)}
+                  className="flex-1 px-4 py-2.5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveProfile}
+                  disabled={savingProfile}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-900/20 transition-all disabled:opacity-60"
+                >
+                  {savingProfile ? 'Saving…' : 'Save Changes'}
+                </button>
               </div>
-              <h3 className="text-lg font-bold text-slate-900">No upcoming exams</h3>
             </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-blue-600">0</div>
-              <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">Days Left</div>
-            </div>
-          </AnimatedCard>
-
-          <AnimatedCard delay={0.58} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-slate-900">{labels.resultsLabel}</h3>
-            {!resultLocked && (
-              <AnimatedButton
-                onClick={() => navigate('/student/exams')}
-                className="text-sm text-blue-600 font-medium hover:text-blue-700"
-              >
-                View All
-              </AnimatedButton>
-            )}
           </div>
-          <div className="space-y-3">
-            {resultLocked ? (
-              <div className="flex flex-col items-center justify-center py-4 text-center">
-                <Lock className="w-8 h-8 text-amber-500 mb-2" />
-                <p className="text-sm text-slate-500">{labels.resultsLabel} locked. Complete the required fee payments to view your {labels.resultsLabel.toLowerCase()}.</p>
-              </div>
-            ) : (
-              <p className="text-sm text-slate-400 text-center py-4">No results yet</p>
-            )}
-          </div>
-        </AnimatedCard>
+        )}
       </div>
-
-      {editOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" onClick={() => setEditOpen(false)}>
-          <div
-            className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Update My Profile</h3>
-              <button onClick={() => setEditOpen(false)} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-              Update your contact and next of kin details. You can edit these once per month.
-            </p>
-            <div className="space-y-4">
-              <div>
-                <label className={labelCls}>Phone Number</label>
-                <input className={fieldCls} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Your phone number" />
-              </div>
-              <div>
-                <label className={labelCls}>Residential Address</label>
-                <input className={fieldCls} value={form.residentialAddress} onChange={(e) => setForm({ ...form, residentialAddress: e.target.value })} placeholder="Home address" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelCls}>Town / City</label>
-                  <input className={fieldCls} value={form.townCity} onChange={(e) => setForm({ ...form, townCity: e.target.value })} placeholder="Town / city" />
-                </div>
-                <div>
-                  <label className={labelCls}>State</label>
-                  <input className={fieldCls} value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} placeholder="State" />
-                </div>
-              </div>
-              <div>
-                <label className={labelCls}>LGA</label>
-                <input className={fieldCls} value={form.lga} onChange={(e) => setForm({ ...form, lga: e.target.value })} placeholder="Local Government Area" />
-              </div>
-              <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Next of Kin / Guardian</p>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className={labelCls}>Full Name</label>
-                      <input className={fieldCls} value={form.guardianName} onChange={(e) => setForm({ ...form, guardianName: e.target.value })} placeholder="Name" />
-                    </div>
-                    <div>
-                      <label className={labelCls}>Relationship</label>
-                      <input className={fieldCls} value={form.guardianRelationship} onChange={(e) => setForm({ ...form, guardianRelationship: e.target.value })} placeholder="e.g. Mother" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className={labelCls}>Phone Number</label>
-                    <input className={fieldCls} value={form.guardianPhone} onChange={(e) => setForm({ ...form, guardianPhone: e.target.value })} placeholder="Guardian phone" />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Address</label>
-                    <input className={fieldCls} value={form.guardianAddress} onChange={(e) => setForm({ ...form, guardianAddress: e.target.value })} placeholder="Guardian address" />
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="pt-6 flex gap-3">
-              <button
-                onClick={() => setEditOpen(false)}
-                className="flex-1 px-4 py-2.5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveProfile}
-                disabled={savingProfile}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-900/20 transition-all disabled:opacity-60"
-              >
-                {savingProfile ? 'Saving…' : 'Save Changes'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-    </div>
     </AnimatedPage>
   );
 }

@@ -75,11 +75,11 @@ export default function Header({ userName, userRole, schoolName, avatarUrl, onMe
   };
 
   return (
-    <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 sticky top-0 z-10 transition-colors">
-      <div className="flex items-center gap-4">
+    <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-3 sm:px-6 sticky top-0 z-10 transition-colors">
+      <div className="flex items-center gap-2 sm:gap-4">
         <button
           onClick={onMenuToggle}
-          className="p-2 -ml-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg lg:hidden"
+          className="p-1.5 sm:p-2 -ml-1 sm:-ml-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg lg:hidden"
         >
           <Menu className="w-5 h-5" />
         </button>
@@ -89,7 +89,7 @@ export default function Header({ userName, userRole, schoolName, avatarUrl, onMe
         </div>
       </div>
 
-      <div className="flex items-center gap-2 md:gap-4">
+      <div className="flex items-center gap-1 sm:gap-2 md:gap-4">
         <form onSubmit={handleSearch} className="hidden md:flex items-center relative">
           <Search className="w-4 h-4 text-slate-400 absolute left-3" />
           <input
@@ -97,13 +97,13 @@ export default function Header({ userName, userRole, schoolName, avatarUrl, onMe
             placeholder="Search anything..."
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
-            className="pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border-none rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 w-64 transition-all dark:text-slate-200"
+            className="pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border-none rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 w-48 lg:w-64 transition-all dark:text-slate-200"
           />
         </form>
 
         <button
           onClick={toggleTheme}
-          className="p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+          className="p-1.5 sm:p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
           title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
         >
           {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
@@ -112,7 +112,7 @@ export default function Header({ userName, userRole, schoolName, avatarUrl, onMe
         <div ref={notifRef} className="relative">
           <button
             onClick={() => setShowNotifications((prev) => !prev)}
-            className="relative p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+            className="relative p-1.5 sm:p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
           >
             <Bell className="w-5 h-5" />
             {unreadCount > 0 && (
@@ -148,7 +148,7 @@ export default function Header({ userName, userRole, schoolName, avatarUrl, onMe
                   myNotifications.slice().sort((a, b) => (a.read === b.read ? 0 : a.read ? 1 : -1)).slice(0, 20).map((notif) => (
                     <div
                       key={notif.id}
-                      onClick={() => { !notif.read && markNotificationRead(notif.id); setSelectedNotification(notif); }}
+                      onClick={() => { if (!notif.read) markNotificationRead(notif.id); setSelectedNotification(notif); }}
                       className={`px-4 py-3 border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer ${!notif.read ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
                     >
                       <div className="flex items-start gap-3">
@@ -169,7 +169,7 @@ export default function Header({ userName, userRole, schoolName, avatarUrl, onMe
 
         <button
           onClick={logout}
-          className="lg:hidden p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+          className="lg:hidden p-1.5 sm:p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
           title="Logout"
         >
           <LogOut className="w-5 h-5" />
@@ -177,7 +177,7 @@ export default function Header({ userName, userRole, schoolName, avatarUrl, onMe
 
         <Link
           to="/profile"
-          className="flex items-center gap-3 pl-4 border-l border-slate-200 dark:border-slate-700 hover:opacity-80 transition-opacity"
+          className="flex items-center gap-3 border-l border-slate-200 dark:border-slate-700 hover:opacity-80 transition-opacity sm:pl-4 pl-2"
         >
           <div className="hidden md:flex flex-col items-end">
             <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{userName}</span>
