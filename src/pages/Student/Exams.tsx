@@ -5,7 +5,7 @@ import { Clock, CheckCircle, ChevronLeft, ChevronRight, Send, Calendar, MapPin, 
 import { cn } from '@/utils';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getPortalLevelLabels, resolveSchoolProfile } from '@/utils/schoolProfile';
-import { checkFeeGate } from '@/utils/feeGating';
+import { checkFeeGate, filterFeeRecordsForStudent } from '@/utils/feeGating';
 import { Lock } from 'lucide-react';
 
 export default function ExamSession() {
@@ -35,9 +35,19 @@ export default function ExamSession() {
   const labels = getPortalLevelLabels(schoolProfile.portalLevel);
 
   const { feeStructures, feeRecords } = useDataStore();
+  const myFeeRecords = useMemo(
+    () => filterFeeRecordsForStudent(feeRecords, [
+      user?.id,
+      user?.email,
+      currentStudent?.id,
+      currentStudent?.regNo,
+      currentStudent?.email,
+    ]),
+    [feeRecords, user?.id, user?.email, currentStudent?.id, currentStudent?.regNo, currentStudent?.email],
+  );
   const examGate = useMemo(
-    () => checkFeeGate(feeStructures, feeRecords, studentClass, 'exam_access'),
-    [feeStructures, feeRecords, studentClass],
+    () => checkFeeGate(feeStructures, myFeeRecords, studentClass, 'exam_access'),
+    [feeStructures, myFeeRecords, studentClass],
   );
   const examLocked = !!examGate && !examGate.isAllowed;
 

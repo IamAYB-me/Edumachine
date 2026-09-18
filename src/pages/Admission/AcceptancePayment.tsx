@@ -7,7 +7,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useDataStore } from '@/store/useDataStore';
 import { useCurrency } from '@/hooks/useCurrency';
 import { cn } from '@/utils';
-import { checkFeeGate } from '@/utils/feeGating';
+import { checkFeeGate, filterFeeRecordsForStudent } from '@/utils/feeGating';
 import { getDocumentsWhere } from '@/services/firestoreService';
 import type { AdmissionApplication } from '@/store/useDataStore';
 import {
@@ -108,12 +108,17 @@ export default function AcceptancePayment() {
 
   const amount = acceptanceStructure?.amount || 0;
 
+  const myFeeRecords = useMemo(
+    () => filterFeeRecordsForStudent(feeRecords, [user?.id, user?.email, application?.email]),
+    [feeRecords, user?.id, user?.email, application?.email],
+  );
+
   const acceptanceFeeGate = useMemo(
     () => {
       const allStructures = directFeeStructures.length ? directFeeStructures : feeStructures;
-      return checkFeeGate(allStructures, feeRecords, application?.courseOfStudy, 'admission_letter');
+      return checkFeeGate(allStructures, myFeeRecords, application?.courseOfStudy, 'admission_letter');
     },
-    [feeStructures, feeRecords, directFeeStructures, application?.courseOfStudy],
+    [feeStructures, myFeeRecords, directFeeStructures, application?.courseOfStudy],
   );
   const alreadyPaid = acceptanceFeeGate?.isAllowed ?? false;
 

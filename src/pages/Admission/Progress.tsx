@@ -8,7 +8,7 @@ import { cn } from '@/utils';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useDataStore } from '@/store/useDataStore';
 import { useCurrency } from '@/hooks/useCurrency';
-import { checkFeeGate } from '@/utils/feeGating';
+import { checkFeeGate, filterFeeRecordsForStudent } from '@/utils/feeGating';
 import { resolveSchoolProfile } from '@/utils/schoolProfile';
 import { getDocumentsWhere } from '@/services/firestoreService';
 import type { AdmissionApplication } from '@/store/useDataStore';
@@ -77,10 +77,15 @@ export default function AdmissionProgress() {
     return school?.portalLevel === 'College' || school?.portalLevel === 'Polytechnic' || school?.portalLevel === 'University';
   }, [schools, user?.schoolName]);
 
+  const myFeeRecords = useMemo(
+    () => filterFeeRecordsForStudent(feeRecords, [user?.id, user?.email, application?.email]),
+    [feeRecords, user?.id, user?.email, application?.email],
+  );
+
   const admissionLetterGate = useMemo(() => {
     if (!isAdmitted) return null;
-    return checkFeeGate(feeStructures, feeRecords, application?.courseOfStudy, 'admission_letter');
-  }, [isAdmitted, feeStructures, feeRecords, application?.courseOfStudy]);
+    return checkFeeGate(feeStructures, myFeeRecords, application?.courseOfStudy, 'admission_letter');
+  }, [isAdmitted, feeStructures, myFeeRecords, application?.courseOfStudy]);
 
   const schoolProfile = useMemo(
     () => resolveSchoolProfile(user, schools),

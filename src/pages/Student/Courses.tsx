@@ -8,7 +8,7 @@ import { useDataStore } from '@/store/useDataStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useToastStore } from '@/store/useToastStore';
 import { resolveSchoolProfile, getPortalLevelLabels, isTertiaryLevel } from '@/utils/schoolProfile';
-import { checkFeeGate, gatingBlockerMessage } from '@/utils/feeGating';
+import { checkFeeGate, gatingBlockerMessage, filterFeeRecordsForStudent } from '@/utils/feeGating';
 import { useNavigate } from 'react-router-dom';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -39,9 +39,14 @@ export default function StudentCourses() {
 
   const myStudent = useMemo(() => students.find((s) => s.id === user?.id), [students, user?.id]);
 
+  const myFeeRecords = useMemo(
+    () => filterFeeRecordsForStudent(feeRecords, [user?.id, myStudent?.id, myStudent?.regNo, myStudent?.email]),
+    [feeRecords, user?.id, myStudent?.id, myStudent?.regNo, myStudent?.email],
+  );
+
   const gating = useMemo(
-    () => checkFeeGate(feeStructures, feeRecords, myStudent?.class, 'course_registration'),
-    [feeStructures, feeRecords, myStudent?.class],
+    () => checkFeeGate(feeStructures, myFeeRecords, myStudent?.class, 'course_registration'),
+    [feeStructures, myFeeRecords, myStudent?.class],
   );
   const registrationBlocked = !gating.isAllowed;
   const registrationClosed = useSettingsStore((s) => s.globalSettings.courseRegistrationEnabled) === false;

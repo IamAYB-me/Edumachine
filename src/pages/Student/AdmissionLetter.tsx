@@ -3,7 +3,7 @@ import { Printer, FileText, Lock, CheckCircle } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useDataStore } from '@/store/useDataStore';
 import { resolveSchoolProfile } from '@/utils/schoolProfile';
-import { checkFeeGate } from '@/utils/feeGating';
+import { checkFeeGate, filterFeeRecordsForStudent } from '@/utils/feeGating';
 import { getDocumentsWhere } from '@/services/firestoreService';
 import type { AdmissionApplication } from '@/store/useDataStore';
 import {
@@ -51,9 +51,20 @@ export default function StudentAdmissionLetter() {
 
   const isAdmitted = application?.applicationStatus === 'Admitted';
 
+  const myFeeRecords = useMemo(
+    () => filterFeeRecordsForStudent(feeRecords, [
+      user?.id,
+      user?.email,
+      myStudent?.id,
+      myStudent?.regNo,
+      application?.email,
+    ]),
+    [feeRecords, user?.id, user?.email, myStudent?.id, myStudent?.regNo, application?.email],
+  );
+
   const admissionLetterGate = useMemo(
-    () => checkFeeGate(feeStructures, feeRecords, application?.courseOfStudy, 'admission_letter'),
-    [feeStructures, feeRecords, application?.courseOfStudy],
+    () => checkFeeGate(feeStructures, myFeeRecords, application?.courseOfStudy, 'admission_letter'),
+    [feeStructures, myFeeRecords, application?.courseOfStudy],
   );
 
   const acceptancePaid = admissionLetterGate?.isAllowed ?? false;

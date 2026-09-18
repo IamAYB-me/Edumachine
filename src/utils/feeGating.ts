@@ -33,6 +33,23 @@ export function getPaidForCategory(feeRecords: FeeRecord[], category: string): n
 }
 
 /**
+ * Narrows a fee-record collection down to a single payer. A record's
+ * `studentId` may be a user/student id, a registration number, or an email
+ * depending on how the payment was captured, so any of those identities can
+ * match. This MUST be applied before passing records to the gating/derivation
+ * helpers: the `feeRecords` collection is readable by every authenticated user,
+ * so aggregating it unscoped would mix all payers' amounts together.
+ */
+export function filterFeeRecordsForStudent(
+  feeRecords: FeeRecord[],
+  identities: Array<string | undefined | null>,
+): FeeRecord[] {
+  const keys = new Set(identities.filter((key): key is string => !!key));
+  if (keys.size === 0) return [];
+  return feeRecords.filter((record) => keys.has(record.studentId));
+}
+
+/**
  * Returns true when a student has satisfied all gating requirements for the
  * given action. Optional fees never block. Gated fees block until the student
  * has paid at least `requiredPercentage` of the category amount.
