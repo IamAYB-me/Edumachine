@@ -63,8 +63,8 @@ export default function StudentAdmissionLetter() {
   );
 
   const admissionLetterGate = useMemo(
-    () => checkFeeGate(feeStructures, myFeeRecords, application?.courseOfStudy, 'admission_letter'),
-    [feeStructures, myFeeRecords, application?.courseOfStudy],
+    () => checkFeeGate(feeStructures, myFeeRecords, application?.courseOfStudy, 'admission_letter', myStudent),
+    [feeStructures, myFeeRecords, application?.courseOfStudy, myStudent],
   );
 
   const acceptancePaid = admissionLetterGate?.isAllowed ?? false;
