@@ -401,6 +401,7 @@ export interface FeeStructure {
   isOptional?: boolean;
   requiredPercentage?: number;
   gatedAction?: 'course_registration' | 'admission_letter' | 'exam_access' | 'result_access' | 'clearance';
+  newEntrantsOnly?: boolean;
 }
 
 export interface CourseRegistrationCourse {
@@ -779,7 +780,7 @@ interface DataState {
   initSubscriptions: (role?: Role) => void;
 
   // Student Actions
-  addStudent: (student: Omit<Student, 'id'>) => StudentMutationResult;
+  addStudent: (student: Omit<Student, 'id'> & { id?: string }) => StudentMutationResult;
   updateStudent: (id: string, student: Partial<Student>) => StudentMutationResult;
   deleteStudent: (id: string) => StudentMutationResult;
   bulkUpdateStudentPortalLevel: (ids: string[], portalLevel: PortalLevel) => number;
@@ -789,7 +790,7 @@ interface DataState {
   clearSchools: () => Promise<number>;
   
   // Parent Actions
-  addParent: (parent: Omit<Parent, 'id'>) => void;
+  addParent: (parent: Omit<Parent, 'id'> & { id?: string }) => void;
   updateParent: (id: string, parent: Partial<Parent>) => void;
   deleteParent: (id: string) => void;
   
@@ -818,7 +819,7 @@ interface DataState {
   deleteDelegatedAccess: (id: string) => void;
 
   // Teacher Actions
-  addTeacher: (teacher: Omit<Teacher, 'id'>) => void;
+  addTeacher: (teacher: Omit<Teacher, 'id'> & { id?: string }) => void;
   updateTeacher: (id: string, teacher: Partial<Teacher>) => void;
   deleteTeacher: (id: string) => void;
 
@@ -1086,7 +1087,7 @@ export const useDataStore = create<DataState>()((set, get) => ({
         return {};
       }
 
-      const id = generateId();
+      const id = student.id || generateId();
       const createdStudent: Student = { ...student, id };
 
       result = { success: true, student: createdStudent };
@@ -1203,7 +1204,7 @@ export const useDataStore = create<DataState>()((set, get) => ({
   },
 
   addParent: (parent) => {
-    const id = generateId();
+    const id = parent.id || generateId();
     const record = { ...parent, id };
     set((state) => ({ parents: [...state.parents, record] }));
     addDocumentWithId('parents', id, record).catch(console.error);
@@ -1348,7 +1349,7 @@ export const useDataStore = create<DataState>()((set, get) => ({
   },
 
   addTeacher: (teacher) => {
-    const id = generateId();
+    const id = teacher.id || generateId();
     const record = { ...teacher, id };
     set((state) => ({ teachers: [...state.teachers, record] }));
     addDocumentWithId('teachers', id, record).catch(console.error);

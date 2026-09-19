@@ -9,6 +9,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
 import { PrintableIdCardModal } from '@/components/ui/PrintableIdCardModal';
 import { useToastStore } from '@/store/useToastStore';
+import { adminCreateUser } from '@/services/authService';
 import Pagination from '@/components/ui/Pagination';
 import { usePagination } from '@/hooks/usePagination';
 
@@ -17,6 +18,9 @@ export default function TeachersDirectory() {
   const { teachers, addTeacher, updateTeacher, deleteTeacher, schools } = useDataStore();
   const { user } = useAuthStore();
   const showToast = useToastStore((state) => state.showToast);
+
+  const schoolProfile = resolveSchoolProfile(user, schools);
+  const labels = getPortalLevelLabels(schoolProfile.portalLevel);
 
   const stats = {
     total: teachers.length,
@@ -80,17 +84,62 @@ export default function TeachersDirectory() {
     setIsModalOpen(true);
   };
 
-  const handleBulkImport = (data: any[]) => {
-    data.forEach(row => {
+  const handleBulkImport = async (data: any[]) => {
+    let importedCount = 0;
+    let accountsCreated = 0;
+    const accountFailures: string[] = [];
+
+    for (const row of data) {
+      const name = row.Name || row.name || '';
+      const email = (row.Email || row.email || '').toString().trim();
+      const phone = (row.Phone || row.phone || '').toString();
+      const password = (row.Password || row.password || '').toString();
+
+      // Create the login account first (when credentials are provided) so the
+      // teacher record can be stored under the auth uid and link to the portal.
+      let authUid: string | undefined;
+      if (email && password) {
+        const authResult = await adminCreateUser(
+          email,
+          password,
+          name || email,
+          'TEACHER',
+          'Teacher',
+          schoolProfile.name || user?.schoolName || '',
+          phone,
+        );
+        if (authResult.success && authResult.uid) {
+          accountsCreated += 1;
+          authUid = authResult.uid;
+        } else {
+          accountFailures.push(`${email}: ${authResult.error || 'could not create account'}`);
+        }
+      }
+
       addTeacher({
-        name: row.Name || row.name,
+        ...(authUid ? { id: authUid } : {}),
+        name,
         employeeId: (row['Employee ID'] || row.employeeId || '').toString(),
         subject: row.Subject || row.subject,
-        email: row.Email || row.email,
-        phone: (row.Phone || row.phone || '').toString(),
+        email,
+        phone,
         status: (row.Status || row.status || 'Active') as 'Active' | 'Inactive',
-        password: row.Password || row.password || ''
       });
+      importedCount += 1;
+    }
+
+    let accountNote = '';
+    if (accountsCreated > 0) {
+      accountNote = ` Login accounts created for ${accountsCreated} ${accountsCreated === 1 ? labels.teacherSingular.toLowerCase() : labels.teacherPlural.toLowerCase()}.`;
+    }
+    if (accountFailures.length > 0) {
+      accountNote += ` ${accountFailures.length} login account${accountFailures.length === 1 ? '' : 's'} could not be created (${accountFailures[0]}).`;
+    }
+
+    showToast({
+      title: `${labels.teacherPlural} import completed`,
+      description: `${importedCount} ${labels.teacherSingular.toLowerCase()} record${importedCount === 1 ? '' : 's'} added.${accountNote}`,
+      variant: accountFailures.length > 0 ? 'warning' : 'success',
     });
   };
 
@@ -103,9 +152,6 @@ export default function TeachersDirectory() {
     }
     setIsModalOpen(false);
   };
-
-  const schoolProfile = resolveSchoolProfile(user, schools);
-  const labels = getPortalLevelLabels(schoolProfile.portalLevel);
 
   return (
     <div className="space-y-6">

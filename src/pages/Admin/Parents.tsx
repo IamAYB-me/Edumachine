@@ -9,6 +9,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis
 import { useToastStore } from '@/store/useToastStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
+import { adminCreateUser } from '@/services/authService';
 import Pagination from '@/components/ui/Pagination';
 import { usePagination } from '@/hooks/usePagination';
 
@@ -98,16 +99,61 @@ export default function AdminParents() {
     setIsModalOpen(true);
   };
 
-  const handleBulkImport = (data: any[]) => {
-    data.forEach(row => {
+  const handleBulkImport = async (data: any[]) => {
+    let importedCount = 0;
+    let accountsCreated = 0;
+    const accountFailures: string[] = [];
+
+    for (const row of data) {
+      const name = row.Name || row.name || '';
+      const email = (row.Email || row.email || '').toString().trim();
+      const phone = (row.Phone || row.phone || '').toString();
+      const password = (row.Password || row.password || '').toString();
+
+      // Create the login account first (when credentials are provided) so the
+      // parent record can be stored under the auth uid and link to the portal.
+      let authUid: string | undefined;
+      if (email && password) {
+        const authResult = await adminCreateUser(
+          email,
+          password,
+          name || email,
+          'PARENT',
+          'Parent',
+          schoolProfile.name || user?.schoolName || '',
+          phone,
+        );
+        if (authResult.success && authResult.uid) {
+          accountsCreated += 1;
+          authUid = authResult.uid;
+        } else {
+          accountFailures.push(`${email}: ${authResult.error || 'could not create account'}`);
+        }
+      }
+
       addParent({
-        name: row.Name || row.name,
-        email: row.Email || row.email,
-        phone: (row.Phone || row.phone || '').toString(),
+        ...(authUid ? { id: authUid } : {}),
+        name,
+        email,
+        phone,
         occupation: row.Occupation || row.occupation || '',
         children: (row['Children IDs'] || row.children || '').toString().split(',').map((id: string) => id.trim()).filter((id: string) => id !== ''),
-        password: row.Password || row.password || ''
       });
+      importedCount += 1;
+    }
+
+    let accountNote = '';
+    if (accountsCreated > 0) {
+      accountNote = ` Login accounts created for ${accountsCreated} parent${accountsCreated === 1 ? '' : 's'}.`;
+    }
+    if (accountFailures.length > 0) {
+      accountNote += ` ${accountFailures.length} login account${accountFailures.length === 1 ? '' : 's'} could not be created (${accountFailures[0]}).`;
+    }
+
+    showToast({
+      title: 'Parents import completed',
+      description: `${importedCount} parent record${importedCount === 1 ? '' : 's'} added.${accountNote}`,
+      variant: accountFailures.length > 0 ? 'warning' : 'success',
     });
   };
 

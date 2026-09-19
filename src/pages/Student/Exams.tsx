@@ -46,8 +46,8 @@ export default function ExamSession() {
     [feeRecords, user?.id, user?.email, currentStudent?.id, currentStudent?.regNo, currentStudent?.email],
   );
   const examGate = useMemo(
-    () => checkFeeGate(feeStructures, myFeeRecords, studentClass, 'exam_access'),
-    [feeStructures, myFeeRecords, studentClass],
+    () => checkFeeGate(feeStructures, myFeeRecords, studentClass, 'exam_access', currentStudent),
+    [feeStructures, myFeeRecords, studentClass, currentStudent],
   );
   const examLocked = !!examGate && !examGate.isAllowed;
 

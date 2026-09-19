@@ -32,7 +32,7 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { useDataStore, FeeRecord } from '@/store/useDataStore';
 import { buildOnRollLookup, studentStructureKey } from '@/utils/studentFilters';
 import { useOnRollFilters } from '@/hooks/useOnRollFilters';
-import { deriveStudentFees } from '@/utils/feeGating';
+import { deriveStudentFees, isNewEntrantStudent } from '@/utils/feeGating';
 import { useToastStore } from '@/store/useToastStore';
 import { downloadFromUrl, readFileAsDataUrl } from '@/utils/fileHelpers';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -96,7 +96,10 @@ export default function AccountantFees() {
 
   const selectedStudent = students.find((item) => item.id === formData.studentId);
   const studentFeeOptions = feeStructures.filter(
-    (item) => item.status === 'Active' && (item.isUniversal || item.className === selectedStudent?.class)
+    (item) =>
+      item.status === 'Active' &&
+      (!item.newEntrantsOnly || isNewEntrantStudent(selectedStudent)) &&
+      (item.isUniversal || item.className === selectedStudent?.class)
   );
 
   const scopeFees = useMemo(() => {
@@ -119,7 +122,7 @@ export default function AccountantFees() {
         fee.studentId === selectedFilterStudent.id ||
         (!!selectedFilterStudent.regNo && fee.studentId === selectedFilterStudent.regNo),
     );
-    return deriveStudentFees(feeStructures, records, selectedFilterStudent.class)
+    return deriveStudentFees(feeStructures, records, selectedFilterStudent.class, selectedFilterStudent)
       .filter((fee) => !fee.isOptional)
       .reduce((sum, fee) => sum + fee.remaining, 0);
   }, [selectedFilterStudent, feeRecords, feeStructures]);
@@ -369,7 +372,7 @@ export default function AccountantFees() {
     const studentFeeRecords = feeRecords.filter(
       (fee) => fee.studentId === student.id || (student.regNo && fee.studentId === student.regNo),
     );
-    const outstanding = deriveStudentFees(feeStructures, studentFeeRecords, student.class)
+    const outstanding = deriveStudentFees(feeStructures, studentFeeRecords, student.class, student)
       .filter((fee) => !fee.isOptional)
       .reduce((sum, fee) => sum + fee.remaining, 0);
 

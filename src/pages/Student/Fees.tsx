@@ -42,8 +42,8 @@ export default function StudentFees() {
   );
 
   const derivedFees = useMemo(
-    () => deriveStudentFees(feeStructures, studentFees, myStudent?.class),
-    [feeStructures, studentFees, myStudent?.class],
+    () => deriveStudentFees(feeStructures, studentFees, myStudent?.class, myStudent),
+    [feeStructures, studentFees, myStudent?.class, myStudent],
   );
 
   const pendingFees = derivedFees.filter(f => f.status === 'Pending' || f.status === 'Partial');

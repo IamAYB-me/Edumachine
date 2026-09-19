@@ -3,7 +3,7 @@ import { Upload, FileSpreadsheet, AlertCircle, CheckCircle } from 'lucide-react'
 import * as XLSX from 'xlsx';
 
 interface ExcelImportProps {
-  onImport: (data: any[]) => void;
+  onImport: (data: Record<string, unknown>[]) => void | Promise<void>;
   templateName?: string;
   expectedKeys?: string[];
 }
@@ -29,22 +29,22 @@ export default function ExcelImport({ onImport, templateName = 'Template', expec
     }
 
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       try {
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
         const wsname = wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
-        const data = XLSX.utils.sheet_to_json(ws);
+        const data = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws);
         
         if (data.length > 0) {
-          onImport(data);
+          await Promise.resolve(onImport(data));
           setSuccess(`Successfully imported ${data.length} record${data.length > 1 ? 's' : ''}.`);
         } else {
           setError('The file is empty or contains no data rows.');
         }
       } catch {
-        setError('Failed to parse the file. Please ensure it is a valid Excel or CSV file.');
+        setError('Failed to parse or save the file. Please check the file and try again.');
       } finally {
         if (fileInputRef.current) fileInputRef.current.value = '';
       }

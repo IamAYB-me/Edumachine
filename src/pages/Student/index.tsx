@@ -75,13 +75,13 @@ export default function StudentDashboard() {
   const myCoursesPagination = usePagination(myCourses, 5);
 
   const myFeeRecords = feeRecords.filter(f => f.studentId === user?.id);
-  const derivedFees = deriveStudentFees(feeStructures, myFeeRecords, myStudent?.class);
+  const derivedFees = deriveStudentFees(feeStructures, myFeeRecords, myStudent?.class, myStudent);
   const courseRegStructure = derivedFees.find((f) => f.gatedAction === 'course_registration');
-  const courseRegGate = checkFeeGate(feeStructures, myFeeRecords, myStudent?.class, 'course_registration');
+  const courseRegGate = checkFeeGate(feeStructures, myFeeRecords, myStudent?.class, 'course_registration', myStudent);
   const courseRegLocked = !!courseRegGate && !courseRegGate.isAllowed;
   const programmeText = myStudent?.programme || myStudent?.classDepartment || myStudent?.class || '';
   const courseRegEnabled = useSettingsStore((s) => s.globalSettings.courseRegistrationEnabled) !== false;
-  const resultGate = checkFeeGate(feeStructures, myFeeRecords, myStudent?.class, 'result_access');
+  const resultGate = checkFeeGate(feeStructures, myFeeRecords, myStudent?.class, 'result_access', myStudent);
   const resultLocked = !!resultGate && !resultGate.isAllowed;
   const pendingFeeTotal = derivedFees
     .filter(f => f.status === 'Pending' || f.status === 'Partial')

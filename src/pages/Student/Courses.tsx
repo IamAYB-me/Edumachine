@@ -45,8 +45,8 @@ export default function StudentCourses() {
   );
 
   const gating = useMemo(
-    () => checkFeeGate(feeStructures, myFeeRecords, myStudent?.class, 'course_registration'),
-    [feeStructures, myFeeRecords, myStudent?.class],
+    () => checkFeeGate(feeStructures, myFeeRecords, myStudent?.class, 'course_registration', myStudent),
+    [feeStructures, myFeeRecords, myStudent?.class, myStudent],
   );
   const registrationBlocked = !gating.isAllowed;
   const registrationClosed = useSettingsStore((s) => s.globalSettings.courseRegistrationEnabled) === false;

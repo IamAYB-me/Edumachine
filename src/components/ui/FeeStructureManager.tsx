@@ -41,6 +41,7 @@ export function FeeStructureManager({
     isUniversal: false,
     isGated: false,
     isOptional: false,
+    newEntrantsOnly: false,
     requiredPercentage: 100,
     gatedAction: 'course_registration',
   });
@@ -79,6 +80,7 @@ export function FeeStructureManager({
       isUniversal: false,
       isGated: false,
       isOptional: false,
+      newEntrantsOnly: false,
       requiredPercentage: 100,
       gatedAction: 'course_registration',
     });
@@ -105,6 +107,7 @@ export function FeeStructureManager({
       isUniversal: !!structure.isUniversal,
       isGated: !!structure.isGated,
       isOptional: !!structure.isOptional,
+      newEntrantsOnly: !!structure.newEntrantsOnly,
       requiredPercentage: structure.requiredPercentage ?? 100,
       gatedAction: structure.gatedAction || 'course_registration',
     });
@@ -204,6 +207,32 @@ export function FeeStructureManager({
                     className={cn(
                       'inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform',
                       isUniversal ? 'translate-x-6' : 'translate-x-1'
+                    )}
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/40 dark:bg-amber-950/40">
+                <div>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">New entrants only</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Only newly admitted {labels.learnerSingular.toLowerCase()}s pay this (e.g. Acceptance Fee). Returning {labels.learnerPlural.toLowerCase()} skip it automatically.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={formData.newEntrantsOnly}
+                  onClick={() => setFormData({ ...formData, newEntrantsOnly: !formData.newEntrantsOnly })}
+                  className={cn(
+                    'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors',
+                    formData.newEntrantsOnly ? 'bg-amber-600' : 'bg-slate-300 dark:bg-slate-700'
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform',
+                      formData.newEntrantsOnly ? 'translate-x-6' : 'translate-x-1'
                     )}
                   />
                 </button>
@@ -506,6 +535,11 @@ export function FeeStructureManager({
                   {item.isUniversal ? (
                     <span className="rounded-xl bg-violet-50 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
                       Universal
+                    </span>
+                  ) : null}
+                  {item.newEntrantsOnly ? (
+                    <span className="rounded-xl bg-amber-50 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                      New Entrants Only
                     </span>
                   ) : null}
                   {item.isGated ? (

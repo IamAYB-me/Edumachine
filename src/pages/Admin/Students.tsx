@@ -575,12 +575,14 @@ export default function StudentsDirectory() {
     setFormData(createEmptyStudentForm(activePortalLevel));
   };
 
-  const handleImport = (data: any[]) => {
+  const handleImport = async (data: any[]) => {
     let importedCount = 0;
     let skippedCount = 0;
+    let accountsCreated = 0;
     const duplicateMessages: string[] = [];
+    const accountFailures: string[] = [];
 
-    data.forEach((item) => {
+    for (const item of data) {
       const base = createEmptyStudentForm(activePortalLevel);
 
       const pick = (...keys: (string | undefined)[]) => {
@@ -590,17 +592,45 @@ export default function StudentsDirectory() {
         return '';
       };
 
+      const name = pick('name', 'Name', 'Full Name', 'Student Name') || '';
+      const email = pick('email', 'Email', 'Student Email');
+      const phone = pick('phone', 'Phone', 'Phone Number', 'Tel', 'Telephone', 'Contact Phone');
+      const password = pick('Password', 'password', 'Password');
+
+      // Create the login account first (when credentials are provided) so the
+      // student record can be stored under the auth uid and link to the portal.
+      let authUid: string | undefined;
+      if (email && password) {
+        const authResult = await adminCreateUser(
+          email,
+          password,
+          name || email,
+          'STUDENT',
+          labels.learnerSingular,
+          schoolProfile.name || user?.schoolName || '',
+          phone,
+          activePortalLevel,
+        );
+        if (authResult.success && authResult.uid) {
+          accountsCreated += 1;
+          authUid = authResult.uid;
+        } else {
+          accountFailures.push(`${email}: ${authResult.error || 'could not create account'}`);
+        }
+      }
+
       const result = addStudent({
         ...base,
+        ...(authUid ? { id: authUid } : {}),
         // Core identity
-        name: pick('name', 'Name', 'Full Name', 'Student Name') || '',
+        name,
         regNo: pick('regNo', 'Reg No', 'RegNo', 'Registration Number', 'ID') || base.regNo,
         admissionNumber: pick('admissionNumber', 'Admission Number', 'AdmissionNo', 'Adm No') || base.admissionNumber,
         nin: pick('nin', 'NIN', 'National Identification Number'),
         class: pick('class', 'Class', 'Grade', 'Level'),
         classDepartment: pick('classDepartment', 'Class / Department', 'Class Department', 'Department', 'class', 'Class'),
         parentName: pick('parentName', 'Parent Name', 'Parent', 'Guardian Name', 'Guardian'),
-        email: pick('email', 'Email', 'Student Email'),
+        email,
         status: (pick('status', 'Status') || 'Active') as Student['status'],
 
         // Name breakdown
@@ -620,7 +650,7 @@ export default function StudentsDirectory() {
         maritalStatus: pick('maritalStatus', 'Marital Status'),
 
         // Contact
-        phone: pick('phone', 'Phone', 'Phone Number', 'Tel', 'Telephone', 'Contact Phone'),
+        phone,
         residentialAddress: pick('residentialAddress', 'Residential Address', 'Address', 'Home Address'),
         townCity: pick('townCity', 'Town / City', 'Town', 'City'),
         state: pick('state', 'State of Residence', 'Residence State'),
@@ -723,7 +753,6 @@ export default function StudentsDirectory() {
         hostelName: pick('hostelName', 'Hostel Name'),
         roomNumber: pick('roomNumber', 'Room Number', 'Room'),
         bedSpace: pick('bedSpace', 'Bed Space', 'Bed'),
-        password: pick('Password', 'password', 'Password'),
       });
 
       if (result.success) {
@@ -732,12 +761,20 @@ export default function StudentsDirectory() {
         skippedCount += 1;
         if (result.error) duplicateMessages.push(result.error);
       }
-    });
+    }
+
+    let accountNote = '';
+    if (accountsCreated > 0) {
+      accountNote = ` Login accounts created for ${accountsCreated} ${accountsCreated === 1 ? `${labels.learnerSingular.toLowerCase()}` : `${labels.learnerPlural.toLowerCase()}`}.`;
+    }
+    if (accountFailures.length > 0) {
+      accountNote += ` ${accountFailures.length} login account${accountFailures.length === 1 ? '' : 's'} could not be created (${accountFailures[0]}).`;
+    }
 
     if (importedCount && !skippedCount) {
       showToast({
         title: `${labels.learnerSingular} import completed`,
-        description: `${importedCount} ${labels.learnerSingular.toLowerCase()} record${importedCount === 1 ? '' : 's'} added successfully.`,
+        description: `${importedCount} ${labels.learnerSingular.toLowerCase()} record${importedCount === 1 ? '' : 's'} added successfully.${accountNote}`,
         variant: 'success',
       });
       return;
@@ -746,7 +783,7 @@ export default function StudentsDirectory() {
     if (importedCount) {
       showToast({
         title: `${labels.learnerSingular} import completed with skips`,
-        description: `${importedCount} imported and ${skippedCount} skipped.${duplicateMessages[0] ? ` ${duplicateMessages[0]}` : ''}`,
+        description: `${importedCount} imported and ${skippedCount} skipped.${accountNote}${duplicateMessages[0] ? ` ${duplicateMessages[0]}` : ''}`,
         variant: 'warning',
       });
       return;
@@ -754,7 +791,7 @@ export default function StudentsDirectory() {
 
     showToast({
       title: `${labels.learnerSingular} import blocked`,
-      description: duplicateMessages[0] || `No valid ${labels.learnerPlural.toLowerCase()} records were imported.`,
+      description: duplicateMessages[0] || `No valid ${labels.learnerPlural.toLowerCase()} records were imported.${accountNote}`,
       variant: 'error',
     });
   };

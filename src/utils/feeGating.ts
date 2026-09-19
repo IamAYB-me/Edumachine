@@ -7,6 +7,48 @@ export type GatedAction =
   | 'result_access'
   | 'clearance';
 
+/**
+ * Minimal subset of the Student record needed to decide whether a student is a
+ * new entrant (and therefore whether "new entrants only" fees apply).
+ */
+export interface StudentEntrantInfo {
+  dateOfAdmission?: string | null;
+}
+
+/** Month (1-12) in which the Nigerian academic session typically begins. */
+const ACADEMIC_SESSION_START_MONTH = 9;
+
+/**
+ * Returns the [startYear, endYear] pair of the academic session that contains
+ * `now`, with sessions assumed to begin in September.
+ */
+export function getCurrentAcademicSession(now: Date = new Date()): [number, number] {
+  const month = now.getMonth() + 1;
+  const year = now.getFullYear();
+  const startYear = month >= ACADEMIC_SESSION_START_MONTH ? year : year - 1;
+  return [startYear, startYear + 1];
+}
+
+/**
+ * True when a student was admitted within the current academic session, i.e.
+ * on or after the session start date. Used to decide whether "new entrants
+ * only" fees (acceptance, registration, etc.) apply to the student.
+ *
+ * If the admission date is missing we fall back to treating the student as a
+ * new entrant so the fee is never silently hidden for unknown records.
+ */
+export function isNewEntrantStudent(
+  student?: StudentEntrantInfo | null,
+  now: Date = new Date(),
+): boolean {
+  if (!student?.dateOfAdmission) return true;
+  const admissionDate = new Date(student.dateOfAdmission);
+  if (Number.isNaN(admissionDate.getTime())) return true;
+  const [startYear] = getCurrentAcademicSession(now);
+  const sessionStart = new Date(startYear, ACADEMIC_SESSION_START_MONTH - 1, 1);
+  return admissionDate.getTime() >= sessionStart.getTime();
+}
+
 export interface GatingStatus {
   isAllowed: boolean;
   blockers: {
@@ -52,13 +94,15 @@ export function filterFeeRecordsForStudent(
 /**
  * Returns true when a student has satisfied all gating requirements for the
  * given action. Optional fees never block. Gated fees block until the student
- * has paid at least `requiredPercentage` of the category amount.
+ * has paid at least `requiredPercentage` of the category amount. Fees flagged
+ * `newEntrantsOnly` only apply to newly admitted students.
  */
 export function checkFeeGate(
   feeStructures: FeeStructure[],
   feeRecords: FeeRecord[],
   studentClass: string | undefined,
   action: GatedAction,
+  student?: StudentEntrantInfo | null,
 ): GatingStatus {
   const relevant = feeStructures.filter(
     (s) =>
@@ -66,7 +110,8 @@ export function checkFeeGate(
       s.isGated &&
       (s.gatedAction ?? 'course_registration') === action &&
       !s.isOptional &&
-      (s.isUniversal || s.className === studentClass),
+      (s.isUniversal || s.className === studentClass) &&
+      (!s.newEntrantsOnly || isNewEntrantStudent(student)),
   );
 
   const blockers: GatingStatus['blockers'] = [];
@@ -106,6 +151,7 @@ export interface DerivedFee {
   gatedAction?: GatedAction;
   isGated: boolean;
   isOptional: boolean;
+  newEntrantsOnly: boolean;
   minPayable: number;
 }
 
@@ -124,17 +170,22 @@ export function minimumPayableFor(fee: Pick<DerivedFee, 'amount' | 'requiredPerc
 /**
  * Derives the complete list of fees a student is expected to pay from the
  * active fee structures that apply to them. Universal fees apply to every
- * student; peculiar (class-specific) fees apply to the student's class.
- * Each item is reconciled against the student's actual fee records so paid /
- * partial / pending status and remaining balance are accurate.
+ * student; peculiar (class-specific) fees apply to the student's class. Fees
+ * flagged `newEntrantsOnly` only apply to newly admitted students. Each item
+ * is reconciled against the student's actual fee records so paid / partial /
+ * pending status and remaining balance are accurate.
  */
 export function deriveStudentFees(
   feeStructures: FeeStructure[],
   feeRecords: FeeRecord[],
   studentClass: string | undefined,
+  student?: StudentEntrantInfo | null,
 ): DerivedFee[] {
   const applicable = feeStructures.filter(
-    (s) => s.status === 'Active' && (s.isUniversal || s.className === studentClass),
+    (s) =>
+      s.status === 'Active' &&
+      (s.isUniversal || s.className === studentClass) &&
+      (!s.newEntrantsOnly || isNewEntrantStudent(student)),
   );
   return applicable.map((s) => {
     const paidAmount = getPaidForCategory(feeRecords, s.category);
@@ -155,6 +206,7 @@ export function deriveStudentFees(
       gatedAction: (s.gatedAction as GatedAction) || undefined,
       isGated: !!s.isGated,
       isOptional: !!s.isOptional,
+      newEntrantsOnly: !!s.newEntrantsOnly,
       minPayable: minimumPayableFor({ amount: s.amount, requiredPercentage }),
     };
   });
