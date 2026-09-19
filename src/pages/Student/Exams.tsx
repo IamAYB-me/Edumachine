@@ -56,6 +56,11 @@ export default function ExamSession() {
     return examTimetable.filter(item => item.class === studentClass);
   }, [examTimetable, studentClass]);
 
+  const publishedExams = useMemo(
+    () => exams.filter(e => e.status === 'Published'),
+    [exams],
+  );
+
   useEffect(() => {
     const state = location.state as { tab?: 'cbt' | 'timetable' } | null;
     if (state?.tab) {
@@ -238,7 +243,7 @@ export default function ExamSession() {
 
         {activeTab === 'cbt' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 print:hidden">
-            {exams.filter(e => e.status === 'Published').map(exam => (
+            {publishedExams.length > 0 ? publishedExams.map(exam => (
               <div key={exam.id} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 space-y-6 shadow-sm hover:shadow-xl transition-all group">
                 <div className="flex justify-between items-start">
                   <div className="p-4 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-2xl group-hover:scale-110 transition-transform">
@@ -267,7 +272,19 @@ export default function ExamSession() {
                   Start {labels.assessmentLabel.replace('Assessments', 'Assessment')}
                 </button>
               </div>
-            ))}
+            )) : (
+              <div className="col-span-full py-32 flex flex-col items-center justify-center text-center">
+                <div className="w-24 h-24 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6">
+                  <LayoutGrid className="w-12 h-12 text-slate-200" />
+                </div>
+                <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-widest">
+                  No {labels.assessmentLabel} Available
+                </h3>
+                <p className="text-sm text-slate-500 mt-2 max-w-xs mx-auto font-medium">
+                  CBT {labels.assessmentLabel.toLowerCase()} haven't been published by the admin yet.
+                </p>
+              </div>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 print:grid-cols-2 print:gap-4">
