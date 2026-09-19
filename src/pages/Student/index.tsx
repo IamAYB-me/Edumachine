@@ -83,6 +83,7 @@ export default function StudentDashboard() {
   const courseRegEnabled = useSettingsStore((s) => s.globalSettings.courseRegistrationEnabled) !== false;
   const resultGate = checkFeeGate(feeStructures, myFeeRecords, myStudent?.class, 'result_access', myStudent);
   const resultLocked = !!resultGate && !resultGate.isAllowed;
+  const resultsEnabledForStudents = useSettingsStore((s) => s.globalSettings.resultsEnabledForStudents) !== false;
   const pendingFeeTotal = derivedFees
     .filter(f => f.status === 'Pending' || f.status === 'Partial')
     .reduce((sum, f) => sum + f.remaining, 0);
@@ -383,13 +384,13 @@ return (
           <StaggerItem>
             <KPICard
               title={labels.scoreMetricLabel}
-              value={resultLocked ? 'Locked' : (avgScore === null ? '—' : `${avgScore}%`)}
+              value={resultLocked || !resultsEnabledForStudents ? 'Locked' : (avgScore === null ? '—' : `${avgScore}%`)}
               icon={Award}
               toneClass="border-purple-200 bg-purple-50 dark:border-purple-900 dark:bg-purple-950/40"
               iconBgClass="bg-purple-100 dark:bg-purple-900/40"
               iconColorClass="text-purple-600 dark:text-purple-300"
-              trend={{ value: 0, label: resultLocked ? 'Pay fees to unlock' : (avgScore === null ? 'No results yet' : labels.scoreMetricTrend) }}
-              to={resultLocked ? undefined : "/student/exams"}
+              trend={{ value: 0, label: !resultsEnabledForStudents ? 'Results not yet released' : (resultLocked ? 'Pay fees to unlock' : (avgScore === null ? 'No results yet' : labels.scoreMetricTrend)) }}
+              to={resultLocked || !resultsEnabledForStudents ? undefined : "/student/exams"}
               delay={0.08}
             />
           </StaggerItem>
@@ -646,18 +647,18 @@ return (
             {/* Results */}
             <AnimatedCard delay={0.42} className={cn(
               "rounded-xl border shadow-sm p-4 sm:p-6",
-              resultLocked
+              resultLocked || !resultsEnabledForStudents
                 ? "border-amber-200 bg-gradient-to-b from-amber-50/80 to-white dark:border-amber-900/50 dark:from-amber-950/30 dark:to-slate-900"
                 : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
             )}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg", resultLocked ? "bg-amber-100 dark:bg-amber-900/50" : "bg-slate-100 dark:bg-slate-800")}>
-                    <Award className={cn("h-4 w-4", resultLocked ? "text-amber-600 dark:text-amber-300" : "text-slate-500")} />
+                  <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg", resultLocked || !resultsEnabledForStudents ? "bg-amber-100 dark:bg-amber-900/50" : "bg-slate-100 dark:bg-slate-800")}>
+                    <Award className={cn("h-4 w-4", resultLocked || !resultsEnabledForStudents ? "text-amber-600 dark:text-amber-300" : "text-slate-500")} />
                   </div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">{labels.resultsLabel}</h3>
                 </div>
-                {!resultLocked && (
+                {!resultLocked && resultsEnabledForStudents && (
                   <AnimatedButton
                     onClick={() => navigate('/student/exams')}
                     className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 sm:text-sm"
@@ -667,11 +668,13 @@ return (
                 )}
               </div>
               <div className="mt-3">
-                {resultLocked ? (
+                {resultLocked || !resultsEnabledForStudents ? (
                   <div className="flex items-center gap-3 rounded-lg bg-white/70 px-3 py-2.5 dark:bg-slate-900/70">
                     <Lock className="h-4 w-4 shrink-0 text-amber-500" />
                     <p className="text-[11px] text-slate-500 sm:text-xs">
-                      {labels.resultsLabel} locked. Complete the required fee payments to view your {labels.resultsLabel.toLowerCase()}.
+                      {!resultsEnabledForStudents
+                        ? `${labels.resultsLabel} have not been released yet. Please check back later.`
+                        : `${labels.resultsLabel} locked. Complete the required fee payments to view your ${labels.resultsLabel.toLowerCase()}.`}
                     </p>
                   </div>
                 ) : (

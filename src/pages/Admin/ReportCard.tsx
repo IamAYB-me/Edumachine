@@ -5,6 +5,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
+import StudentAccessToggle from '@/components/ui/StudentAccessToggle';
 import { cn } from '@/utils';
 
 const getGrade = (score: number, total: number) => {
@@ -36,6 +37,7 @@ export default function ReportCard() {
   const isStudent = user?.role === 'STUDENT';
   const isParent = user?.role === 'PARENT';
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+  const reportCardEnabledForStudents = globalSettings.reportCardEnabledForStudents !== false;
 
   const [selectedClass, setSelectedClass] = useState<string>('');
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
@@ -196,6 +198,28 @@ export default function ReportCard() {
     setTimeout(() => { w.print(); w.close(); }, 500);
   };
 
+  if ((isStudent || isParent) && !reportCardEnabledForStudents) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{labels.resultsLabel}</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Review your report card and academic performance.</p>
+        </div>
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-10 sm:p-14 text-center">
+          <div className="w-20 h-20 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-6">
+            <Lock className="w-10 h-10 text-slate-400" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-3">
+            Report Cards Not Yet Available
+          </h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+            Student report cards have not been released yet. Please check back later or contact your school office.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -204,6 +228,11 @@ export default function ReportCard() {
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{labels.resultsLabel}</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Generate and print student report cards.</p>
         </div>
+        {isAdmin && (
+          <div className="w-72">
+            <StudentAccessToggle feature="reportCard" />
+          </div>
+        )}
         {canPrint && (
           <div className="flex gap-2">
             <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-900/20 transition-all">

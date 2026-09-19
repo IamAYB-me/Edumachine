@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { subscribeToDocument, setDocument, deleteFieldsFromDocument } from '@/services/firestoreService';
 
-interface GlobalSettings {
+export interface GlobalSettings {
   appName: string;
   appTagline: string;
   supportEmail: string;
@@ -45,6 +45,8 @@ interface GlobalSettings {
   admissionsEnabled: boolean;
   admissionsEmail: string;
   courseRegistrationEnabled: boolean;
+  resultsEnabledForStudents: boolean;
+  reportCardEnabledForStudents: boolean;
 }
 
 const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
@@ -89,6 +91,8 @@ const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   admissionsEnabled: true,
   admissionsEmail: 'admissions@brochest.com.ng',
   courseRegistrationEnabled: true,
+  resultsEnabledForStudents: true,
+  reportCardEnabledForStudents: true,
 };
 
 const STALE_FIELDS: string[] = [];

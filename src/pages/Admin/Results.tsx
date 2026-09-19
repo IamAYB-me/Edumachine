@@ -7,6 +7,8 @@ import { KPICard } from '@/components/ui/KPICard';
 import { useToastStore } from '@/store/useToastStore';
 import { downloadTextFile } from '@/utils/fileHelpers';
 import { getPortalLevelLabels, resolveSchoolProfile } from '@/utils/schoolProfile';
+import StudentAccessToggle from '@/components/ui/StudentAccessToggle';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import Pagination from '@/components/ui/Pagination';
 import { usePagination } from '@/hooks/usePagination';
 
@@ -14,6 +16,7 @@ export default function ResultSheet() {
   const { examResults, students, classes, schools } = useDataStore();
   const { user } = useAuthStore();
   const showToast = useToastStore((state) => state.showToast);
+  const { globalSettings } = useSettingsStore();
   const [selectedClass, setSelectedClass] = useState<string>('all');
   const [selectedSubject, setSelectedSubject] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<string>('all');
@@ -21,6 +24,8 @@ export default function ResultSheet() {
 
   const isStudent = user?.role === 'STUDENT';
   const isTeacher = user?.role === 'TEACHER';
+  const isStaff = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+  const resultsEnabledForStudents = globalSettings.resultsEnabledForStudents !== false;
   const schoolProfile = resolveSchoolProfile(user ?? null, schools);
   const labels = getPortalLevelLabels(schoolProfile.portalLevel);
   
@@ -112,6 +117,32 @@ export default function ResultSheet() {
     });
   };
 
+  if (isStudent && !resultsEnabledForStudents) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white uppercase tracking-tight">
+            {labels.resultsLabel}
+          </h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 font-medium">
+            Track your {labels.assessmentLabel.toLowerCase()} scores and academic progress.
+          </p>
+        </div>
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-10 sm:p-14 text-center">
+          <div className="w-20 h-20 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-6">
+            <Award className="w-10 h-10 text-slate-400" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-3">
+            {labels.resultsLabel} Not Yet Available
+          </h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+            Your academic results have not been released yet. Please check back later or contact your school office.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 print:p-0">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 print:hidden">
@@ -124,6 +155,11 @@ export default function ResultSheet() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {isStaff && (
+            <div className="w-72">
+              <StudentAccessToggle feature="results" />
+            </div>
+          )}
           <button 
             onClick={handlePrint}
             className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-2 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition-all shadow-sm"
