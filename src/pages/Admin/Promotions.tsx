@@ -15,24 +15,10 @@ import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { useDataStore } from '@/store/useDataStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useToastStore } from '@/store/useToastStore';
-import { resolveSchoolProfile } from '@/utils/schoolProfile';
-import { isProgrammePortal } from '@/utils/portalProgrammes';
+import { resolveSchoolProfile, getPortalLevelDefaults } from '@/utils/schoolProfile';
 import { cn } from '@/utils';
 
 const GRADUATE_VALUE = '__graduate__';
-
-const TERTIARY_DEFAULT_LEVELS = [
-  'Year 1',
-  'Year 2',
-  'Year 3',
-  'Year 4',
-  'Year 5',
-  '100 Level',
-  '200 Level',
-  '300 Level',
-  '400 Level',
-  '500 Level',
-];
 
 const levelRank = (name: string): number => {
   const normalized = name.toLowerCase();
@@ -57,7 +43,10 @@ export default function Promotions() {
   const showToast = useToastStore((state) => state.showToast);
 
   const schoolProfile = resolveSchoolProfile(user ?? null, schools);
-  const isTertiary = isProgrammePortal(schoolProfile.portalLevel);
+  const defaultLevels = useMemo(
+    () => getPortalLevelDefaults(schoolProfile.portalLevel),
+    [schoolProfile.portalLevel],
+  );
 
   const [sourceLevel, setSourceLevel] = useState('');
   const [targetLevel, setTargetLevel] = useState('');
@@ -77,7 +66,7 @@ export default function Promotions() {
   }, [students]);
 
   const levelNames = useMemo(() => {
-    const names = new Set<string>(isTertiary ? TERTIARY_DEFAULT_LEVELS : []);
+    const names = new Set<string>(defaultLevels);
     students.forEach((student) => {
       if (student.level) names.add(student.level);
     });
@@ -87,7 +76,7 @@ export default function Promotions() {
       if (rankA !== rankB) return rankA - rankB;
       return a.localeCompare(b);
     });
-  }, [students, isTertiary]);
+  }, [students, defaultLevels]);
 
   const departmentOptions = useMemo(
     () => [

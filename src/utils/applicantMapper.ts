@@ -1,4 +1,5 @@
 import type { AdmissionApplication, PortalLevel, Student } from '@/store/useDataStore';
+import { getDefaultEntryLevel } from '@/utils/schoolProfile';
 
 export interface BuildStudentPayloadOptions {
   regNo: string;
@@ -27,6 +28,7 @@ export function buildStudentPayloadFromApplication(
     regNo: options.regNo,
     admissionNumber: '',
     class: className,
+    level: getDefaultEntryLevel(options.portalLevel),
     parentName: app.sponsorFullName || app.parentName || '',
     status: 'Active',
     phone: app.phone,

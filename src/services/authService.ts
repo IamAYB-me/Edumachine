@@ -13,6 +13,8 @@ import {
 import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
 import { friendlyErrorMessage } from '@/utils/errors';
+import { getDefaultEntryLevel } from '@/utils/schoolProfile';
+import type { PortalLevel } from '@/store/useDataStore';
 
 export interface FirestoreUser {
   uid: string;
@@ -342,6 +344,7 @@ export async function promoteApplicantToStudent(
         phone: studentData.phone || '',
         regNo: studentData.regNo || '',
         class: studentData.class || '',
+        level: getDefaultEntryLevel((studentData.portalLevel || 'College') as PortalLevel),
         parentName: '',
         status: 'Active',
         portalLevel: studentData.portalLevel || 'College',

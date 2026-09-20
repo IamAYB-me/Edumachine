@@ -242,3 +242,34 @@ export function getPortalLevelLabels(level: PortalLevel): PortalLevelLabels {
 export function isTertiaryLevel(level: PortalLevel): boolean {
   return level === 'College' || level === 'Polytechnic' || level === 'University';
 }
+
+/**
+ * The default entry (year/level) a newly admitted student starts at.
+ * Colleges/Polytechnics use "Year 1"; Universities use "100 Level".
+ */
+export function getDefaultEntryLevel(level: PortalLevel): string {
+  switch (level) {
+    case 'University':
+      return '100 Level';
+    case 'College':
+    case 'Polytechnic':
+      return 'Year 1';
+    default:
+      return '';
+  }
+}
+
+/**
+ * Suggested year/level names for a portal level, used when promoting students.
+ */
+export function getPortalLevelDefaults(level: PortalLevel): string[] {
+  switch (level) {
+    case 'University':
+      return ['100 Level', '200 Level', '300 Level', '400 Level', '500 Level'];
+    case 'College':
+    case 'Polytechnic':
+      return ['Year 1', 'Year 2', 'Year 3', 'Year 4', 'Year 5'];
+    default:
+      return [];
+  }
+}
