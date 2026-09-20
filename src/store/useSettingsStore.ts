@@ -95,7 +95,35 @@ const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   reportCardEnabledForStudents: true,
 };
 
-const STALE_FIELDS: string[] = [];
+const SETTINGS_CACHE_KEY = 'brochest:global-settings-v1';
+
+function readCachedSettings(): GlobalSettings | null {
+  try {
+    const raw = localStorage.getItem(SETTINGS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<GlobalSettings>;
+    return { ...DEFAULT_GLOBAL_SETTINGS, ...parsed };
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedSettings(settings: GlobalSettings) {
+  try {
+    localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(settings));
+  } catch {
+    try {
+      const slim: Partial<GlobalSettings> = { ...settings };
+      delete slim.logoUrl;
+      delete slim.faviconUrl;
+      localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(slim));
+    } catch {
+      /* localStorage unavailable */
+    }
+  }
+}
+
+const cachedSettings = readCachedSettings();
 
 function detectStaleFields(doc: Record<string, unknown>): string[] {
   const fields: string[] = [];
@@ -123,7 +151,7 @@ interface SettingsState {
 export const useSettingsStore = create<SettingsState>()((set, get) => ({
   theme: 'light',
   currency: 'NGN',
-  globalSettings: DEFAULT_GLOBAL_SETTINGS,
+  globalSettings: cachedSettings ?? DEFAULT_GLOBAL_SETTINGS,
   _hasHydrated: false,
 
   initSettingsSubscription: () => {
@@ -134,8 +162,10 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
         for (const f of stale) {
           delete clean[f];
         }
+        const merged = { ...DEFAULT_GLOBAL_SETTINGS, ...clean };
+        writeCachedSettings(merged);
         set({
-          globalSettings: { ...DEFAULT_GLOBAL_SETTINGS, ...clean },
+          globalSettings: merged,
           _hasHydrated: true,
         });
         if (stale.length > 0) {
@@ -158,6 +188,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     const { globalSettings } = get();
     const merged = { ...globalSettings, ...updates };
     set({ globalSettings: merged });
+    writeCachedSettings(merged);
     try {
       await setDocument('settings', 'global', updates);
     } catch (err) {
