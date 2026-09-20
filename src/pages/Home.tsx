@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { GraduationCap, Users, BookOpen, DollarSign, Calendar, Shield, ArrowRight } from 'lucide-react';
 import { AnimatedCard } from '@/components/ui/AnimatedCard';
-import { AnimatedButton, StaggerContainer, StaggerItem } from '@/components/ui/motion';
+import { StaggerContainer, StaggerItem } from '@/components/ui/motion';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
 const features = [
@@ -20,18 +20,13 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <header className="flex items-center justify-between px-6 py-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
-          className="flex items-center gap-3"
-        >
+        <Link to="/login" className="flex items-center gap-3">
           <img src={globalSettings.logoUrl || '/logo.png'} alt="Logo" className="w-10 h-10 rounded-xl object-contain shadow-lg" />
           <div>
             <h1 className="text-lg font-bold text-slate-900 dark:text-white">{globalSettings.appName || 'BROCHEST Portal'}</h1>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">{globalSettings.appTagline || 'School Management'}</p>
           </div>
-        </motion.div>
+        </Link>
         <Link
           to="/login"
           className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-900/20 transition-all"
@@ -58,14 +53,13 @@ export default function Home() {
           </StaggerItem>
           <StaggerItem variant="fadeUp">
             <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-              <AnimatedButton
-                className="px-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-xl shadow-blue-900/25 transition-all flex items-center gap-2"
+              <Link
+                to="/login"
+                className="inline-flex items-center gap-2 px-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-xl shadow-blue-900/25 transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
-                <Link to="/login" className="flex items-center gap-2">
-                  Get Started
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
-              </AnimatedButton>
+                Get Started
+                <ArrowRight className="w-4 h-4" />
+              </Link>
             </div>
           </StaggerItem>
         </StaggerContainer>
