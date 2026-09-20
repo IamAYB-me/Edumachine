@@ -171,7 +171,7 @@ export default function RegisterPage() {
       <div className="flex-1 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <Link to="/" className="inline-flex items-center gap-3 mb-4">
+            <a href="https://www.brochest.com.ng" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-3 mb-4">
               {globalSettings.logoUrl ? (
                 <img src={globalSettings.logoUrl} alt="Logo" className="w-12 h-12 rounded-xl object-contain shadow-lg" />
               ) : (
@@ -183,7 +183,7 @@ export default function RegisterPage() {
                 <h1 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">{globalSettings.appName || 'BROCHEST Portal'}</h1>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-widest">{globalSettings.appTagline || 'School Management System'}</p>
               </div>
-            </Link>
+            </a>
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white mt-6">Create your account</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Join your school's portal</p>
           </div>
