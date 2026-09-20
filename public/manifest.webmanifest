@@ -1,6 +1,6 @@
 {
-  "name": "BROCHEST Portal",
-  "short_name": "BROCHEST",
+  "name": "BROCHEST APP",
+  "short_name": "BROCHEST APP",
   "description": "School management portal for students, parents, teachers and administrators.",
   "start_url": "/",
   "scope": "/",
