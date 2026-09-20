@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { ShieldAlert, CheckCircle, XCircle, Clock, Trash2, Eye, X } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { ShieldAlert, CheckCircle, XCircle, Clock, Eye, X } from 'lucide-react';
 import { cn } from '@/utils';
 import { KPICard } from '@/components/ui/KPICard';
 import { useDataStore, type ActivityLog } from '@/store/useDataStore';
@@ -13,13 +13,14 @@ function formatDate(dateStr?: unknown): string {
 }
 
 export default function SuperAdminDeletionRequests() {
-  const { activityLogs, approveLogDeletion, rejectLogDeletion } = useDataStore();
+  const { activityLogs, approveLogDeletion, approveLogDeletionBulk, rejectLogDeletion, rejectLogDeletionBulk } = useDataStore();
   const showToast = useToastStore((state) => state.showToast);
 
   const [activeTab, setActiveTab] = useState<'pending' | 'history'>('pending');
-  const [rejectModalLog, setRejectModalLog] = useState<ActivityLog | null>(null);
+  const [rejectIds, setRejectIds] = useState<string[]>([]);
   const [rejectReason, setRejectReason] = useState('');
   const [detailLog, setDetailLog] = useState<ActivityLog | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const pendingRequests = useMemo(
     () => activityLogs.filter((log) => log.deletionRequested && !log.deletionApproved && !log.deletionRejected)
@@ -60,16 +61,67 @@ export default function SuperAdminDeletionRequests() {
     showToast({ title: 'Deletion approved — log entry removed', variant: 'success' });
   };
 
+  const allPendingSelected =
+    pendingRequests.length > 0 && pendingRequests.every((log) => selectedIds.has(log.id));
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [activeTab]);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allPendingSelected) {
+        pendingRequests.forEach((log) => next.delete(log.id));
+      } else {
+        pendingRequests.forEach((log) => next.add(log.id));
+      }
+      return next;
+    });
+  };
+
+  const handleBulkApprove = () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Approve deletion of ${selectedIds.size} selected request(s)? This permanently removes them from the log.`)) return;
+    approveLogDeletionBulk(Array.from(selectedIds));
+    showToast({ title: `${selectedIds.size} deletion request(s) approved`, variant: 'success' });
+    setSelectedIds(new Set());
+  };
+
+  const handleBulkReject = () => {
+    if (selectedIds.size === 0) return;
+    setRejectIds(Array.from(selectedIds));
+    setRejectReason('');
+  };
+
+  const rejectModalLog =
+    rejectIds.length === 1 ? pendingRequests.find((log) => log.id === rejectIds[0]) ?? null : null;
+
   const handleReject = () => {
-    if (!rejectModalLog) return;
+    if (rejectIds.length === 0) return;
     if (!rejectReason.trim()) {
       showToast({ title: 'Please provide a rejection reason', variant: 'error' });
       return;
     }
-    rejectLogDeletion(rejectModalLog.id, rejectReason.trim());
-    setRejectModalLog(null);
+    const count = rejectIds.length;
+    if (count === 1) {
+      rejectLogDeletion(rejectIds[0], rejectReason.trim());
+    } else {
+      rejectLogDeletionBulk(rejectIds, rejectReason.trim());
+    }
+    setRejectIds([]);
     setRejectReason('');
-    showToast({ title: 'Deletion request rejected', variant: 'info' });
+    setSelectedIds(new Set());
+    showToast({ title: `${count} deletion request(s) rejected`, variant: 'info' });
   };
 
   return (
@@ -102,10 +154,40 @@ export default function SuperAdminDeletionRequests() {
           </button>
         </div>
 
+        {activeTab === 'pending' && selectedIds.size > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30">
+            <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
+              {selectedIds.size} request{selectedIds.size === 1 ? '' : 's'} selected
+            </p>
+            <div className="flex items-center gap-2">
+              <button onClick={handleBulkApprove}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-900/20 dark:border-emerald-800 dark:hover:bg-emerald-900/30 transition-colors">
+                <CheckCircle className="w-4 h-4" />Approve Selected
+              </button>
+              <button onClick={handleBulkReject}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-red-600 bg-red-50 border border-red-200 hover:bg-red-100 dark:text-red-400 dark:bg-red-900/20 dark:border-red-800 dark:hover:bg-red-900/30 transition-colors">
+                <XCircle className="w-4 h-4" />Reject Selected
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-800">
+                {activeTab === 'pending' && (
+                  <th className="p-4 w-10">
+                    <input
+                      type="checkbox"
+                      checked={allPendingSelected}
+                      onChange={toggleSelectAll}
+                      disabled={pendingRequests.length === 0}
+                      aria-label="Select all pending requests"
+                      className="h-4 w-4 rounded accent-emerald-600 disabled:opacity-40"
+                    />
+                  </th>
+                )}
                 <th className="text-left p-4 font-medium text-slate-500 dark:text-slate-400">Requested By</th>
                 <th className="text-left p-4 font-medium text-slate-500 dark:text-slate-400">Log Details</th>
                 <th className="text-left p-4 font-medium text-slate-500 dark:text-slate-400">Requested At</th>
@@ -116,13 +198,24 @@ export default function SuperAdminDeletionRequests() {
             <tbody>
               {(activeTab === 'pending' ? pendingRequests : historyLogs).length === 0 ? (
                 <tr>
-                  <td colSpan={activeTab === 'history' ? 5 : 4} className="p-12 text-center text-slate-400 dark:text-slate-500">
+                  <td colSpan={5} className="p-12 text-center text-slate-400 dark:text-slate-500">
                     {activeTab === 'pending' ? 'No pending deletion requests.' : 'No deletion history yet.'}
                   </td>
                 </tr>
               ) : (
                 (activeTab === 'pending' ? pendingRequests : historyLogs).map((log) => (
                   <tr key={log.id} className="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                    {activeTab === 'pending' && (
+                      <td className="p-4">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(log.id)}
+                          onChange={() => toggleSelect(log.id)}
+                          aria-label={`Select request by ${log.deletionRequestedByName}`}
+                          className="h-4 w-4 rounded accent-emerald-600"
+                        />
+                      </td>
+                    )}
                     <td className="p-4">
                       <div className="font-medium text-slate-900 dark:text-white">{log.deletionRequestedByName}</div>
                       <div className="text-xs text-slate-400">{(log.userRole || 'System').replace('_', ' ')}</div>
@@ -157,7 +250,7 @@ export default function SuperAdminDeletionRequests() {
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20 rounded-lg transition-colors">
                             <CheckCircle className="w-3.5 h-3.5" />Approve
                           </button>
-                          <button onClick={() => { setRejectModalLog(log); setRejectReason(''); }}
+                          <button onClick={() => { setRejectIds([log.id]); setRejectReason(''); }}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 rounded-lg transition-colors">
                             <XCircle className="w-3.5 h-3.5" />Reject
                           </button>
@@ -178,19 +271,29 @@ export default function SuperAdminDeletionRequests() {
       </div>
 
       {/* Reject Modal */}
-      {rejectModalLog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={() => setRejectModalLog(null)}>
+      {rejectIds.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={() => { setRejectIds([]); setRejectReason(''); }}>
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 dark:border-slate-700" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between p-5 border-b border-slate-200 dark:border-slate-700">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Reject Deletion Request</h2>
-              <button onClick={() => setRejectModalLog(null)} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                {rejectModalLog ? 'Reject Deletion Request' : `Reject ${rejectIds.length} Deletion Requests`}
+              </h2>
+              <button onClick={() => { setRejectIds([]); setRejectReason(''); }} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
                 <X className="w-5 h-5 text-slate-400" />
               </button>
             </div>
             <div className="p-5 space-y-4">
               <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg text-sm">
-                <p className="text-slate-500 dark:text-slate-400">Requested by <span className="font-medium text-slate-900 dark:text-white">{rejectModalLog.deletionRequestedByName}</span></p>
-                <p className="text-slate-700 dark:text-slate-200 mt-1">{rejectModalLog.description}</p>
+                {rejectModalLog ? (
+                  <>
+                    <p className="text-slate-500 dark:text-slate-400">Requested by <span className="font-medium text-slate-900 dark:text-white">{rejectModalLog.deletionRequestedByName}</span></p>
+                    <p className="text-slate-700 dark:text-slate-200 mt-1">{rejectModalLog.description}</p>
+                  </>
+                ) : (
+                  <p className="text-slate-700 dark:text-slate-200">
+                    You are rejecting <span className="font-semibold">{rejectIds.length}</span> selected deletion requests.
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Rejection Reason *</label>
@@ -199,11 +302,11 @@ export default function SuperAdminDeletionRequests() {
               </div>
             </div>
             <div className="flex justify-end gap-3 p-5 border-t border-slate-200 dark:border-slate-700">
-              <button onClick={() => setRejectModalLog(null)} className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
+              <button onClick={() => { setRejectIds([]); setRejectReason(''); }} className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
                 Cancel
               </button>
               <button onClick={handleReject} className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors">
-                Reject Request
+                Reject Request{rejectIds.length === 1 ? '' : 's'}
               </button>
             </div>
           </div>

@@ -1,9 +1,8 @@
-import React, { useState, useMemo } from 'react';
-import { ScrollText, Search, Trash2, Filter, Clock, Users, AlertTriangle, Download, X } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { ScrollText, Search, Trash2, Filter, Clock, Users, AlertTriangle, X } from 'lucide-react';
 import { cn } from '@/utils';
 import { KPICard } from '@/components/ui/KPICard';
 import { useDataStore, type ActivityLog, type ActivityAction } from '@/store/useDataStore';
-import { useAuthStore } from '@/store/useAuthStore';
 import { useToastStore } from '@/store/useToastStore';
 import Pagination from '@/components/ui/Pagination';
 import { usePagination } from '@/hooks/usePagination';
@@ -48,8 +47,7 @@ function formatDate(ts: number): string {
 }
 
 export default function AdminActivityLogs() {
-  const { activityLogs, requestLogDeletion, purgeOldLogs } = useDataStore();
-  const user = useAuthStore((state) => state.user);
+  const { activityLogs, requestLogDeletion, requestLogDeletionBulk, purgeOldLogs } = useDataStore();
   const showToast = useToastStore((state) => state.showToast);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -59,6 +57,7 @@ export default function AdminActivityLogs() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const filteredLogs = useMemo(() => {
     let result = [...activityLogs];
@@ -100,6 +99,47 @@ export default function AdminActivityLogs() {
   }, [activityLogs, searchTerm, filterRole, filterAction, filterModule, dateFrom, dateTo]);
 
   const pages = usePagination(filteredLogs, 10);
+
+  const eligibleLogs = useMemo(
+    () => filteredLogs.filter((log) => !log.deletionRequested && !log.deletionApproved),
+    [filteredLogs],
+  );
+
+  const allEligibleSelected =
+    eligibleLogs.length > 0 && eligibleLogs.every((log) => selectedIds.has(log.id));
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [searchTerm, filterRole, filterAction, filterModule, dateFrom, dateTo]);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allEligibleSelected) {
+        eligibleLogs.forEach((log) => next.delete(log.id));
+      } else {
+        eligibleLogs.forEach((log) => next.add(log.id));
+      }
+      return next;
+    });
+  };
+
+  const handleBulkRequestDelete = () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Send a deletion request to the Super Admin for ${selectedIds.size} log(s)?`)) return;
+    requestLogDeletionBulk(Array.from(selectedIds));
+    showToast({ title: `${selectedIds.size} deletion request(s) sent to Super Admin`, variant: 'success' });
+    setSelectedIds(new Set());
+  };
 
   const stats = {
     total: activityLogs.length,
@@ -163,6 +203,12 @@ export default function AdminActivityLogs() {
               className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:border-blue-500 transition-all dark:text-white" />
           </div>
           <div className="flex items-center gap-2">
+            {selectedIds.size > 0 && (
+              <button onClick={handleBulkRequestDelete}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-red-600 bg-red-50 border border-red-200 hover:bg-red-100 dark:text-red-400 dark:bg-red-900/20 dark:border-red-800 dark:hover:bg-red-900/30 transition-colors">
+                <Trash2 className="w-4 h-4" />Request Delete ({selectedIds.size})
+              </button>
+            )}
             <button onClick={() => setShowFilters(!showFilters)}
               className={cn("flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors border",
                 showFilters ? "bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-400" : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300")}>
@@ -213,6 +259,16 @@ export default function AdminActivityLogs() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-800">
+                <th className="p-4 w-10">
+                  <input
+                    type="checkbox"
+                    checked={allEligibleSelected}
+                    onChange={toggleSelectAll}
+                    disabled={eligibleLogs.length === 0}
+                    aria-label="Select all deletable logs"
+                    className="h-4 w-4 rounded accent-red-600 disabled:opacity-40"
+                  />
+                </th>
                 <th className="text-left p-4 font-medium text-slate-500 dark:text-slate-400">Timestamp</th>
                 <th className="text-left p-4 font-medium text-slate-500 dark:text-slate-400">User</th>
                 <th className="text-left p-4 font-medium text-slate-500 dark:text-slate-400">Action</th>
@@ -225,7 +281,7 @@ export default function AdminActivityLogs() {
             <tbody>
               {filteredLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-12 text-center text-slate-400 dark:text-slate-500">
+                  <td colSpan={8} className="p-12 text-center text-slate-400 dark:text-slate-500">
                     No activity logs found.
                   </td>
                 </tr>
@@ -235,6 +291,17 @@ export default function AdminActivityLogs() {
                   const deletionRejected = log.deletionRejected;
                   return (
                     <tr key={log.id} className="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                      <td className="p-4">
+                        {!log.deletionRequested && !log.deletionApproved ? (
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(log.id)}
+                            onChange={() => toggleSelect(log.id)}
+                            aria-label={`Select log by ${log.userName}`}
+                            className="h-4 w-4 rounded accent-red-600"
+                          />
+                        ) : null}
+                      </td>
                       <td className="p-4 text-slate-600 dark:text-slate-300 whitespace-nowrap">
                         {formatDate(getLogTime(log))}
                       </td>

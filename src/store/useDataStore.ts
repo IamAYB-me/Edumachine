@@ -919,8 +919,11 @@ interface DataState {
 
   // Activity Log Actions
   requestLogDeletion: (id: string) => void;
+  requestLogDeletionBulk: (ids: string[]) => void;
   approveLogDeletion: (id: string) => void;
+  approveLogDeletionBulk: (ids: string[]) => void;
   rejectLogDeletion: (id: string, reason: string) => void;
+  rejectLogDeletionBulk: (ids: string[], reason: string) => void;
   purgeOldLogs: () => Promise<number>;
 }
 
@@ -1871,7 +1874,6 @@ export const useDataStore = create<DataState>()((set, get) => ({
   approveLogDeletion: (id) => {
     const user = useAuthStore.getState().user;
     if (!user) return;
-    const now = new Date().toISOString();
     set((state) => ({
       activityLogs: state.activityLogs.filter((log) => log.id !== id),
     }));
@@ -1895,6 +1897,59 @@ export const useDataStore = create<DataState>()((set, get) => ({
       deletionRejectedAt: now,
       deletionRejectionReason: reason,
     }).catch(console.error);
+  },
+
+  requestLogDeletionBulk: (ids) => {
+    const user = useAuthStore.getState().user;
+    if (!user || ids.length === 0) return;
+    const now = new Date().toISOString();
+    const idSet = new Set(ids);
+    const payload = {
+      deletionRequested: true,
+      deletionRequestedBy: user.id,
+      deletionRequestedByName: user.name,
+      deletionRequestedAt: now,
+    };
+    set((state) => ({
+      activityLogs: state.activityLogs.map((log) =>
+        idSet.has(log.id) && !log.deletionRequested ? { ...log, ...payload } : log,
+      ),
+    }));
+    ids.forEach((id) => {
+      updateDocument('activityLogs', id, payload).catch(console.error);
+    });
+  },
+
+  approveLogDeletionBulk: (ids) => {
+    if (ids.length === 0) return;
+    const idSet = new Set(ids);
+    set((state) => ({
+      activityLogs: state.activityLogs.filter((log) => !idSet.has(log.id)),
+    }));
+    ids.forEach((id) => {
+      deleteDocument('activityLogs', id).catch(console.error);
+    });
+  },
+
+  rejectLogDeletionBulk: (ids, reason) => {
+    const user = useAuthStore.getState().user;
+    if (!user || ids.length === 0) return;
+    const now = new Date().toISOString();
+    const idSet = new Set(ids);
+    const payload = {
+      deletionRejected: true,
+      deletionRejectedBy: user.id,
+      deletionRejectedAt: now,
+      deletionRejectionReason: reason,
+    };
+    set((state) => ({
+      activityLogs: state.activityLogs.map((log) =>
+        idSet.has(log.id) ? { ...log, ...payload } : log,
+      ),
+    }));
+    ids.forEach((id) => {
+      updateDocument('activityLogs', id, payload).catch(console.error);
+    });
   },
 
   purgeOldLogs: async () => {
