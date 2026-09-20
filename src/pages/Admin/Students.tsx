@@ -25,7 +25,7 @@ type FieldConfig = {
   readOnly?: boolean;
 };
 
-const portalLevelOptions: PortalLevel[] = ['Primary', 'Secondary', 'College', 'Polytechnic', 'University'];
+const portalLevelOptions: PortalLevel[] = ['Nursery', 'Primary', 'Secondary', 'College', 'Polytechnic', 'University'];
 
 const generateCode = (prefix: string) =>
   `${prefix}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
@@ -265,7 +265,7 @@ const baseSections: Array<{ title: string; fields: FieldConfig[] }> = [
   },
 ];
 
-const levelSpecificSections: Record<PortalLevel, Array<{ title: string; fields: FieldConfig[] }>> = {
+const levelSpecificSectionsBase: Record<Exclude<PortalLevel, 'Nursery'>, Array<{ title: string; fields: FieldConfig[] }>> = {
   Primary: [
     {
       title: 'Primary Admission Requirements',
@@ -365,6 +365,11 @@ const levelSpecificSections: Record<PortalLevel, Array<{ title: string; fields: 
       ],
     },
   ],
+};
+
+const levelSpecificSections: Record<PortalLevel, Array<{ title: string; fields: FieldConfig[] }>> = {
+  ...levelSpecificSectionsBase,
+  Nursery: levelSpecificSectionsBase.Primary,
 };
 
 const commonAdminSection: Array<{ title: string; fields: FieldConfig[] }> = [

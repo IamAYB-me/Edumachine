@@ -41,7 +41,7 @@ const COMMON_SUBJECTS = [
 ];
 
 const CLASS_OPTIONS = [
-  'Nursery 1', 'Nursery 2', 'Nursery 3',
+  'Creche', 'Kindergarten',
   'Primary 1', 'Primary 2', 'Primary 3', 'Primary 4', 'Primary 5', 'Primary 6',
   'JSS 1', 'JSS 2', 'JSS 3',
   'SSS 1', 'SSS 2', 'SSS 3',

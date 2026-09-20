@@ -4,7 +4,7 @@ import { logActivity, type ActivityAction } from '@/utils/activityLogger';
 import type { Unsubscribe } from 'firebase/firestore';
 import { useAuthStore, type Role } from './useAuthStore';
 
-export type PortalLevel = 'Primary' | 'Secondary' | 'College' | 'Polytechnic' | 'University';
+export type PortalLevel = 'Nursery' | 'Primary' | 'Secondary' | 'College' | 'Polytechnic' | 'University';
 
 export type AdmissionFieldKey = keyof Omit<Student, 'id'>;
 
@@ -13,12 +13,17 @@ export interface AdmissionFormConfig {
 }
 
 export const buildDefaultAdmissionFormConfig = (portalLevel: PortalLevel): AdmissionFormConfig => {
-  const defaults: Record<PortalLevel, AdmissionFieldKey[]> = {
+  const baseDefaults: Record<Exclude<PortalLevel, 'Nursery'>, AdmissionFieldKey[]> = {
     Primary: ['admissionNumber', 'regNo', 'surname', 'firstName', 'middleName', 'gender', 'dateOfBirth', 'placeOfBirth', 'nationality', 'stateOfOrigin', 'lga', 'tribeEthnicity', 'religion', 'passportUrl', 'residentialAddress', 'townCity', 'state', 'postalAddress', 'fatherName', 'fatherOccupation', 'fatherEmployer', 'fatherPhone', 'fatherEmail', 'fatherAddress', 'motherName', 'motherOccupation', 'motherEmployer', 'motherPhone', 'motherEmail', 'guardianName', 'guardianRelationship', 'guardianPhone', 'guardianAddress', 'bloodGroup', 'genotype', 'allergies', 'medicalConditions', 'disability', 'hospitalDoctor', 'emergencyContact', 'previousSchoolName', 'previousSchoolAddress', 'lastClassAttended', 'reasonForLeaving', 'classApplyingFor', 'classDepartment', 'academicSession', 'dateOfAdmission', 'admissionStatus', 'birthCertificate', 'passportDocument', 'immunizationCard', 'previousSchoolResult', 'parentIdDocument', 'status'],
     Secondary: ['admissionNumber', 'regNo', 'surname', 'firstName', 'middleName', 'gender', 'dateOfBirth', 'placeOfBirth', 'nationality', 'stateOfOrigin', 'lga', 'tribeEthnicity', 'religion', 'passportUrl', 'residentialAddress', 'townCity', 'state', 'postalAddress', 'fatherName', 'fatherOccupation', 'fatherEmployer', 'fatherPhone', 'fatherEmail', 'fatherAddress', 'motherName', 'motherOccupation', 'motherEmployer', 'motherPhone', 'motherEmail', 'guardianName', 'guardianRelationship', 'guardianPhone', 'guardianAddress', 'bloodGroup', 'genotype', 'allergies', 'medicalConditions', 'disability', 'hospitalDoctor', 'emergencyContact', 'entranceExamScore', 'commonEntranceResult', 'previousSchoolResult', 'lastClassAttended', 'subjectsOffered', 'preferredSport', 'clubSociety', 'specialTalent', 'accommodationType', 'hostelPreference', 'classApplyingFor', 'classDepartment', 'academicSession', 'dateOfAdmission', 'admissionStatus', 'transferLetter', 'testimonial', 'birthCertificate', 'passportDocument', 'stateOfOriginCertificate', 'status'],
     College: ['admissionNumber', 'regNo', 'jambRegistrationNumber', 'jambScore', 'surname', 'firstName', 'middleName', 'gender', 'dateOfBirth', 'maritalStatus', 'nationality', 'state', 'lga', 'passportUrl', 'oLevelResults', 'oLevelSitting', 'oLevelSubjectsGrades', 'institutionChoice', 'department', 'programme', 'level', 'entryMode', 'screeningScore', 'phone', 'email', 'residentialAddress', 'parentName', 'sponsorOccupation', 'guardianPhone', 'guardianAddress', 'bloodGroup', 'genotype', 'disability', 'medicalConditions', 'birthCertificate', 'localGovernmentCertificate', 'acceptanceLetter', 'admissionLetter', 'classDepartment', 'academicSession', 'dateOfAdmission', 'admissionStatus', 'status'],
     Polytechnic: ['admissionNumber', 'regNo', 'jambRegistrationNumber', 'jambScore', 'surname', 'firstName', 'middleName', 'gender', 'dateOfBirth', 'maritalStatus', 'nationality', 'state', 'lga', 'passportUrl', 'oLevelResults', 'oLevelSitting', 'oLevelSubjectsGrades', 'institutionChoice', 'department', 'programme', 'level', 'entryMode', 'screeningScore', 'phone', 'email', 'residentialAddress', 'parentName', 'sponsorOccupation', 'guardianPhone', 'guardianAddress', 'bloodGroup', 'genotype', 'disability', 'medicalConditions', 'birthCertificate', 'localGovernmentCertificate', 'acceptanceLetter', 'admissionLetter', 'classDepartment', 'academicSession', 'dateOfAdmission', 'admissionStatus', 'status'],
     University: ['admissionNumber', 'regNo', 'matricNumber', 'jambRegistrationNumber', 'jambScore', 'surname', 'firstName', 'middleName', 'gender', 'dateOfBirth', 'maritalStatus', 'nationality', 'state', 'lga', 'passportUrl', 'faculty', 'department', 'programme', 'degreeType', 'entryMode', 'admissionType', 'session', 'semester', 'level', 'oLevelExaminationBody', 'oLevelExamNumber', 'oLevelYear', 'oLevelResults', 'oLevelSubjectsGrades', 'aLevelQualifications', 'aLevelResults', 'cgpa', 'phone', 'email', 'residentialAddress', 'fatherName', 'motherName', 'sponsorName', 'sponsorOccupation', 'sponsorEmployer', 'sponsorPhone', 'sponsorEmail', 'bloodGroup', 'genotype', 'disability', 'medicalHistory', 'bankName', 'accountNumber', 'sponsor', 'jambAdmissionLetter', 'admissionLetter', 'birthCertificate', 'localGovernmentCertificate', 'passportDocument', 'medicalReport', 'acceptanceLetter', 'guarantorForm', 'classDepartment', 'academicSession', 'termSemester', 'dateOfAdmission', 'admissionStatus', 'status'],
+  };
+
+  const defaults: Record<PortalLevel, AdmissionFieldKey[]> = {
+    ...baseDefaults,
+    Nursery: baseDefaults.Primary,
   };
 
   return { enabledFields: defaults[portalLevel] ?? defaults.Secondary };
@@ -785,6 +790,7 @@ interface DataState {
   deleteStudent: (id: string) => StudentMutationResult;
   bulkUpdateStudentPortalLevel: (ids: string[], portalLevel: PortalLevel) => number;
   bulkUpdateStudentLevel: (ids: string[], level: string) => number;
+  bulkUpdateStudentClass: (ids: string[], className: string) => number;
   bulkGraduateStudents: (ids: string[]) => number;
   bulkDeleteStudents: (ids: string[]) => number;
   clearStudents: () => Promise<number>;
@@ -1185,6 +1191,26 @@ export const useDataStore = create<DataState>()((set, get) => ({
       });
       if (count > 0) {
         logActivity({ action: 'UPDATE', module: 'students', description: `Promoted ${count} student${count === 1 ? '' : 's'} to ${level}`, targetName: level }).catch(console.error);
+      }
+      return { students: updated };
+    });
+    return count;
+  },
+
+  bulkUpdateStudentClass: (ids, className) => {
+    let count = 0;
+    set((state) => {
+      const updated = state.students.map((s) => {
+        if (ids.includes(s.id)) {
+          count += 1;
+          const patched = { ...s, class: className };
+          updateDocument('students', s.id, { class: className } as Record<string, unknown>).catch(console.error);
+          return patched;
+        }
+        return s;
+      });
+      if (count > 0) {
+        logActivity({ action: 'UPDATE', module: 'students', description: `Promoted ${count} student${count === 1 ? '' : 's'} to ${className}`, targetName: className }).catch(console.error);
       }
       return { students: updated };
     });

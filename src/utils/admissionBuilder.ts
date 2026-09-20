@@ -82,7 +82,7 @@ const commonBuilderSections: AdmissionBuilderSection[] = [
   },
 ];
 
-const byPortalLevel: Record<PortalLevel, AdmissionBuilderSection[]> = {
+const byPortalLevelBase: Record<Exclude<PortalLevel, 'Nursery'>, AdmissionBuilderSection[]> = {
   Primary: [
     {
       title: 'Personal Information',
@@ -520,6 +520,11 @@ const byPortalLevel: Record<PortalLevel, AdmissionBuilderSection[]> = {
     },
     ...commonBuilderSections,
   ],
+};
+
+const byPortalLevel: Record<PortalLevel, AdmissionBuilderSection[]> = {
+  ...byPortalLevelBase,
+  Nursery: byPortalLevelBase.Primary,
 };
 
 export function getAdmissionBuilderSections(level: PortalLevel): AdmissionBuilderSection[] {

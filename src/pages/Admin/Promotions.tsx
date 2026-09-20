@@ -12,41 +12,29 @@ import {
 } from 'lucide-react';
 import { AnimatedCard } from '@/components/ui/AnimatedCard';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
-import { useDataStore } from '@/store/useDataStore';
+import { useDataStore, type Student } from '@/store/useDataStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useToastStore } from '@/store/useToastStore';
-import { resolveSchoolProfile, getPortalLevelDefaults } from '@/utils/schoolProfile';
+import { resolveSchoolProfile, getPortalLevelLabels, getPromotionPath, promotesByClass } from '@/utils/schoolProfile';
 import { cn } from '@/utils';
 
 const GRADUATE_VALUE = '__graduate__';
 
-const levelRank = (name: string): number => {
-  const normalized = name.toLowerCase();
-  const yearMatch = normalized.match(/year\s*(\d+)/);
-  if (yearMatch) return parseInt(yearMatch[1], 10);
-  const levelMatch = normalized.match(/(\d+)\s*level/);
-  if (levelMatch) return parseInt(levelMatch[1], 10) / 100;
-  const numericMatch = normalized.match(/(\d+)/);
-  if (numericMatch) return parseInt(numericMatch[1], 10) / 10000;
-  return Number.MAX_SAFE_INTEGER;
-};
-
-const departmentOf = (student: { classDepartment?: string; class?: string }) =>
-  (student.classDepartment || student.class || '').trim();
+const departmentOf = (student: Student) => (student.classDepartment || student.class || '').trim();
 
 export default function Promotions() {
   const students = useDataStore((state) => state.students);
   const schools = useDataStore((state) => state.schools);
   const bulkUpdateStudentLevel = useDataStore((state) => state.bulkUpdateStudentLevel);
+  const bulkUpdateStudentClass = useDataStore((state) => state.bulkUpdateStudentClass);
   const bulkGraduateStudents = useDataStore((state) => state.bulkGraduateStudents);
   const user = useAuthStore((state) => state.user);
   const showToast = useToastStore((state) => state.showToast);
 
   const schoolProfile = resolveSchoolProfile(user ?? null, schools);
-  const defaultLevels = useMemo(
-    () => getPortalLevelDefaults(schoolProfile.portalLevel),
-    [schoolProfile.portalLevel],
-  );
+  const labels = getPortalLevelLabels(schoolProfile.portalLevel);
+  const isClassBased = promotesByClass(schoolProfile.portalLevel);
+  const promotionPath = useMemo(() => getPromotionPath(schoolProfile.portalLevel), [schoolProfile.portalLevel]);
 
   const [sourceLevel, setSourceLevel] = useState('');
   const [targetLevel, setTargetLevel] = useState('');
@@ -55,6 +43,13 @@ export default function Promotions() {
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState('');
   const [confirming, setConfirming] = useState(false);
+
+  const fieldValue = useMemo(
+    () => (student: Student) => ((isClassBased ? student.class : student.level) || '').trim(),
+    [isClassBased],
+  );
+
+  const stepLabel = isClassBased ? labels.structureSingular : 'Year / Level';
 
   const departments = useMemo(() => {
     const names = new Set<string>();
@@ -66,34 +61,32 @@ export default function Promotions() {
   }, [students]);
 
   const levelNames = useMemo(() => {
-    const names = new Set<string>(defaultLevels);
+    const names = new Set<string>(promotionPath);
     students.forEach((student) => {
-      if (student.level) names.add(student.level);
+      const value = fieldValue(student);
+      if (value) names.add(value);
     });
-    return Array.from(names).sort((a, b) => {
-      const rankA = levelRank(a);
-      const rankB = levelRank(b);
-      if (rankA !== rankB) return rankA - rankB;
-      return a.localeCompare(b);
-    });
-  }, [students, defaultLevels]);
+    const extras = Array.from(names)
+      .filter((name) => !promotionPath.includes(name))
+      .sort((a, b) => a.localeCompare(b));
+    return [...promotionPath, ...extras];
+  }, [promotionPath, students, fieldValue]);
+
+  const countFor = (name: string) =>
+    students.filter((student) => fieldValue(student) === name && (includeInactive || student.status === 'Active')).length;
+
+  const levelOptions = useMemo(
+    () => levelNames.map((name) => ({ value: name, label: name, sublabel: `${countFor(name)} student(s)` })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [levelNames, students, includeInactive, fieldValue],
+  );
 
   const departmentOptions = useMemo(
     () => [
-      { value: '', label: `All ${schoolProfile.portalLevel === 'Primary' || schoolProfile.portalLevel === 'Secondary' ? 'classes' : 'departments'}` },
+      { value: '', label: `All ${labels.structurePlural.toLowerCase()}` },
       ...departments.map((name) => ({ value: name, label: name })),
     ],
-    [departments, schoolProfile.portalLevel],
-  );
-
-  const levelOptions = useMemo(
-    () =>
-      levelNames.map((name) => ({
-        value: name,
-        label: name,
-        sublabel: `${students.filter((s) => (s.level || '') === name).length} student(s)`,
-      })),
-    [levelNames, students],
+    [departments, labels.structurePlural],
   );
 
   const targetOptions = useMemo(
@@ -105,24 +98,24 @@ export default function Promotions() {
   );
 
   const suggestedTarget = useMemo(() => {
-    const index = levelNames.indexOf(sourceLevel);
+    const index = promotionPath.indexOf(sourceLevel);
     if (index === -1) return '';
-    return levelNames[index + 1] ?? GRADUATE_VALUE;
-  }, [levelNames, sourceLevel]);
+    return promotionPath[index + 1] ?? GRADUATE_VALUE;
+  }, [promotionPath, sourceLevel]);
 
-  const missingLevelCount = useMemo(
-    () => students.filter((student) => student.status === 'Active' && !student.level).length,
-    [students],
+  const missingValueCount = useMemo(
+    () => students.filter((student) => student.status === 'Active' && !fieldValue(student)).length,
+    [students, fieldValue],
   );
 
   const candidates = useMemo(() => {
     if (!sourceLevel) return [];
     return students
-      .filter((student) => (student.level || '') === sourceLevel)
-      .filter((student) => !department || departmentOf(student) === department)
+      .filter((student) => fieldValue(student) === sourceLevel)
+      .filter((student) => isClassBased || !department || departmentOf(student) === department)
       .filter((student) => includeInactive || student.status === 'Active')
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [students, sourceLevel, department, includeInactive]);
+  }, [students, sourceLevel, department, includeInactive, fieldValue, isClassBased]);
 
   const visibleCandidates = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -168,22 +161,30 @@ export default function Promotions() {
     setSourceLevel(value);
     setExcluded(new Set());
     setQuery('');
-    const index = levelNames.indexOf(value);
-    setTargetLevel(index === -1 ? '' : levelNames[index + 1] ?? GRADUATE_VALUE);
+    const index = promotionPath.indexOf(value);
+    setTargetLevel(index === -1 ? '' : promotionPath[index + 1] ?? GRADUATE_VALUE);
   };
 
   const handlePromote = () => {
     if (!sourceLevel || !targetLevel || selectedIds.length === 0) return;
     const isGraduating = targetLevel === GRADUATE_VALUE;
-    const moved = isGraduating ? bulkGraduateStudents(selectedIds) : bulkUpdateStudentLevel(selectedIds, targetLevel);
+    const moved = isGraduating
+      ? bulkGraduateStudents(selectedIds)
+      : isClassBased
+        ? bulkUpdateStudentClass(selectedIds, targetLevel)
+        : bulkUpdateStudentLevel(selectedIds, targetLevel);
 
     showToast({
       title: moved > 0 ? 'Promotion complete' : 'Nothing to promote',
       description:
         moved > 0
-          ? `${moved} student${moved === 1 ? '' : 's'} ${
-              isGraduating ? 'marked as graduated' : `promoted from ${sourceLevel} to ${targetLevel}`
-            }. Their department was not changed.`
+          ? `${moved} ${labels.learnerSingular.toLowerCase()}${moved === 1 ? '' : 's'} ${
+              isGraduating
+                ? 'marked as graduated'
+                : `promoted from ${sourceLevel} to ${targetLevel}${
+                    isClassBased ? '' : '. Their department was not changed.'
+                  }`
+            }`
           : 'No student records were updated.',
       variant: moved > 0 ? 'success' : 'warning',
     });
@@ -193,6 +194,7 @@ export default function Promotions() {
   };
 
   const targetLabel = targetLevel === GRADUATE_VALUE ? 'Graduated' : targetLevel;
+  const title = isClassBased ? `${labels.structureSingular} Promotion` : 'Year Promotion';
 
   return (
     <div className="space-y-6">
@@ -201,56 +203,80 @@ export default function Promotions() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
       >
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Year Promotion</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-          Move learners to the next year of study (e.g. Year 1 to Year 2). Their department stays the same.
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{title}</h1>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          {isClassBased
+            ? `Move learners to the next ${labels.structureSingular.toLowerCase()} (e.g. JSS 1 to JSS 2, or SSS 3 to Graduation).`
+            : 'Move learners to the next year of study (e.g. Year 1 to Year 2). Their department stays the same.'}
         </p>
       </motion.div>
 
-      {missingLevelCount > 0 && (
+      {promotionPath.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-slate-100 bg-white p-3 dark:border-slate-700/60 dark:bg-slate-800/60">
+          <span className="mr-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Path</span>
+          {promotionPath.map((step, index) => (
+            <span key={step} className="flex items-center gap-1.5">
+              {index > 0 && <ArrowRight className="h-3 w-3 text-slate-300 dark:text-slate-600" />}
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:bg-slate-700/70 dark:text-slate-300">
+                {step}
+              </span>
+            </span>
+          ))}
+          <span className="flex items-center gap-1.5">
+            <ArrowRight className="h-3 w-3 text-slate-300 dark:text-slate-600" />
+            <span className="rounded-full bg-violet-100 px-2.5 py-1 text-[11px] font-semibold text-violet-600 dark:bg-violet-900/40 dark:text-violet-300">
+              Graduation
+            </span>
+          </span>
+        </div>
+      )}
+
+      {missingValueCount > 0 && (
         <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-900/20">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
           <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
-            {missingLevelCount} active student{missingLevelCount === 1 ? '' : 's'} have no year/level set, so they will
-            not appear here. Set their Level in the student record first.
+            {missingValueCount} active {labels.learnerSingular.toLowerCase()}
+            {missingValueCount === 1 ? '' : 's'} have no {stepLabel.toLowerCase()} set, so they will not appear here.
+            Set their {stepLabel} in the {labels.learnerSingular.toLowerCase()} record first.
           </p>
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <AnimatedCard className="p-5">
-          <div className="flex items-center gap-2 mb-3">
+          <div className="mb-3 flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300">
               <Users className="h-4 w-4" />
             </span>
             <div>
               <p className="text-sm font-bold text-slate-900 dark:text-white">Promote from</p>
-              <p className="text-xs text-slate-400">Select the current year / level</p>
+              <p className="text-xs text-slate-400">Select the current {stepLabel.toLowerCase()}</p>
             </div>
           </div>
           <SearchableSelect
             options={levelOptions}
             value={sourceLevel}
             onChange={handleSourceChange}
-            placeholder="Select a year / level..."
-            emptyText="No levels found"
+            placeholder={`Select a ${stepLabel.toLowerCase()}...`}
+            emptyText="No options found"
           />
           {sourceLevel && (
             <p className="mt-3 text-xs font-medium text-slate-500 dark:text-slate-400">
-              {candidates.length} eligible student{candidates.length === 1 ? '' : 's'} in {sourceLevel}
+              {candidates.length} eligible {labels.learnerSingular.toLowerCase()}
+              {candidates.length === 1 ? '' : 's'} in {sourceLevel}
             </p>
           )}
         </AnimatedCard>
 
         <AnimatedCard className="p-5" delay={0.05}>
-          <div className="flex items-center justify-between gap-2 mb-3">
+          <div className="mb-3 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300">
                 <ArrowRight className="h-4 w-4" />
               </span>
               <div>
                 <p className="text-sm font-bold text-slate-900 dark:text-white">Promote to</p>
-                <p className="text-xs text-slate-400">Select the next year / level</p>
+                <p className="text-xs text-slate-400">Select the next step</p>
               </div>
             </div>
             {suggestedTarget && sourceLevel && (
@@ -268,7 +294,7 @@ export default function Promotions() {
             value={targetLevel}
             onChange={setTargetLevel}
             placeholder="Select destination..."
-            emptyText="No levels found"
+            emptyText="No options found"
             disabled={!sourceLevel}
           />
         </AnimatedCard>
@@ -276,22 +302,24 @@ export default function Promotions() {
 
       <AnimatedCard className="p-5" delay={0.1}>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="w-full lg:max-w-xs">
-            <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-500">
-              Department (optional)
-            </label>
-            <SearchableSelect
-              options={departmentOptions}
-              value={department}
-              onChange={(value) => {
-                setDepartment(value);
-                setExcluded(new Set());
-              }}
-              placeholder="All departments"
-              emptyText="No departments found"
-              disabled={!sourceLevel}
-            />
-          </div>
+          {!isClassBased && (
+            <div className="w-full lg:max-w-xs">
+              <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                {labels.structureSingular} (optional)
+              </label>
+              <SearchableSelect
+                options={departmentOptions}
+                value={department}
+                onChange={(value) => {
+                  setDepartment(value);
+                  setExcluded(new Set());
+                }}
+                placeholder={`All ${labels.structurePlural.toLowerCase()}`}
+                emptyText="None found"
+                disabled={!sourceLevel}
+              />
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-2">
             <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">
               <input
@@ -330,16 +358,19 @@ export default function Promotions() {
         <div className="mt-4 max-h-[26rem] overflow-y-auto rounded-2xl border border-slate-100 dark:border-slate-700/60">
           {!sourceLevel ? (
             <p className="px-4 py-10 text-center text-sm font-medium text-slate-400">
-              Select a year / level to see the students.
+              Select a {stepLabel.toLowerCase()} to see the {labels.learnerPlural.toLowerCase()}.
             </p>
           ) : visibleCandidates.length === 0 ? (
             <p className="px-4 py-10 text-center text-sm font-medium text-slate-400">
-              No students match this selection.
+              No {labels.learnerPlural.toLowerCase()} match this selection.
             </p>
           ) : (
             <ul className="divide-y divide-slate-100 dark:divide-slate-700/60">
               {visibleCandidates.map((student) => {
                 const checked = !excluded.has(student.id);
+                const secondaryLine = isClassBased
+                  ? student.regNo || 'No reg no'
+                  : `${student.regNo || 'No reg no'}${departmentOf(student) ? ` • ${departmentOf(student)}` : ''}`;
                 return (
                   <li key={student.id}>
                     <button
@@ -361,10 +392,7 @@ export default function Promotions() {
                         <span className="block truncate text-sm font-semibold text-slate-800 dark:text-slate-100">
                           {student.name}
                         </span>
-                        <span className="block truncate text-xs text-slate-400">
-                          {student.regNo || 'No reg no'}
-                          {departmentOf(student) ? ` • ${departmentOf(student)}` : ''}
-                        </span>
+                        <span className="block truncate text-xs text-slate-400">{secondaryLine}</span>
                       </span>
                       <span
                         className={cn(
@@ -394,13 +422,16 @@ export default function Promotions() {
             <div className="text-sm">
               {sourceLevel && targetLevel ? (
                 <p className="font-semibold text-slate-800 dark:text-slate-100">
-                  Promote <span className="text-blue-600 dark:text-blue-300">{selectedIds.length}</span> student
+                  Promote <span className="text-blue-600 dark:text-blue-300">{selectedIds.length}</span>{' '}
+                  {labels.learnerSingular.toLowerCase()}
                   {selectedIds.length === 1 ? '' : 's'} from{' '}
                   <span className="text-slate-500 dark:text-slate-400">{sourceLevel}</span> to{' '}
                   <span className="text-slate-500 dark:text-slate-400">{targetLabel}</span>
                 </p>
               ) : (
-                <p className="font-medium text-slate-400">Choose a current and next year / level to continue.</p>
+                <p className="font-medium text-slate-400">
+                  Choose a current and next {stepLabel.toLowerCase()} to continue.
+                </p>
               )}
             </div>
           </div>
@@ -427,11 +458,12 @@ export default function Promotions() {
                 <p className="text-base font-bold text-slate-900 dark:text-white">Confirm promotion</p>
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                   You are about to {targetLevel === GRADUATE_VALUE ? 'mark' : 'promote'}{' '}
-                  <span className="font-semibold text-slate-700 dark:text-slate-200">{selectedIds.length}</span> student
+                  <span className="font-semibold text-slate-700 dark:text-slate-200">{selectedIds.length}</span>{' '}
+                  {labels.learnerSingular.toLowerCase()}
                   {selectedIds.length === 1 ? '' : 's'} from{' '}
                   <span className="font-semibold text-slate-700 dark:text-slate-200">{sourceLevel}</span> to{' '}
-                  <span className="font-semibold text-slate-700 dark:text-slate-200">{targetLabel}</span>. Their
-                  department will not change. This updates their records immediately.
+                  <span className="font-semibold text-slate-700 dark:text-slate-200">{targetLabel}</span>.
+                  {isClassBased ? '' : ' Their department will not change.'} This updates their records immediately.
                 </p>
               </div>
             </div>

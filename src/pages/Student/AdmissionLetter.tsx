@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Printer, FileText, Lock, CheckCircle } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useDataStore } from '@/store/useDataStore';
-import { resolveSchoolProfile } from '@/utils/schoolProfile';
+import { resolveSchoolProfile, getDefaultEntryLevel } from '@/utils/schoolProfile';
 import { checkFeeGate, filterFeeRecordsForStudent } from '@/utils/feeGating';
 import { getDocumentsWhere } from '@/services/firestoreService';
 import type { AdmissionApplication } from '@/store/useDataStore';
@@ -114,7 +114,7 @@ export default function StudentAdmissionLetter() {
         applicationReference: application.applicationFormNumber || application.id,
         programme: application.courseOfStudy || application.firstChoiceCourse || '',
         academicSession,
-        level: '100',
+        level: myStudent?.level || getDefaultEntryLevel(schoolProfile.portalLevel),
         department: application.courseOfStudy || application.firstChoiceCourse || '',
         admissionDate: formatLongDate(new Date()),
         resumptionDate: formatLongDate(new Date(`${yearShort + 1}-01-12`)),

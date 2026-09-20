@@ -34,6 +34,37 @@ type PortalLevelLabels = {
 };
 
 const portalLevelLabels: Record<PortalLevel, PortalLevelLabels> = {
+  Nursery: {
+    learnerSingular: 'Pupil',
+    learnerPlural: 'Pupils',
+    structureSingular: 'Class',
+    structurePlural: 'Classes',
+    curriculumLabel: 'Subjects',
+    studyLabel: 'My Subjects',
+    subjectSingular: 'Subject',
+    subjectPlural: 'Subjects',
+    teacherSingular: 'Teacher',
+    teacherPlural: 'Teachers',
+    creditLabel: '',
+    termOptions: ['First Term', 'Second Term', 'Third Term'],
+    resultsLabel: 'Report Cards',
+    assessmentLabel: 'Tests & Exams',
+    termLabel: 'Term',
+    stageLabel: 'Current Term',
+    stageValue: 'Third Term',
+    programmeValue: 'Kindergarten',
+    scoreMetricLabel: 'Average Score',
+    scoreMetricValue: '88%',
+    scoreMetricTrend: 'current term average',
+    topStructureLabel: 'Top Performing Classes',
+    performanceByLabel: 'Performance by Class',
+    hallPassLabel: 'Exam Slip',
+    teacherSignatoryLabel: 'Class Teacher',
+    hodSignatoryLabel: 'Head Teacher',
+    headSignatoryLabel: 'Proprietress',
+    courseList: [],
+    scheduleList: [],
+  },
   Primary: {
     learnerSingular: 'Pupil',
     learnerPlural: 'Pupils',
@@ -244,32 +275,55 @@ export function isTertiaryLevel(level: PortalLevel): boolean {
 }
 
 /**
- * The default entry (year/level) a newly admitted student starts at.
- * Colleges/Polytechnics use "Year 1"; Universities use "100 Level".
+ * Ordered promotion path for each portal level. Students advance through these
+ * values one step at a time, and the final value graduates to completion.
+ *
+ * - Nursery:    Creche -> Kindergarten
+ * - Primary:    Primary 1 -> ... -> Primary 6
+ * - Secondary:  JSS 1 -> JSS 2 -> JSS 3 -> SSS 1 -> SSS 2 -> SSS 3
+ * - College/Polytechnic: Year 1 -> Year 2 -> Year 3
+ * - University: 100 Level -> 200 Level -> 300 Level -> 400 Level
+ *
+ * Non-tertiary students use the `class` field for the year; tertiary portals
+ * use the `level` field (the programme/department stays in `class`).
  */
-export function getDefaultEntryLevel(level: PortalLevel): string {
+export function getPromotionPath(level: PortalLevel): string[] {
   switch (level) {
-    case 'University':
-      return '100 Level';
+    case 'Nursery':
+      return ['Creche', 'Kindergarten'];
+    case 'Primary':
+      return [
+        'Primary 1',
+        'Primary 2',
+        'Primary 3',
+        'Primary 4',
+        'Primary 5',
+        'Primary 6',
+      ];
+    case 'Secondary':
+      return ['JSS 1', 'JSS 2', 'JSS 3', 'SSS 1', 'SSS 2', 'SSS 3'];
     case 'College':
     case 'Polytechnic':
-      return 'Year 1';
+      return ['Year 1', 'Year 2', 'Year 3'];
+    case 'University':
+      return ['100 Level', '200 Level', '300 Level', '400 Level'];
     default:
-      return '';
+      return [];
   }
 }
 
 /**
- * Suggested year/level names for a portal level, used when promoting students.
+ * True when the year lives in the student's `class` field (Primary/Secondary)
+ * rather than the tertiary `level` field.
  */
-export function getPortalLevelDefaults(level: PortalLevel): string[] {
-  switch (level) {
-    case 'University':
-      return ['100 Level', '200 Level', '300 Level', '400 Level', '500 Level'];
-    case 'College':
-    case 'Polytechnic':
-      return ['Year 1', 'Year 2', 'Year 3', 'Year 4', 'Year 5'];
-    default:
-      return [];
-  }
+export function promotesByClass(level: PortalLevel): boolean {
+  return level === 'Nursery' || level === 'Primary' || level === 'Secondary';
+}
+
+/**
+ * The default entry (year/level) a newly admitted student starts at, i.e. the
+ * first step of the portal's promotion path.
+ */
+export function getDefaultEntryLevel(level: PortalLevel): string {
+  return getPromotionPath(level)[0] ?? '';
 }

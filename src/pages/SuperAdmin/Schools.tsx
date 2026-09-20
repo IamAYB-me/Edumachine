@@ -467,6 +467,7 @@ const resetAdmissionBuilder = () => {
                     onChange={(e) => handlePortalLevelChange(e.target.value as School['portalLevel'])}
                     className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500 dark:text-white"
                   >
+                    <option value="Nursery">Nursery</option>
                     <option value="Primary">Primary</option>
                     <option value="Secondary">Secondary</option>
                     <option value="College">College</option>

@@ -342,6 +342,7 @@ export default function RegisterPage() {
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:text-white transition-all"
                   >
                     <option value="">-- Select institution type --</option>
+                    <option value="Nursery">Nursery School</option>
                     <option value="Primary">Primary School</option>
                     <option value="Secondary">Secondary School</option>
                     <option value="College">College</option>

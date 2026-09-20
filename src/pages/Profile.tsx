@@ -11,7 +11,7 @@ import { uploadImage } from '@/services/storageService';
 import { friendlyErrorMessage } from '@/utils/errors';
 import { useNavigate } from 'react-router-dom';
 
-const PORTAL_LEVELS = ['Primary', 'Secondary', 'College', 'University'] as const;
+const PORTAL_LEVELS = ['Nursery', 'Primary', 'Secondary', 'College', 'Polytechnic', 'University'] as const;
 
 export default function Profile() {
   const navigate = useNavigate();
