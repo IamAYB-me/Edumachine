@@ -19,6 +19,7 @@ import { resolveSchoolProfile, getPortalLevelLabels, getPromotionPath, promotesB
 import { cn } from '@/utils';
 
 const GRADUATE_VALUE = '__graduate__';
+const UNASSIGNED_VALUE = '__unassigned__';
 
 const departmentOf = (student: Student) => (student.classDepartment || student.class || '').trim();
 
@@ -50,6 +51,7 @@ export default function Promotions() {
   );
 
   const stepLabel = isClassBased ? labels.structureSingular : 'Year / Level';
+  const sourceLabel = sourceLevel === UNASSIGNED_VALUE ? 'Unassigned' : sourceLevel;
 
   const departments = useMemo(() => {
     const names = new Set<string>();
@@ -75,10 +77,26 @@ export default function Promotions() {
   const countFor = (name: string) =>
     students.filter((student) => fieldValue(student) === name && (includeInactive || student.status === 'Active')).length;
 
+  const unassignedCount = useMemo(
+    () => students.filter((student) => !fieldValue(student) && (includeInactive || student.status === 'Active')).length,
+    [students, includeInactive, fieldValue],
+  );
+
   const levelOptions = useMemo(
     () => levelNames.map((name) => ({ value: name, label: name, sublabel: `${countFor(name)} student(s)` })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [levelNames, students, includeInactive, fieldValue],
+  );
+
+  const sourceOptions = useMemo(
+    () =>
+      unassignedCount > 0
+        ? [
+            { value: UNASSIGNED_VALUE, label: 'Unassigned', sublabel: `${unassignedCount} student(s) with no ${stepLabel.toLowerCase()}` },
+            ...levelOptions,
+          ]
+        : levelOptions,
+    [levelOptions, unassignedCount, stepLabel],
   );
 
   const departmentOptions = useMemo(
@@ -98,6 +116,7 @@ export default function Promotions() {
   );
 
   const suggestedTarget = useMemo(() => {
+    if (sourceLevel === UNASSIGNED_VALUE) return promotionPath[0] ?? '';
     const index = promotionPath.indexOf(sourceLevel);
     if (index === -1) return '';
     return promotionPath[index + 1] ?? GRADUATE_VALUE;
@@ -111,7 +130,9 @@ export default function Promotions() {
   const candidates = useMemo(() => {
     if (!sourceLevel) return [];
     return students
-      .filter((student) => fieldValue(student) === sourceLevel)
+      .filter((student) =>
+        sourceLevel === UNASSIGNED_VALUE ? !fieldValue(student) : fieldValue(student) === sourceLevel,
+      )
       .filter((student) => isClassBased || !department || departmentOf(student) === department)
       .filter((student) => includeInactive || student.status === 'Active')
       .sort((a, b) => a.name.localeCompare(b.name));
@@ -161,6 +182,10 @@ export default function Promotions() {
     setSourceLevel(value);
     setExcluded(new Set());
     setQuery('');
+    if (value === UNASSIGNED_VALUE) {
+      setTargetLevel(promotionPath[0] ?? '');
+      return;
+    }
     const index = promotionPath.indexOf(value);
     setTargetLevel(index === -1 ? '' : promotionPath[index + 1] ?? GRADUATE_VALUE);
   };
@@ -181,7 +206,7 @@ export default function Promotions() {
           ? `${moved} ${labels.learnerSingular.toLowerCase()}${moved === 1 ? '' : 's'} ${
               isGraduating
                 ? 'marked as graduated'
-                : `promoted from ${sourceLevel} to ${targetLevel}${
+                : `promoted from ${sourceLabel} to ${targetLevel}${
                     isClassBased ? '' : '. Their department was not changed.'
                   }`
             }`
@@ -236,8 +261,9 @@ export default function Promotions() {
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
           <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
             {missingValueCount} active {labels.learnerSingular.toLowerCase()}
-            {missingValueCount === 1 ? '' : 's'} have no {stepLabel.toLowerCase()} set, so they will not appear here.
-            Set their {stepLabel} in the {labels.learnerSingular.toLowerCase()} record first.
+            {missingValueCount === 1 ? '' : 's'} have no {stepLabel.toLowerCase()} set. Choose{' '}
+            <span className="font-bold">Unassigned</span> as the source above to assign their {stepLabel.toLowerCase()}{' '}
+            in bulk.
           </p>
         </div>
       )}
@@ -254,7 +280,7 @@ export default function Promotions() {
             </div>
           </div>
           <SearchableSelect
-            options={levelOptions}
+            options={sourceOptions}
             value={sourceLevel}
             onChange={handleSourceChange}
             placeholder={`Select a ${stepLabel.toLowerCase()}...`}
@@ -263,7 +289,7 @@ export default function Promotions() {
           {sourceLevel && (
             <p className="mt-3 text-xs font-medium text-slate-500 dark:text-slate-400">
               {candidates.length} eligible {labels.learnerSingular.toLowerCase()}
-              {candidates.length === 1 ? '' : 's'} in {sourceLevel}
+              {candidates.length === 1 ? '' : 's'} in {sourceLabel}
             </p>
           )}
         </AnimatedCard>
@@ -425,7 +451,7 @@ export default function Promotions() {
                   Promote <span className="text-blue-600 dark:text-blue-300">{selectedIds.length}</span>{' '}
                   {labels.learnerSingular.toLowerCase()}
                   {selectedIds.length === 1 ? '' : 's'} from{' '}
-                  <span className="text-slate-500 dark:text-slate-400">{sourceLevel}</span> to{' '}
+                  <span className="text-slate-500 dark:text-slate-400">{sourceLabel}</span> to{' '}
                   <span className="text-slate-500 dark:text-slate-400">{targetLabel}</span>
                 </p>
               ) : (
@@ -461,7 +487,7 @@ export default function Promotions() {
                   <span className="font-semibold text-slate-700 dark:text-slate-200">{selectedIds.length}</span>{' '}
                   {labels.learnerSingular.toLowerCase()}
                   {selectedIds.length === 1 ? '' : 's'} from{' '}
-                  <span className="font-semibold text-slate-700 dark:text-slate-200">{sourceLevel}</span> to{' '}
+                  <span className="font-semibold text-slate-700 dark:text-slate-200">{sourceLabel}</span> to{' '}
                   <span className="font-semibold text-slate-700 dark:text-slate-200">{targetLabel}</span>.
                   {isClassBased ? '' : ' Their department will not change.'} This updates their records immediately.
                 </p>
