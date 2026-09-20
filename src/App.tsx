@@ -2,6 +2,7 @@ import React, { Suspense, lazy, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import DashboardLayout from './components/layout/DashboardLayout';
 import IdleSessionTimeout from './components/ui/IdleSessionTimeout';
+import InstallAppBanner from './components/ui/InstallAppBanner';
 import { useSettingsStore } from './store/useSettingsStore';
 import { useAuthStore } from './store/useAuthStore';
 import { useDataStore } from './store/useDataStore';
@@ -316,6 +317,7 @@ export default function App() {
       </Routes>
       )}
       {user && <IdleSessionTimeout />}
+      <InstallAppBanner />
     </Suspense>
   );
 }

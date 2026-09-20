@@ -4,7 +4,23 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="BROCHEST Portal - School management for students, parents, teachers and administrators." />
+    <meta name="theme-color" content="#0A0B0D" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="BROCHEST" />
     <title>BROCHEST Portal - School Management</title>
+    <script>
+      window.__deferredInstallPrompt = null;
+      window.addEventListener('beforeinstallprompt', function (event) {
+        event.preventDefault();
+        window.__deferredInstallPrompt = event;
+        window.dispatchEvent(new Event('installpromptready'));
+      });
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script type="module">
       if (import.meta.hot?.on) {
