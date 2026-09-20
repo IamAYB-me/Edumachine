@@ -784,7 +784,7 @@ interface DataState {
   updateStudent: (id: string, student: Partial<Student>) => StudentMutationResult;
   deleteStudent: (id: string) => StudentMutationResult;
   bulkUpdateStudentPortalLevel: (ids: string[], portalLevel: PortalLevel) => number;
-  bulkUpdateStudentClass: (ids: string[], className: string) => number;
+  bulkUpdateStudentLevel: (ids: string[], level: string) => number;
   bulkGraduateStudents: (ids: string[]) => number;
   bulkDeleteStudents: (ids: string[]) => number;
   clearStudents: () => Promise<number>;
@@ -1171,20 +1171,20 @@ export const useDataStore = create<DataState>()((set, get) => ({
     return count;
   },
 
-  bulkUpdateStudentClass: (ids, className) => {
+  bulkUpdateStudentLevel: (ids, level) => {
     let count = 0;
     set((state) => {
       const updated = state.students.map((s) => {
         if (ids.includes(s.id)) {
           count += 1;
-          const patched = { ...s, class: className };
-          updateDocument('students', s.id, { class: className } as Record<string, unknown>).catch(console.error);
+          const patched = { ...s, level };
+          updateDocument('students', s.id, { level } as Record<string, unknown>).catch(console.error);
           return patched;
         }
         return s;
       });
       if (count > 0) {
-        logActivity({ action: 'UPDATE', module: 'students', description: `Moved ${count} student${count === 1 ? '' : 's'} to ${className}`, targetName: className }).catch(console.error);
+        logActivity({ action: 'UPDATE', module: 'students', description: `Promoted ${count} student${count === 1 ? '' : 's'} to ${level}`, targetName: level }).catch(console.error);
       }
       return { students: updated };
     });
