@@ -37,7 +37,6 @@ function prefetchAllRoutes() {
 const LoginPage = lazyComponent(() => import('./pages/auth/Login'));
 const RegisterPage = lazyComponent(() => import('./pages/auth/Register'));
 const VerifyEmailPage = lazyComponent(() => import('./pages/auth/VerifyEmail'));
-const Home = lazyComponent(() => import('./pages/Home'));
 const Profile = lazyComponent(() => import('./pages/Profile'));
 
 const SuperAdminDashboard = lazyComponent(() => import('./pages/SuperAdmin'));
@@ -186,7 +185,7 @@ export default function App() {
     <Suspense fallback={<LoadingSpinner />}>
       {!showPage ? <LoadingSpinner /> : (
       <Routes>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/verify-email" element={<VerifyEmailPage />} />
