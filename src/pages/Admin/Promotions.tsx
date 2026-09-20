@@ -269,7 +269,7 @@ export default function Promotions() {
       )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <AnimatedCard className="p-5">
+        <AnimatedCard className="relative z-30 p-5">
           <div className="mb-3 flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300">
               <Users className="h-4 w-4" />
@@ -294,7 +294,7 @@ export default function Promotions() {
           )}
         </AnimatedCard>
 
-        <AnimatedCard className="p-5" delay={0.05}>
+        <AnimatedCard className="relative z-20 p-5" delay={0.05}>
           <div className="mb-3 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300">
@@ -326,7 +326,7 @@ export default function Promotions() {
         </AnimatedCard>
       </div>
 
-      <AnimatedCard className="p-5" delay={0.1}>
+      <AnimatedCard className="relative z-10 p-5" delay={0.1}>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           {!isClassBased && (
             <div className="w-full lg:max-w-xs">
