@@ -125,13 +125,35 @@ const AdmissionProgress = lazyComponent(() => import('./pages/Admission/Progress
 const AcceptancePayment = lazyComponent(() => import('./pages/Admission/AcceptancePayment'));
 
 function LoadingSpinner() {
+  const globalSettings = useSettingsStore((s) => s.globalSettings);
+  const logo = globalSettings.logoUrl || '/brochest-logo.png';
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontFamily: 'Inter, sans-serif' }}>
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ width: 40, height: 40, border: '4px solid #e5e7eb', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
-        <p style={{ color: '#6b7280', fontSize: 14 }}>Loading...</p>
-        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', fontFamily: 'Inter, sans-serif', background: '#f8fafc' }}>
+      <div style={{ textAlign: 'center', padding: '0 24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
+          <div style={{ position: 'relative', width: 96, height: 96 }}>
+            <div style={{ position: 'absolute', inset: -12, borderRadius: '50%', border: '3px solid #e5e7eb', borderTopColor: '#3b82f6', animation: 'spin 0.9s linear infinite' }} />
+            <div style={{ position: 'absolute', inset: -24, borderRadius: '50%', border: '1px solid rgb(59 130 246 / 0.15)', animation: 'pulse 2s ease-out infinite' }} />
+            <img
+              src={logo}
+              alt="Logo"
+              style={{ width: 96, height: 96, borderRadius: 24, objectFit: 'contain', background: '#fff', boxShadow: '0 12px 32px rgb(0 0 0 / 0.12)', animation: 'popIn 0.55s ease-out' }}
+            />
+          </div>
+        </div>
+        <p style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: '0.5px', color: '#0f172a', animation: 'fadeUp 0.7s ease-out 0.4s both' }}>
+          Welcome to <span style={{ color: '#2563eb' }}>BROCHEST APP.</span>
+        </p>
+        <p style={{ margin: '12px 0 0', color: '#94a3b8', fontSize: 12, fontWeight: 600, letterSpacing: '3px', textTransform: 'uppercase', animation: 'fadeUp 0.7s ease-out 0.6s both' }}>
+          Loading...
+        </p>
       </div>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg) } }
+        @keyframes pulse { 0%, 100% { transform: scale(0.9); opacity: 0.45 } 50% { transform: scale(1.1); opacity: 0 } }
+        @keyframes popIn { 0% { transform: scale(0.75); opacity: 0 } 60% { transform: scale(1.06) } 100% { transform: scale(1); opacity: 1 } }
+        @keyframes fadeUp { 0% { opacity: 0; transform: translateY(14px) } 100% { opacity: 1; transform: translateY(0) } }
+      `}</style>
     </div>
   );
 }
