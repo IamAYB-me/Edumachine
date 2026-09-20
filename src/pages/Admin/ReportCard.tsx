@@ -6,6 +6,7 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
 import StudentAccessToggle from '@/components/ui/StudentAccessToggle';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { cn } from '@/utils';
 
 const getGrade = (score: number, total: number) => {
@@ -259,11 +260,16 @@ export default function ReportCard() {
         )}
         <div className="flex-1">
           <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">{labels.learnerSingular}</label>
-          <select value={selectedStudentId || (isStudent ? user?.id : isParent && filteredStudents[0]?.id || '')}
-            onChange={(e) => setSelectedStudentId(e.target.value)}
-            className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:border-blue-500 dark:text-white">
-            {filteredStudents.map(s => <option key={s.id} value={s.id}>{s.name}{s.regNo || s.admissionNumber ? ` (${s.regNo || s.admissionNumber})` : ''}</option>)}
-          </select>
+          <SearchableSelect
+            options={filteredStudents.map(s => ({
+              value: s.id,
+              label: s.name,
+              sublabel: s.regNo || s.admissionNumber || undefined,
+            }))}
+            value={selectedStudentId || (isStudent ? user?.id : isParent && filteredStudents[0]?.id || '')}
+            onChange={setSelectedStudentId}
+            placeholder={`Search or select ${labels.learnerSingular.toLowerCase()}...`}
+          />
         </div>
         <div className="flex-1">
           <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">{labels.termLabel}</label>
