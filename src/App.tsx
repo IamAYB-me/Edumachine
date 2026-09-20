@@ -142,7 +142,8 @@ function LoadingSpinner() {
           </div>
         </div>
         <p style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: '0.5px', color: '#0f172a', animation: 'fadeUp 0.7s ease-out 0.4s both' }}>
-          Welcome to <span style={{ color: '#2563eb' }}>BROCHEST APP.</span>
+          Welcome to
+          <span style={{ display: 'block', color: '#2563eb' }}>BROCHEST PORTAL</span>
         </p>
         <p style={{ margin: '12px 0 0', color: '#94a3b8', fontSize: 12, fontWeight: 600, letterSpacing: '3px', textTransform: 'uppercase', animation: 'fadeUp 0.7s ease-out 0.6s both' }}>
           Loading...
