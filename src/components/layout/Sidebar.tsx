@@ -6,7 +6,8 @@ import {
   Settings, LogOut, Home, Key, BedDouble,
   FileText, ClipboardCheck, Award, Users2, Clock, Calendar,
   ChevronDown, ChevronRight, Briefcase, Landmark, ShieldCheck,
-  Truck, Library, Layers, ClipboardList, UserPlus, ScrollText, ShieldAlert, Trash2
+  Truck, Library, Layers, ClipboardList, UserPlus, ScrollText, ShieldAlert, Trash2,
+  ArrowRightLeft
 } from 'lucide-react';
 import { cn } from '@/utils';
 import { useAuthStore, Role } from '@/store/useAuthStore';
@@ -102,6 +103,7 @@ const roleNavLinks: Record<Role, NavItem[]> = {
       ]
     },
     { name: 'Admissions', icon: UserPlus, path: '/admin/admissions' },
+    { name: 'Promotions', icon: ArrowRightLeft, path: '/admin/promotions' },
     { name: 'Activity Logs', icon: ScrollText, path: '/admin/activity-logs' },
   ],
   REGISTRAR: [
@@ -114,6 +116,7 @@ const roleNavLinks: Record<Role, NavItem[]> = {
       ]
     },
     { name: 'Student Records', icon: GraduationCap, path: '/registrar/students' },
+    { name: 'Promotions', icon: ArrowRightLeft, path: '/registrar/promotions' },
   ],
   TEACHER: [
     { name: 'Dashboard', icon: LayoutDashboard, path: '/teacher' },

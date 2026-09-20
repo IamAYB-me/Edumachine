@@ -66,6 +66,7 @@ const AdminNotices = lazyComponent(() => import('./pages/Admin/Notices'));
 const AdminAdmissions = lazyComponent(() => import('./pages/Admin/Admissions'));
 const AdminActivityLogs = lazyComponent(() => import('./pages/Admin/ActivityLogs'));
 const AdminReportCard = lazyComponent(() => import('./pages/Admin/ReportCard'));
+const StudentPromotions = lazyComponent(() => import('./pages/Admin/Promotions'));
 const AccountantFees = lazyComponent(() => import('./pages/Accountant/Fees'));
 const AccountantExpenses = lazyComponent(() => import('./pages/Accountant/Expenses'));
 const AccountantPayroll = lazyComponent(() => import('./pages/Accountant/Payroll'));
@@ -210,6 +211,7 @@ export default function App() {
           <Route path="/registrar" element={<RegistrarDashboard />} />
           <Route path="/registrar/admissions" element={<RegistrarAdmissions />} />
           <Route path="/registrar/students" element={<RegistrarStudents />} />
+          <Route path="/registrar/promotions" element={<StudentPromotions />} />
         </Route>
 
         <Route element={<DashboardLayout />}>
@@ -234,6 +236,7 @@ export default function App() {
           <Route path="/admin/admissions" element={<AdminAdmissions />} />
           <Route path="/admin/activity-logs" element={<AdminActivityLogs />} />
           <Route path="/admin/report-cards" element={<AdminReportCard />} />
+          <Route path="/admin/promotions" element={<StudentPromotions />} />
         </Route>
 
         <Route element={<DashboardLayout />}>

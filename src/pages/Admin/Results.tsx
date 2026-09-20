@@ -86,6 +86,18 @@ export default function ResultSheet() {
     window.print();
   };
 
+  const typeBadgeClass = (type?: string) =>
+    cn(
+      'px-2 py-0.5 rounded-full text-[10px] font-bold uppercase',
+      type === 'Exam'
+        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+        : type === 'Test'
+        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+        : type === 'Quiz'
+        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+        : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+    );
+
   const handleExportCsv = () => {
     const csvRows = [
       ['Student Name', 'Reg No', 'Exam', labels.subjectSingular, 'Type', 'Score', 'Total Marks', 'Percentage', 'Grade', 'Date'],
@@ -154,21 +166,21 @@ export default function ResultSheet() {
             {isStudent ? `Track your ${labels.assessmentLabel.toLowerCase()} scores and academic progress.` : `Review ${labels.learnerPlural.toLowerCase()} performance and academic standings.`}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
           {isStaff && (
-            <div className="w-72">
+            <div className="w-full sm:w-72">
               <StudentAccessToggle feature="results" />
             </div>
           )}
           <button 
             onClick={handlePrint}
-            className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-2 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition-all shadow-sm"
+            className="flex flex-1 items-center justify-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-2 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition-all shadow-sm sm:flex-none"
           >
             <Printer className="w-4 h-4" />
             Print {labels.resultsLabel}
           </button>
           {!isStudent && (
-            <button onClick={handleExportCsv} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg shadow-blue-900/20 transition-all">
+            <button onClick={handleExportCsv} className="flex flex-1 items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg shadow-blue-900/20 transition-all sm:flex-none">
               <Download className="w-4 h-4" />
               Export CSV
             </button>
@@ -177,7 +189,7 @@ export default function ResultSheet() {
       </div>
 
       {/* Stats Widgets */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 print:hidden">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 print:hidden">
         <KPICard 
           title={isStudent ? `${labels.assessmentLabel} Taken` : "Total Submissions"} 
           value={stats.totalResults.toString()} 
@@ -209,40 +221,40 @@ export default function ResultSheet() {
       </div>
 
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col overflow-hidden">
-        <div className="border-b border-slate-200 bg-white px-6 py-6 print:px-0">
+        <div className="border-b border-slate-200 bg-white px-4 py-5 sm:px-6 sm:py-6 print:px-0">
           <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
-            <div className="flex items-start gap-4">
+            <div className="flex items-start gap-3 sm:gap-4">
               {schoolProfile.logoUrl ? (
                 <img
                   src={schoolProfile.logoUrl}
                   alt={`${schoolProfile.name} logo`}
-                  className="h-20 w-20 rounded-2xl border border-slate-200 object-cover"
+                  className="h-16 w-16 rounded-2xl border border-slate-200 object-cover sm:h-20 sm:w-20"
                 />
               ) : (
-                <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-2xl font-bold text-slate-500">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-2xl font-bold text-slate-500 sm:h-20 sm:w-20">
                   {(schoolProfile.name || 'S').slice(0, 1)}
                 </div>
               )}
-              <div>
-                <h2 className="text-2xl font-bold uppercase tracking-tight text-slate-900">{schoolProfile.name}</h2>
+              <div className="min-w-0">
+                <h2 className="text-xl font-bold uppercase tracking-tight text-slate-900 sm:text-2xl">{schoolProfile.name}</h2>
                 <p className="mt-1 text-sm font-semibold text-blue-600">Official {labels.resultsLabel}</p>
-                <div className="mt-3 space-y-1 text-sm text-slate-600">
+                <div className="mt-3 space-y-1 text-xs text-slate-600 sm:text-sm">
                   {schoolProfile.address ? (
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4 text-slate-400" />
-                      <span>{schoolProfile.address}</span>
+                    <div className="flex items-start gap-2">
+                      <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+                      <span className="break-words">{schoolProfile.address}</span>
                     </div>
                   ) : null}
                   {schoolProfile.phone ? (
                     <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-slate-400" />
+                      <Phone className="h-4 w-4 shrink-0 text-slate-400" />
                       <span>{schoolProfile.phone}</span>
                     </div>
                   ) : null}
                   {schoolProfile.email ? (
                     <div className="flex items-center gap-2">
-                      <Mail className="h-4 w-4 text-slate-400" />
-                      <span>{schoolProfile.email}</span>
+                      <Mail className="h-4 w-4 shrink-0 text-slate-400" />
+                      <span className="break-all">{schoolProfile.email}</span>
                     </div>
                   ) : null}
                 </div>
@@ -262,7 +274,7 @@ export default function ResultSheet() {
         </div>
 
         {/* Toolbar */}
-        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between gap-4 bg-slate-50/50 dark:bg-slate-800/50 print:hidden">
+        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between gap-3 bg-slate-50/50 dark:bg-slate-800/50 print:hidden">
           <div className="relative w-full sm:w-80">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input 
@@ -274,12 +286,12 @@ export default function ResultSheet() {
             />
           </div>
           {!isStudent && (
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex w-full items-center gap-2 flex-wrap sm:w-auto">
               <Filter className="w-4 h-4 text-slate-400" />
               <select 
                 value={selectedClass}
                 onChange={(e) => setSelectedClass(e.target.value)}
-                className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 focus:outline-none"
+                className="flex-1 min-w-0 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 focus:outline-none sm:flex-none"
               >
                 <option value="all">All {labels.structurePlural}</option>
                 {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -288,7 +300,7 @@ export default function ResultSheet() {
                 <select 
                   value={selectedSubject}
                   onChange={(e) => setSelectedSubject(e.target.value)}
-                  className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 focus:outline-none"
+                  className="flex-1 min-w-0 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 focus:outline-none sm:flex-none"
                 >
                   <option value="all">All {labels.subjectPlural}</option>
                   {uniqueSubjects.map(s => <option key={s} value={s}>{s}</option>)}
@@ -298,7 +310,7 @@ export default function ResultSheet() {
                 <select 
                   value={selectedType}
                   onChange={(e) => setSelectedType(e.target.value)}
-                  className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 focus:outline-none"
+                  className="flex-1 min-w-0 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 focus:outline-none sm:flex-none"
                 >
                   <option value="all">All Types</option>
                   {uniqueTypes.map(t => <option key={t} value={t}>{t}</option>)}
@@ -308,9 +320,70 @@ export default function ResultSheet() {
           )}
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[900px]">
+        {/* Mobile results */}
+        <div className="md:hidden">
+          {filteredResults.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-slate-400 dark:text-slate-600">
+              <Award className="w-12 h-12 mb-4 opacity-20" />
+              <p className="text-sm font-medium">No results found matching your search.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              {pages.slice.map((result) => {
+                const grade = getGrade(result.score, result.totalMarks);
+                const percentage = Math.round((result.score / result.totalMarks) * 100);
+                return (
+                  <div key={result.id} className="space-y-3 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="shrink-0 rounded-xl bg-slate-100 p-2 text-slate-500 dark:bg-slate-800">
+                          <User className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-bold tracking-tight text-slate-900 dark:text-white">{result.studentName}</p>
+                          <p className="truncate font-mono text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400">{result.regNo || result.studentId}</p>
+                        </div>
+                      </div>
+                      <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold shadow-sm', grade.bg, grade.color)}>{grade.label}</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-slate-800/50">
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">{labels.assessmentLabel.replace('Assessments', 'Assessment')}</p>
+                        <p className="mt-0.5 truncate text-xs font-semibold text-slate-700 dark:text-slate-200">{result.examTitle}</p>
+                      </div>
+                      <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-slate-800/50">
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">{labels.subjectSingular}</p>
+                        <p className="mt-0.5 truncate text-xs font-semibold text-slate-700 dark:text-slate-200">{result.subject || '—'}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className={typeBadgeClass(result.type)}>{result.type || '—'}</span>
+                      <span className="text-sm font-bold text-slate-900 dark:text-white">{result.score}<span className="ml-1 text-xs font-medium text-slate-400">/ {result.totalMarks}</span></span>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                        <div className={cn('h-full rounded-full transition-all', percentage >= 50 ? 'bg-blue-500' : 'bg-rose-500')} style={{ width: `${percentage}%` }} />
+                      </div>
+                      <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">{percentage}%</span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
+                      <Clock className="w-3.5 h-3.5 opacity-50" />
+                      {result.date}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Desktop table */}
+        <div className="hidden overflow-x-auto md:block">
+          <table className="w-full text-left border-collapse min-w-[760px]">
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-700 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest bg-slate-50/50 dark:bg-slate-800/30">
                 <th className="py-4 px-6">{labels.learnerSingular} Information</th>

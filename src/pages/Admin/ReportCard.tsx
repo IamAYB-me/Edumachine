@@ -229,16 +229,16 @@ export default function ReportCard() {
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Generate and print student report cards.</p>
         </div>
         {isAdmin && (
-          <div className="w-72">
+          <div className="w-full sm:w-72">
             <StudentAccessToggle feature="reportCard" />
           </div>
         )}
         {canPrint && (
-          <div className="flex gap-2">
-            <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-900/20 transition-all">
+          <div className="flex w-full gap-2 sm:w-auto">
+            <button onClick={handlePrint} className="flex flex-1 items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-900/20 transition-all sm:flex-none">
               <Printer className="w-4 h-4" /> Print
             </button>
-            <button onClick={handleDownloadPDF} className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-sm font-bold transition-all">
+            <button onClick={handleDownloadPDF} className="flex flex-1 items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-sm font-bold transition-all sm:flex-none">
               <Download className="w-4 h-4" /> Download PDF
             </button>
           </div>
@@ -285,11 +285,11 @@ export default function ReportCard() {
       {selectedStudent ? (
         <div id="report-card-printable" className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
           {/* School Header */}
-          <div className="text-center py-6 px-8 border-b-4 border-blue-600">
+          <div className="text-center py-5 px-4 sm:py-6 sm:px-8 border-b-4 border-blue-600">
             {schoolProfile.logoUrl && (
-              <img src={schoolProfile.logoUrl} alt="School Logo" className="w-16 h-16 mx-auto mb-3 rounded-full object-contain" />
+              <img src={schoolProfile.logoUrl} alt="School Logo" className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 rounded-full object-contain" />
             )}
-            <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight uppercase">{schoolProfile.name || globalSettings.appName}</h1>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight uppercase">{schoolProfile.name || globalSettings.appName}</h1>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-1">{schoolProfile.address || 'School Address'}</p>
             <div className="flex items-center justify-center gap-4 mt-1">
               {schoolProfile.phone && <span className="text-[10px] text-slate-400 flex items-center gap-1"><Phone className="w-3 h-3" />{schoolProfile.phone}</span>}
@@ -300,14 +300,14 @@ export default function ReportCard() {
             </div>
           </div>
 
-          <div className="p-8 space-y-6">
+          <div className="p-4 sm:p-8 space-y-6">
             {/* Student Info */}
             <div className="flex flex-col sm:flex-row gap-6 items-start">
               {selectedStudent.passportUrl && (
                 <img src={selectedStudent.passportUrl} alt={selectedStudent.name}
                   className="w-24 h-28 object-cover rounded-xl border-2 border-slate-200 dark:border-slate-700 shadow-lg" />
               )}
-              <div className="flex-1 grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
+              <div className="flex-1 grid grid-cols-2 gap-x-4 sm:gap-x-8 gap-y-2 text-sm">
                 <div><span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Name</span><p className="font-bold text-slate-900 dark:text-white">{selectedStudent.name}</p></div>
                 <div><span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{labels.structureSingular}</span><p className="font-bold text-slate-900 dark:text-white">{selectedStudent.class}</p></div>
                 <div><span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Reg No.</span><p className="font-bold text-slate-900 dark:text-white font-mono">{selectedStudent.regNo || selectedStudent.admissionNumber || 'N/A'}</p></div>
@@ -342,7 +342,7 @@ export default function ReportCard() {
             {/* Academic Summary */}
             <div>
               <h3 className="text-xs font-bold text-blue-600 uppercase tracking-[0.15em] border-b-2 border-blue-600 pb-1 mb-3">Academic Summary</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
                 <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-3 text-center">
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Score</p>
                   <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{overallStats.totalObtained}/{overallStats.totalMax}</p>
@@ -369,8 +369,38 @@ export default function ReportCard() {
             <div>
               <h3 className="text-xs font-bold text-blue-600 uppercase tracking-[0.15em] border-b-2 border-blue-600 pb-1 mb-3">Subject Results</h3>
               {subjectResults.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                <div>
+                  {/* Mobile subject cards */}
+                  <div className="space-y-2 sm:hidden">
+                    {subjectResults.map((sr, i) => (
+                      <div key={sr.subject} className="rounded-xl border border-slate-200 dark:border-slate-700 p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold text-slate-900 dark:text-white">{i + 1}. {sr.subject}</p>
+                            <p className="mt-0.5 text-[11px] font-medium text-slate-500">CA {sr.caScore}/{sr.caTotal} · Exam {sr.examScore}/{sr.examTotal}</p>
+                          </div>
+                          <span className={cn("inline-block shrink-0 px-2.5 py-0.5 rounded-full text-xs font-bold", sr.grade.bg, sr.grade.color)}>{sr.grade.label}</span>
+                        </div>
+                        <div className="mt-2 flex items-center justify-between text-xs">
+                          <span className="font-bold text-slate-900 dark:text-white">Total {sr.totalScore}/{sr.totalMax}</span>
+                          <span className="font-medium text-slate-500">{sr.grade.remark}</span>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3 text-xs font-bold text-slate-700 dark:text-slate-200">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="uppercase tracking-wider text-slate-500">Total / Average</span>
+                        <span className="text-right">CA {subjectResults.reduce((s, r) => s + r.caScore, 0)}/{subjectResults.reduce((s, r) => s + r.caTotal, 0)} · Exam {subjectResults.reduce((s, r) => s + r.examScore, 0)}/{subjectResults.reduce((s, r) => s + r.examTotal, 0)}</span>
+                      </div>
+                      <div className="mt-1 flex items-center justify-between">
+                        <span>Overall {overallStats.totalObtained}/{overallStats.totalMax}</span>
+                        <span className={overallStats.overallGrade.color}>{overallStats.overallGrade.label} · {overallStats.overallGrade.remark}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="hidden overflow-x-auto sm:block">
+                    <table className="w-full min-w-[560px] text-sm">
                     <thead>
                       <tr className="bg-slate-50 dark:bg-slate-800">
                         <th className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-4 py-2.5 text-left">S/N</th>
@@ -408,6 +438,7 @@ export default function ReportCard() {
                       </tr>
                     </tfoot>
                   </table>
+                  </div>
                 </div>
               ) : (
                 <div className="text-center py-10 text-slate-400">
@@ -420,7 +451,7 @@ export default function ReportCard() {
             {/* Grading Key */}
             <div>
               <h3 className="text-xs font-bold text-blue-600 uppercase tracking-[0.15em] border-b-2 border-blue-600 pb-1 mb-3">Grading Key</h3>
-              <div className="grid grid-cols-5 gap-2 text-center text-xs">
+              <div className="grid grid-cols-5 gap-1.5 sm:gap-2 text-center text-xs">
                 {[{ g: 'A', r: 'Excellent', range: '80-100%', c: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' },
                   { g: 'B', r: 'Very Good', range: '70-79%', c: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400' },
                   { g: 'C', r: 'Good', range: '60-69%', c: 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400' },
@@ -428,8 +459,8 @@ export default function ReportCard() {
                   { g: 'F', r: 'Fail', range: '0-49%', c: 'bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-400' },
                 ].map(item => (
                   <div key={item.g} className={cn("rounded-xl py-2 px-1", item.c)}>
-                    <p className="font-black text-lg">{item.g}</p>
-                    <p className="font-bold">{item.r}</p>
+                    <p className="font-black text-base sm:text-lg">{item.g}</p>
+                    <p className="font-bold text-[10px] sm:text-xs">{item.r}</p>
                     <p className="text-[10px] opacity-70">{item.range}</p>
                   </div>
                 ))}
@@ -439,7 +470,7 @@ export default function ReportCard() {
             {/* Attendance */}
             <div>
               <h3 className="text-xs font-bold text-blue-600 uppercase tracking-[0.15em] border-b-2 border-blue-600 pb-1 mb-3">Attendance Summary</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3">
                 <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-3 text-center">
                   <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Present</p>
                   <p className="text-2xl font-black text-emerald-700 dark:text-emerald-400 mt-1">{overallStats.present}</p>
@@ -468,18 +499,18 @@ export default function ReportCard() {
             {/* Fee Status */}
             <div>
               <h3 className="text-xs font-bold text-blue-600 uppercase tracking-[0.15em] border-b-2 border-blue-600 pb-1 mb-3">Fee Status</h3>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-2 sm:gap-4">
                 <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-3 text-center">
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Billed</p>
-                  <p className="text-xl font-black text-slate-900 dark:text-white mt-1">{format(overallStats.totalFees)}</p>
+                  <p className="text-base sm:text-xl font-black text-slate-900 dark:text-white mt-1 break-words">{format(overallStats.totalFees)}</p>
                 </div>
                 <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-3 text-center">
                   <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Paid</p>
-                  <p className="text-xl font-black text-emerald-700 dark:text-emerald-400 mt-1">{format(overallStats.paidFees)}</p>
+                  <p className="text-base sm:text-xl font-black text-emerald-700 dark:text-emerald-400 mt-1 break-words">{format(overallStats.paidFees)}</p>
                 </div>
                 <div className={cn("rounded-xl p-3 text-center", overallStats.pendingFees > 0 ? "bg-rose-50 dark:bg-rose-900/20" : "bg-slate-50 dark:bg-slate-800/60")}>
                   <p className={cn("text-[10px] font-bold uppercase tracking-widest", overallStats.pendingFees > 0 ? "text-rose-600" : "text-slate-500")}>Outstanding</p>
-                  <p className={cn("text-xl font-black mt-1", overallStats.pendingFees > 0 ? "text-rose-700 dark:text-rose-400" : "text-slate-900 dark:text-white")}>{format(overallStats.pendingFees)}</p>
+                  <p className={cn("text-base sm:text-xl font-black mt-1 break-words", overallStats.pendingFees > 0 ? "text-rose-700 dark:text-rose-400" : "text-slate-900 dark:text-white")}>{format(overallStats.pendingFees)}</p>
                 </div>
               </div>
             </div>
