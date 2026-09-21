@@ -166,7 +166,7 @@ export function FeeStructureManager({
     <div className={cn('rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900', className)}>
       {isModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm" onClick={() => { setIsModalOpen(false); resetForm(); }}>
-          <div className="w-full max-w-xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900" onClick={(e) => e.stopPropagation()}>
+          <div className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-slate-100 px-8 py-6 dark:border-slate-800">
               <div>
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white">
@@ -187,7 +187,7 @@ export function FeeStructureManager({
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4 p-8">
+            <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto p-8">
               <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/60">
                 <div>
                   <p className="text-sm font-bold text-slate-900 dark:text-white">Apply to all {labels.structurePlural.toLowerCase()}</p>
