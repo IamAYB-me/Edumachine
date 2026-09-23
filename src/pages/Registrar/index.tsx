@@ -1,19 +1,22 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { UserPlus, Users, ClipboardList, Clock, CheckCircle, AlertCircle, GraduationCap } from 'lucide-react';
+import { UserPlus, Users, ClipboardList, Clock, CheckCircle, AlertCircle, GraduationCap, CheckCircle2, Lock } from 'lucide-react';
 import { KPICard } from '@/components/ui/KPICard';
 import { AnimatedCard } from '@/components/ui/AnimatedCard';
 import { StaggerContainer, StaggerItem } from '@/components/ui/motion';
 import { useNavigate } from 'react-router-dom';
-import { useDataStore } from '@/store/useDataStore';
+import { useDataStore, Student } from '@/store/useDataStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useToastStore } from '@/store/useToastStore';
+import { cn } from '@/utils';
 import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
 
 export default function RegistrarDashboard() {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const schools = useDataStore((state) => state.schools);
-  const { admissionApplications, students } = useDataStore();
+  const { admissionApplications, students, updateStudent } = useDataStore();
+  const showToast = useToastStore((state) => state.showToast);
   const schoolProfile = resolveSchoolProfile(user, schools);
   const labels = getPortalLevelLabels(schoolProfile.portalLevel);
 
@@ -35,6 +38,26 @@ export default function RegistrarDashboard() {
         .slice(0, 6),
     [admissionApplications],
   );
+
+  const recentStudents = useMemo(() => students.slice(0, 6), [students]);
+
+  const handleToggleLetterAccess = (student: Student) => {
+    const granted = !student.admissionLetterAccessGranted;
+    const result = updateStudent(student.id, { admissionLetterAccessGranted: granted });
+    if (!result.success) {
+      showToast({
+        title: 'Admission letter access update blocked',
+        description: result.error || 'Unable to update print access right now.',
+        variant: 'error',
+      });
+      return;
+    }
+    showToast({
+      title: granted ? 'Print access granted' : 'Print access revoked',
+      description: `${student.name} ${granted ? 'can now' : 'can no longer'} download/print their admission letter.`,
+      variant: granted ? 'success' : 'warning',
+    });
+  };
 
   const statusBadge: Record<string, string> = {
     Pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
@@ -183,6 +206,52 @@ export default function RegistrarDashboard() {
           </AnimatedCard>
         </div>
       </div>
+
+      <AnimatedCard delay={0.35} className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Recent Students</h3>
+          <button
+            onClick={() => navigate('/registrar/students')}
+            className="text-xs font-bold text-violet-600 dark:text-violet-400 hover:underline"
+          >
+            View all →
+          </button>
+        </div>
+        <div className="space-y-2">
+          {recentStudents.map((student) => (
+            <div
+              key={student.id}
+              className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30"
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{student.name}</p>
+                <p className="text-[10px] text-slate-500 truncate">{student.classDepartment || student.class || '—'}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleToggleLetterAccess(student)}
+                className={cn(
+                  'shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all',
+                  student.admissionLetterAccessGranted
+                    ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/40'
+                    : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800',
+                )}
+                title={student.admissionLetterAccessGranted ? 'Revoke admission letter print access' : 'Grant admission letter print access'}
+              >
+                {student.admissionLetterAccessGranted ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                {student.admissionLetterAccessGranted ? 'Granted' : 'Grant'}
+              </button>
+            </div>
+          ))}
+          {recentStudents.length === 0 && (
+            <div className="py-8 text-center text-slate-400">
+              <Users className="w-10 h-10 mx-auto mb-2 opacity-20" />
+              <p className="text-sm font-medium">No students yet</p>
+              <p className="text-xs text-slate-400 mt-1">{labels.learnerPlural} will appear here once enrolled.</p>
+            </div>
+          )}
+        </div>
+      </AnimatedCard>
     </div>
   );
 }

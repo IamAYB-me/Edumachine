@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useToastStore } from '@/store/useToastStore';
-import { Search, Filter, Plus, Edit, Trash2, X, Users, CheckCircle, AlertCircle, GraduationCap, CreditCard } from 'lucide-react';
+import { Search, Filter, Plus, Edit, Trash2, X, Users, CheckCircle, AlertCircle, GraduationCap, CreditCard, CheckCircle2, Lock } from 'lucide-react';
 import { cn } from '@/utils';
 import { useDataStore, Student, PortalLevel, AdmissionFieldKey, buildDefaultAdmissionFormConfig } from '@/store/useDataStore';
 import ExcelImport from '@/components/ui/ExcelImport';
@@ -957,6 +957,24 @@ export default function StudentsDirectory() {
     setStudentToDelete(null);
   };
 
+  const handleToggleLetterAccess = (student: Student) => {
+    const granted = !student.admissionLetterAccessGranted;
+    const result = updateStudent(student.id, { admissionLetterAccessGranted: granted });
+    if (!result.success) {
+      showToast({
+        title: 'Admission letter access update blocked',
+        description: result.error || 'Unable to update print access right now.',
+        variant: 'error',
+      });
+      return;
+    }
+    showToast({
+      title: granted ? 'Print access granted' : 'Print access revoked',
+      description: `${student.name} ${granted ? 'can now' : 'can no longer'} download/print their admission letter.`,
+      variant: granted ? 'success' : 'warning',
+    });
+  };
+
   const toggleSelectAll = () => {
     if (selectedIds.size === filteredStudents.length) {
       setSelectedIds(new Set());
@@ -1301,6 +1319,19 @@ export default function StudentsDirectory() {
                   </td>
                   <td className="py-4 px-6">
                     <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => handleToggleLetterAccess(student)}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-[10px] font-bold border transition-colors',
+                          student.admissionLetterAccessGranted
+                            ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/40'
+                            : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700',
+                        )}
+                        title={student.admissionLetterAccessGranted ? 'Revoke admission letter print access' : 'Grant admission letter print access'}
+                      >
+                        {student.admissionLetterAccessGranted ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                        {student.admissionLetterAccessGranted ? 'Granted' : 'Grant'}
+                      </button>
                       <button
                         onClick={() => setIdCardStudent(student)}
                         className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
