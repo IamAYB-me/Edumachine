@@ -38,11 +38,12 @@ export default function AccountantDashboard() {
   const onRoll = useOnRollFilters(students, labels.termOptions, sessionNames);
   const onRollStudents = onRoll.onRollStudents;
 
-  // Expected fees = every active, non-optional structure that applies to each
-  // student on roll (universal + their class/department). Collected fees are the
-  // 'Paid' records belonging to those same students; the remainder is outstanding.
+  // Expected fees = every active structure (including optional ones) that
+  // applies to each student on roll (universal + their class/department).
+  // Collected fees are the 'Paid' records belonging to those same students;
+  // the remainder is outstanding.
   const feeCollection = useMemo(() => {
-    const activeStructures = feeStructures.filter((fee) => fee.status === 'Active' && !fee.isOptional);
+    const activeStructures = feeStructures.filter((fee) => fee.status === 'Active');
     const { ids, regNos } = buildOnRollLookup(onRollStudents);
 
     let expected = 0;

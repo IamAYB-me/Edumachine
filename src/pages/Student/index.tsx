@@ -10,7 +10,7 @@ import { useToastStore } from '@/store/useToastStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useDataStore } from '@/store/useDataStore';
-import { getPortalLevelLabels, resolveSchoolProfile } from '@/utils/schoolProfile';
+import { getPortalLevelLabels, getStudentYearLabel, resolveSchoolProfile } from '@/utils/schoolProfile';
 import { friendlyErrorMessage } from '@/utils/errors';
 import { uploadImage } from '@/services/storageService';
 import { deriveStudentFees, checkFeeGate } from '@/utils/feeGating';
@@ -86,6 +86,7 @@ export default function StudentDashboard() {
   const resultsEnabledForStudents = useSettingsStore((s) => s.globalSettings.resultsEnabledForStudents) !== false;
   const pendingFeeTotal = derivedFees
     .filter(f => f.status === 'Pending' || f.status === 'Partial')
+    .filter(f => !f.isOptional)
     .reduce((sum, f) => sum + f.remaining, 0);
   const isFinanciallyCleared = pendingFeeTotal === 0;
   const unreadNotifs = notifications.filter(n => n.userId === user?.id && !n.read).length;
@@ -248,6 +249,12 @@ return (
               <h1 className="mt-0.5 truncate text-lg font-bold leading-tight sm:text-2xl">{user?.name || 'Student'}</h1>
               <p className="mt-0.5 truncate text-xs text-white/85 sm:text-sm">{(programmeText || stageValue || 'Student Portal').trim()}</p>
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                {getStudentYearLabel(myStudent ?? {}, schoolProfile.portalLevel) && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold sm:text-[11px]">
+                    <GraduationCap className="h-3 w-3" />
+                    {getStudentYearLabel(myStudent ?? {}, schoolProfile.portalLevel)}
+                  </span>
+                )}
                 {stageValue && programmeText && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold sm:text-[11px]">
                     <GraduationCap className="h-3 w-3" />

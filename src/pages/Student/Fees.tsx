@@ -46,7 +46,9 @@ export default function StudentFees() {
     [feeStructures, studentFees, myStudent?.class, myStudent],
   );
 
-  const pendingFees = derivedFees.filter(f => f.status === 'Pending' || f.status === 'Partial');
+  const requiredFees = derivedFees.filter(f => !f.isOptional);
+  const optionalFees = derivedFees.filter(f => f.isOptional);
+  const pendingFees = requiredFees.filter(f => f.status === 'Pending' || f.status === 'Partial');
   const feeHistory = studentFees.filter(f => f.status === 'Paid');
 
   // Auto-open the payment flow for a targeted fee via ?pay=<category> (used by
@@ -71,11 +73,11 @@ export default function StudentFees() {
   }, [targetedCategory, derivedFees]);
 
   const stats = useMemo(() => {
-    const total = derivedFees.reduce((acc, f) => acc + f.amount, 0);
-    const paid = derivedFees.reduce((acc, f) => acc + f.paid, 0);
-    const pending = derivedFees.reduce((acc, f) => acc + f.remaining, 0);
+    const total = requiredFees.reduce((acc, f) => acc + f.amount, 0);
+    const paid = requiredFees.reduce((acc, f) => acc + f.paid, 0);
+    const pending = requiredFees.reduce((acc, f) => acc + f.remaining, 0);
     return { total, paid, pending };
-  }, [derivedFees]);
+  }, [requiredFees]);
 
   const handlePay = (fee: any) => {
     setSelectedFee(fee);
@@ -636,7 +638,65 @@ export default function StudentFees() {
             </div>
           </div>
 
-          {/* Transaction History */}
+          {/* Optional Fees */}
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+            <div className="p-6 bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Optional Fees</h3>
+              <span className="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold rounded-lg uppercase">Optional</span>
+            </div>
+            <div className="p-6">
+              <p className="text-xs text-slate-500 mb-4">
+                These items are optional and not included in your overall fees payable. Only pay for the ones you need.
+              </p>
+              <div className="space-y-4">
+                {optionalFees.length > 0 ? optionalFees.map((fee) => (
+                  <div key={fee.structureKey} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl border border-indigo-100 dark:border-indigo-900/20 bg-indigo-50/30 dark:bg-indigo-900/10 group transition-all">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="p-2.5 sm:p-3 bg-white dark:bg-slate-800 text-indigo-600 rounded-2xl shadow-sm">
+                        <DollarSign className="w-5 h-5 sm:w-6 sm:h-6" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-bold text-slate-900 dark:text-white">{fee.category}</h4>
+                          <span className="px-2 py-0.5 text-[9px] font-bold uppercase rounded-md tracking-wider bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300">
+                            Optional
+                          </span>
+                          {fee.status === 'Paid' && (
+                            <span className="px-2 py-0.5 text-[9px] font-bold uppercase rounded-md tracking-wider bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
+                              Paid
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 font-medium mt-0.5">
+                          Not a compulsory fee — opt in only if you need this item.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 w-full sm:w-auto sm:justify-end sm:gap-6">
+                      <div className="text-right">
+                        <span className="text-xl font-black text-slate-900 dark:text-white">{format(fee.status === 'Partial' ? fee.remaining : fee.amount)}</span>
+                        {fee.status === 'Partial' && (
+                          <p className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">of {format(fee.amount)} balance</p>
+                        )}
+                      </div>
+                      {fee.status !== 'Paid' && (
+                        <button
+                          onClick={() => handlePay(fee)}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 sm:px-6 py-2 rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-900/20 active:scale-95"
+                        >
+                          Pay Now
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )) : (
+                  <div className="text-center py-8">
+                    <p className="text-sm font-medium text-slate-500">No optional fees are currently offered.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
             <div className="p-6 bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
               <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Payment History</h3>

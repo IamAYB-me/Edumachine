@@ -197,9 +197,10 @@ service cloud.firestore {
     }
 
     // ─── Admission Applications ───────────────────────────────────────
-    // Public read for landing page; anyone can create (public admission form)
+    // Anyone can create (public admission form); admins/registrar manage all.
+    // Applicants may only read their own record (matched by email).
     match /admissionApplications/{appId} {
-      allow read: if isAuth();
+      allow read: if isAdmin() || hasRole('REGISTRAR') || request.auth.token.email == resource.data.email;
       allow create: if true;
       allow update: if isAdmin() || hasRole('REGISTRAR');
       allow delete: if isAdmin() || hasRole('REGISTRAR');

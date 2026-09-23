@@ -174,7 +174,7 @@ export default function App() {
 
   useEffect(() => {
     if (user) {
-      initSubscriptions(user.role);
+      initSubscriptions(user.role, user.email);
     } else {
       initSubscriptions();
     }

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { addDocumentWithId, updateDocument, deleteDocument, clearCollection, subscribeToCollection, generateId } from '@/services/firestoreService';
+import { addDocumentWithId, updateDocument, deleteDocument, clearCollection, subscribeToCollection, subscribeToCollectionWhere, generateId } from '@/services/firestoreService';
 import { logActivity, type ActivityAction } from '@/utils/activityLogger';
 import type { Unsubscribe } from 'firebase/firestore';
 import { useAuthStore, type Role } from './useAuthStore';
@@ -782,7 +782,7 @@ interface DataState {
   dataReady: boolean;
   _hasHydrated: boolean;
   setHasHydrated: (value: boolean) => void;
-  initSubscriptions: (role?: Role) => void;
+  initSubscriptions: (role?: Role, email?: string) => void;
 
   // Student Actions
   addStudent: (student: Omit<Student, 'id'> & { id?: string }) => StudentMutationResult;
@@ -973,7 +973,7 @@ export const useDataStore = create<DataState>()((set, get) => ({
   _hasHydrated: true,
   setHasHydrated: (_value) => {},
 
-  initSubscriptions: (role?: Role) => {
+  initSubscriptions: (role?: Role, email?: string) => {
     if (!role) {
       subscriptions.forEach((unsub) => unsub());
       subscriptions.length = 0;
@@ -1062,8 +1062,23 @@ export const useDataStore = create<DataState>()((set, get) => ({
     allowedCollections.forEach((col) => {
       const storeKey = COLLECTION_STORE_MAP[col];
       if (storeKey) {
-        subscriptions.push(
-          subscribeToCollection(col, (data) => {
+        const useFilteredWhere =
+          role === 'APPLICANT' && col === 'admissionApplications' && !!email;
+        const unsub = useFilteredWhere
+          ? subscribeToCollectionWhere(col, 'email', '==', email, (data) => {
+              if (!deliveredSubscriptionCols.has(col)) {
+                deliveredSubscriptionCols.add(col);
+                maybeMarkReady();
+              }
+              set({ [storeKey]: data } as Partial<DataState>);
+            }, (error) => {
+              if (!deliveredSubscriptionCols.has(col)) {
+                deliveredSubscriptionCols.add(col);
+                maybeMarkReady();
+              }
+              console.error(`[subscriptions] Error subscribing to "${col}":`, error);
+            })
+          : subscribeToCollection(col, (data) => {
             if (!deliveredSubscriptionCols.has(col)) {
               deliveredSubscriptionCols.add(col);
               maybeMarkReady();
@@ -1082,8 +1097,8 @@ export const useDataStore = create<DataState>()((set, get) => ({
               maybeMarkReady();
             }
             console.error(`[subscriptions] Error subscribing to "${col}":`, error);
-          }),
-        );
+          });
+        subscriptions.push(unsub);
       }
     });
   },

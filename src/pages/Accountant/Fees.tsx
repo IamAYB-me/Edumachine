@@ -181,7 +181,7 @@ export default function AccountantFees() {
 
   // Overall expected vs collected vs outstanding for the students currently on
   // roll (already narrowed by session / semester / structure / student), broken
-  // down by fee category.
+  // down by fee category. Optional fee structures are excluded from the totals.
   const feeOverview = useMemo(() => {
     const activeStructures = feeStructures.filter(
       (structure) => structure.status === 'Active' && !structure.isOptional,

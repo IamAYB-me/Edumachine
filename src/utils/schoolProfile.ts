@@ -1,4 +1,4 @@
-import type { PortalLevel, School } from '@/store/useDataStore';
+import type { PortalLevel, School, Student } from '@/store/useDataStore';
 import type { User } from '@/store/useAuthStore';
 
 type PortalLevelLabels = {
@@ -326,4 +326,24 @@ export function promotesByClass(level: PortalLevel): boolean {
  */
 export function getDefaultEntryLevel(level: PortalLevel): string {
   return getPromotionPath(level)[0] ?? '';
+}
+
+/**
+ * Badge label for a learner's current year/level, e.g. "Year 2 Student",
+ * "200L Student", "JSS 2 Student". Tertiary portals read the `level` field
+ * (College/Polytechnic store "Year N", University stores "NNN Level"/"NNNL");
+ * class-based portals (Nursery/Primary/Secondary) read the `class` field.
+ * Returns null when there is no year/level to display.
+ */
+export function getStudentYearLabel(
+  student: Partial<Pick<Student, 'level' | 'class'>>,
+  portalLevel: PortalLevel,
+): string | null {
+  const raw = (promotesByClass(portalLevel) ? student.class : student.level || student.class)?.trim();
+  if (!raw) return null;
+  const normalized = raw
+    .replace(/\s+student$/i, '')
+    .replace(/^(\d+)\s+level$/i, '$1L')
+    .trim();
+  return normalized ? `${normalized} Student` : null;
 }

@@ -6,7 +6,7 @@ import { useDataStore, Student, PortalLevel, AdmissionFieldKey, buildDefaultAdmi
 import ExcelImport from '@/components/ui/ExcelImport';
 import { KPICard } from '@/components/ui/KPICard';
 import { useAuthStore } from '@/store/useAuthStore';
-import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
+import { resolveSchoolProfile, getPortalLevelLabels, getStudentYearLabel } from '@/utils/schoolProfile';
 import { COLLEGE_PROGRAMMES, POLYTECHNIC_PROGRAMMES } from '@/utils/portalProgrammes';
 import { PrintableIdCardModal } from '@/components/ui/PrintableIdCardModal';
 import Pagination from '@/components/ui/Pagination';
@@ -1254,7 +1254,14 @@ export default function StudentsDirectory() {
                         )} />
                       </div>
                       <div>
-                        <p className="font-bold text-slate-900 dark:text-white text-sm tracking-tight">{student.name}</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-bold text-slate-900 dark:text-white text-sm tracking-tight">{student.name}</p>
+                          {getStudentYearLabel(student, activePortalLevel) && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800">
+                              {getStudentYearLabel(student, activePortalLevel)}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">{student.email || 'No email added yet'}</p>
                       </div>
                     </div>
