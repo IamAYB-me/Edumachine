@@ -447,7 +447,10 @@ export default function StudentCourses() {
               </div>
             </div>
             <button
-              onClick={() => navigate('/student/fees')}
+              onClick={() => {
+                const cat = gating.blockers?.[0]?.structure?.category;
+                navigate(cat ? `/student/fees?pay=${encodeURIComponent(cat)}` : '/student/fees');
+              }}
               className="shrink-0 self-start sm:self-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs sm:text-sm font-bold shadow-lg shadow-rose-900/20 transition-all"
             >
               Pay Fees Now
