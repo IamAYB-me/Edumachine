@@ -593,7 +593,31 @@ export default function AcademicManagement() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-500 uppercase">Code</label>
-                  <input type="text" required pattern="^[1-9]\d*[A-Za-z0-9-]*$" title="Must start with the year digit (e.g. 2 for Year-2: 2CSC201, 3 for Year-3: 3ACC301)" value={subjectForm.code} onChange={(e) => setSubjectForm({ ...subjectForm, code: e.target.value.toUpperCase() })}
+                  <input type="text" required pattern="^[1-9]\d*[A-Za-z0-9-]*$" title="Must start with the year digit (e.g. 2 for Year-2: 2CSC201, 3 for Year-3: 3ACC301)" value={subjectForm.code} onChange={(e) => {
+                        const code = e.target.value.toUpperCase();
+                        setSubjectForm((prev) => {
+                          const next = { ...prev, code };
+                          const letters = (code.match(/^[1-3][A-Z]+/) || [''])[0];
+                          if (letters) {
+                            const deptCode = letters.slice(1);
+                            const dept = departments.find((d) => d.code === deptCode || d.name.toUpperCase() === deptCode || d.name.toUpperCase() === letters.slice(1) || d.id === deptCode);
+                            if (dept) {
+                              next.departmentId = dept.id;
+                              if (dept.facultyId) next.facultyId = dept.facultyId;
+                            }
+                          }
+                          const tail = code.match(/\d+$/)?.[0] || '';
+                          const semDigit = tail ? tail[tail.length - 1] : '';
+                          if (semDigit === '1') {
+                            next.term = 'First Semester';
+                            next.session = 'First Semester';
+                          } else if (semDigit === '2') {
+                            next.term = 'Second Semester';
+                            next.session = 'Second Semester';
+                          }
+                          return next;
+                        });
+                      }}
                     className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500 dark:text-white font-mono" />
                   <p className="text-[11px] text-slate-400 dark:text-slate-500">Start with the year digit — <span className="font-mono">1</span> = Year 1, <span className="font-mono">2</span> = Year 2, <span className="font-mono">3</span> = Year 3. Example: <span className="font-mono">2CSC201</span> (Year 2).</p>
                 </div>
