@@ -4,7 +4,7 @@ import { Mail, Phone, MapPin, Shield, Camera, Save, X, Lock, CheckCircle2, Users
 import { cn } from '@/utils';
 import { useDataStore } from '@/store/useDataStore';
 import { useToastStore } from '@/store/useToastStore';
-import { resolveSchoolProfile } from '@/utils/schoolProfile';
+import { resolveSchoolProfile, getDefaultEntryLevel, promotesByClass } from '@/utils/schoolProfile';
 import { PrintableIdCardModal } from '@/components/ui/PrintableIdCardModal';
 import { changeUserPassword } from '@/services/authService';
 import { uploadImage } from '@/services/storageService';
@@ -16,7 +16,7 @@ const PORTAL_LEVELS = ['Nursery', 'Primary', 'Secondary', 'College', 'Polytechni
 export default function Profile() {
   const navigate = useNavigate();
   const { user, updateProfile } = useAuthStore();
-  const { schools, updateSchool } = useDataStore();
+  const { schools, students, updateSchool } = useDataStore();
   const showToast = useToastStore((s) => s.showToast);
   const [isEditing, setIsEditing] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -37,6 +37,31 @@ export default function Profile() {
   if (!user) return null;
 
   const schoolProfile = resolveSchoolProfile(user, schools);
+
+  // ID card access control: continuing (Year-2+) students are view-only unless
+  // a Registrar/Admin has granted them document access. The same shared
+  // `admissionLetterAccessGranted` flag drives BOTH the admission letter and
+  // the ID card print, so a single toggle unlocks the two documents together.
+  const myStudent =
+    students.find((s) => s.id === user?.id) ||
+    students.find((s) => s.email === user?.email);
+  const isStudent = user.role === 'STUDENT';
+  const isContinuingStudent = isStudent &&
+    (() => {
+      const entryLevel = getDefaultEntryLevel(schoolProfile.portalLevel);
+      const rawYear = (promotesByClass(schoolProfile.portalLevel)
+        ? myStudent?.class
+        : myStudent?.level || myStudent?.class)?.trim() ?? '';
+      const normalize = (value: string) =>
+        value
+          .replace(/\s+student$/i, '')
+          .replace(/^(\d+)\s+level$/i, '$1L')
+          .trim()
+          .toLowerCase();
+      const normalizedEntry = normalize(entryLevel);
+      return !!normalizedEntry && !!normalize(rawYear) && normalize(rawYear) !== normalizedEntry;
+    })();
+  const idCardPrintLocked = isContinuingStudent && myStudent?.admissionLetterAccessGranted !== true;
 
   const handleSave = (e?: React.FormEvent | React.MouseEvent) => {
     e?.preventDefault?.();
@@ -160,10 +185,16 @@ export default function Profile() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowIdCard(true)}
-                  className="flex items-center gap-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-xl text-sm font-bold transition-all hover:bg-slate-50 dark:hover:bg-slate-800"
+                  title={idCardPrintLocked ? 'View only — ID card download/print requires Registrar approval.' : undefined}
+                  className={cn(
+                    'flex items-center gap-2 border px-4 py-2 rounded-xl text-sm font-bold transition-all',
+                    idCardPrintLocked
+                      ? 'border-amber-200 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300'
+                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800',
+                  )}
                 >
                   <CreditCard className="w-4 h-4" />
-                  Print ID Card
+                  {idCardPrintLocked ? 'ID Card Locked (View Only)' : 'Print ID Card'}
                 </button>
                 <button 
                   onClick={() => setIsEditing(true)}
@@ -449,6 +480,7 @@ export default function Profile() {
         secondaryValue={user.schoolName}
         status={user.isTwoFactorEnabled ? 'Verified' : 'Active'}
         avatarUrl={user.avatarUrl}
+        canPrint={!idCardPrintLocked}
       />
     </div>
   );

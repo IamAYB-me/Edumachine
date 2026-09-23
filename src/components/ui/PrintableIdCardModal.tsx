@@ -18,6 +18,7 @@ type PrintableIdCardModalProps = {
   status?: string;
   avatarUrl?: string;
   accentClassName?: string;
+  canPrint?: boolean;
 };
 
 export function PrintableIdCardModal({
@@ -35,6 +36,7 @@ export function PrintableIdCardModal({
   status,
   avatarUrl,
   accentClassName = 'from-blue-600 to-indigo-600',
+  canPrint = true,
 }: PrintableIdCardModalProps) {
   if (!open) return null;
 
@@ -62,10 +64,15 @@ export function PrintableIdCardModal({
           <div className="flex items-center gap-2">
             <button
               onClick={() => window.print()}
-              className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-blue-700"
+              disabled={!canPrint}
+              title={canPrint ? undefined : 'Print disabled — contact the Registrar to grant document access.'}
+              className={cn(
+                'inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-bold text-white transition',
+                canPrint ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-400 dark:bg-slate-600 cursor-not-allowed',
+              )}
             >
               <Printer className="h-4 w-4" />
-              Print ID Card
+              {canPrint ? 'Print ID Card' : 'Print Locked'}
             </button>
             <button
               onClick={onClose}
