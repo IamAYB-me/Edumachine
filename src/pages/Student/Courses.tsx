@@ -37,7 +37,7 @@ export default function StudentCourses() {
   const labels = getPortalLevelLabels(schoolProfile.portalLevel);
   const isCollege = isTertiaryLevel(schoolProfile.portalLevel);
 
-  const myStudent = useMemo(() => students.find((s) => s.id === user?.id), [students, user?.id]);
+  const myStudent = useMemo(() => students.find((s) => s.id === user?.id || s.email === user?.email), [students, user?.id, user?.email]);
 
   const myFeeRecords = useMemo(
     () => filterFeeRecordsForStudent(feeRecords, [user?.id, myStudent?.id, myStudent?.regNo, myStudent?.email]),

@@ -35,7 +35,7 @@ export default function StudentFees() {
 
   // Resolve the current student profile (for their class) and derive all fees
   // expected from both universal and peculiar (class-specific) structures.
-  const myStudent = useMemo(() => students.find((s) => s.id === user?.id), [students, user?.id]);
+  const myStudent = useMemo(() => students.find((s) => s.id === user?.id || s.email === user?.email), [students, user?.id, user?.email]);
   const studentFees = useMemo(
     () => feeRecords.filter((record) => record.studentId === user?.id),
     [feeRecords, user?.id],

@@ -49,7 +49,7 @@ export default function StudentDashboard() {
   const students = useDataStore((state) => state.students);
   const academicSessions = useDataStore((state) => state.academicSessions);
   const updateStudent = useDataStore((state) => state.updateStudent);
-  const myStudent = students.find((s) => s.id === user?.id);
+  const myStudent = students.find((s) => s.id === user?.id || s.email === user?.email);
   const passportUrl = myStudent?.passportUrl || user?.avatarUrl;
   const activeSession = academicSessions.find((s) => s.active) || academicSessions[academicSessions.length - 1];
   const stageValue = activeSession ? `${activeSession.name}${activeSession.semester ? ` • ${activeSession.semester}` : ''}` : labels.stageValue;
