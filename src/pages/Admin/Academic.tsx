@@ -171,6 +171,10 @@ export default function AcademicManagement() {
 
   const handleSaveSubject = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!/^[1-3]/.test(subjectForm.code)) {
+      showToast({ title: 'Year digit required', description: `Code must start with a year digit (1, 2, or 3) so it appears in the right year's course list — e.g. 2CSC201 for Year 2.`, variant: 'error' });
+      return;
+    }
     if (editingItem && 'creditHours' in editingItem) {
       updateSubject(editingItem.id, subjectForm);
       showToast({ title: 'Updated', description: `${subjectForm.name} (${subjectForm.code}) has been saved.`, variant: 'success' });
@@ -589,8 +593,9 @@ export default function AcademicManagement() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-500 uppercase">Code</label>
-                  <input type="text" required value={subjectForm.code} onChange={(e) => setSubjectForm({ ...subjectForm, code: e.target.value.toUpperCase() })}
+                  <input type="text" required pattern="^[1-9]\d*[A-Za-z0-9-]*$" title="Must start with the year digit (e.g. 2 for Year-2: 2CSC201, 3 for Year-3: 3ACC301)" value={subjectForm.code} onChange={(e) => setSubjectForm({ ...subjectForm, code: e.target.value.toUpperCase() })}
                     className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500 dark:text-white font-mono" />
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500">Start with the year digit — <span className="font-mono">1</span> = Year 1, <span className="font-mono">2</span> = Year 2, <span className="font-mono">3</span> = Year 3. Example: <span className="font-mono">2CSC201</span> (Year 2).</p>
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-500 uppercase">Type</label>
