@@ -6,7 +6,7 @@ import { cn } from '@/utils';
 import { KPICard } from '@/components/ui/KPICard';
 import { useToastStore } from '@/store/useToastStore';
 import { downloadTextFile } from '@/utils/fileHelpers';
-import { getPortalLevelLabels, resolveSchoolProfile } from '@/utils/schoolProfile';
+import { getPortalLevelLabels, resolveSchoolProfile, getDefaultEntryLevel, promotesByClass } from '@/utils/schoolProfile';
 import StudentAccessToggle from '@/components/ui/StudentAccessToggle';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import Pagination from '@/components/ui/Pagination';
@@ -28,7 +28,32 @@ export default function ResultSheet() {
   const resultsEnabledForStudents = globalSettings.resultsEnabledForStudents !== false;
   const schoolProfile = resolveSchoolProfile(user ?? null, schools);
   const labels = getPortalLevelLabels(schoolProfile.portalLevel);
-  
+
+  // Transcript/result print access control: continuing (Year-2+) students are
+  // view-only unless a Registrar/Admin has granted them document access. The
+  // same shared `admissionLetterAccessGranted` flag that gates the admission
+  // letter and ID card print also gates the transcript/result print.
+  const myStudent = isStudent
+    ? students.find((s) => s.id === user?.id) ||
+      students.find((s) => s.email === user?.email)
+    : undefined;
+  const isContinuingStudent = isStudent &&
+    (() => {
+      const entryLevel = getDefaultEntryLevel(schoolProfile.portalLevel);
+      const rawYear = (promotesByClass(schoolProfile.portalLevel)
+        ? myStudent?.class
+        : myStudent?.level || myStudent?.class)?.trim() ?? '';
+      const normalize = (value: string) =>
+        value
+          .replace(/\s+student$/i, '')
+          .replace(/^(\d+)\s+level$/i, '$1L')
+          .trim()
+          .toLowerCase();
+      const normalizedEntry = normalize(entryLevel);
+      return !!normalizedEntry && !!normalize(rawYear) && normalize(rawYear) !== normalizedEntry;
+    })();
+  const transcriptPrintLocked = isContinuingStudent && myStudent?.admissionLetterAccessGranted !== true;
+
   // If student, only show their own results; if teacher, only show their recorded results
   const roleResults = isStudent
     ? examResults.filter(r => r.studentId === user?.id || r.studentName === user?.name)
@@ -172,12 +197,19 @@ export default function ResultSheet() {
               <StudentAccessToggle feature="results" />
             </div>
           )}
-          <button 
+          <button
             onClick={handlePrint}
-            className="flex flex-1 items-center justify-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-2 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition-all shadow-sm sm:flex-none"
+            disabled={transcriptPrintLocked}
+            title={transcriptPrintLocked ? 'View only — transcript/result print requires Registrar approval.' : undefined}
+            className={cn(
+              'flex flex-1 items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all sm:flex-none',
+              transcriptPrintLocked
+                ? 'border border-amber-200 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 cursor-not-allowed'
+                : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition-all shadow-sm',
+            )}
           >
             <Printer className="w-4 h-4" />
-            Print {labels.resultsLabel}
+            {transcriptPrintLocked ? 'Transcript Locked (View Only)' : `Print ${labels.resultsLabel}`}
           </button>
           {!isStudent && (
             <button onClick={handleExportCsv} className="flex flex-1 items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg shadow-blue-900/20 transition-all sm:flex-none">
