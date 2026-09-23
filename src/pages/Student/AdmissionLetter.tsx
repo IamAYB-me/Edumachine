@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { Printer, FileText, Lock, CheckCircle } from 'lucide-react';
+import { cn } from '@/utils';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useDataStore } from '@/store/useDataStore';
-import { resolveSchoolProfile, getDefaultEntryLevel } from '@/utils/schoolProfile';
+import { resolveSchoolProfile, getDefaultEntryLevel, promotesByClass } from '@/utils/schoolProfile';
 import { checkFeeGate, filterFeeRecordsForStudent } from '@/utils/feeGating';
 import { getDocumentsWhere } from '@/services/firestoreService';
 import type { AdmissionApplication } from '@/store/useDataStore';
@@ -69,6 +70,26 @@ export default function StudentAdmissionLetter() {
 
   const acceptancePaid = admissionLetterGate?.isAllowed ?? false;
   const admissionLocked = !!admissionLetterGate && !admissionLetterGate.isAllowed;
+
+  const isContinuingStudent = useMemo(() => {
+    if (!myStudent || !schoolProfile) return false;
+    const entryLevel = getDefaultEntryLevel(schoolProfile.portalLevel);
+    const rawYear = (promotesByClass(schoolProfile.portalLevel)
+      ? myStudent.class
+      : myStudent.level || myStudent.class)?.trim() ?? '';
+    const normalize = (value: string) =>
+      value
+        .replace(/\s+student$/i, '')
+        .replace(/^(\d+)\s+level$/i, '$1L')
+        .trim()
+        .toLowerCase();
+    const normalizedEntry = normalize(entryLevel);
+    return !!normalizedEntry && !!normalize(rawYear) && normalize(rawYear) !== normalizedEntry;
+  }, [myStudent, schoolProfile]);
+
+  const canPrintDownload = isContinuingStudent
+    ? myStudent?.admissionLetterAccessGranted === true
+    : acceptancePaid;
 
   const formatLongDate = (date: Date) =>
     date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -138,7 +159,7 @@ export default function StudentAdmissionLetter() {
     );
   }
 
-  if (!application || !myStudent || !isAdmitted || admissionLocked) {
+  if (!application || !myStudent || !isAdmitted || (admissionLocked && !isContinuingStudent)) {
     const awaitingReview = !application || !myStudent || !isAdmitted;
     return (
       <div className="space-y-6">
@@ -195,25 +216,34 @@ export default function StudentAdmissionLetter() {
           </button>
           <button
             onClick={() => letterData && openAdmissionLetterWindow({ ...letterData, documentType: 'ORIGINAL' })}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-900/20 transition-all"
+            disabled={!canPrintDownload}
+            title={canPrintDownload ? undefined : 'View only — download/print requires Registrar approval.'}
+            className={cn(
+              'inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all',
+              canPrintDownload
+                ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-900/20'
+                : 'border border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800 cursor-not-allowed',
+            )}
           >
             <Printer className="w-4 h-4" />
-            Print / Save PDF
+            {canPrintDownload ? 'Print / Save PDF' : 'Print Locked (View Only)'}
           </button>
         </div>
       </div>
 
-      {!acceptancePaid && (
+      {!canPrintDownload && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 dark:border-amber-900/40 dark:bg-amber-950/30 p-5 flex items-start gap-4">
           <div className="shrink-0 w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
             <Lock className="w-6 h-6 text-amber-600 dark:text-amber-400" />
           </div>
           <div className="flex-1">
             <h3 className="text-sm font-bold text-amber-900 dark:text-amber-300 uppercase tracking-wide">
-              Acceptance Fee Required
+              {isContinuingStudent ? 'Print Access Requires Approval' : 'Acceptance Fee Required'}
             </h3>
             <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
-              You must complete your acceptance fee payment before you can print your admission letter.
+              {isContinuingStudent
+                ? 'Your admission letter is available to view. Contact the Registrar to grant access before you can download or print it.'
+                : 'You must complete your acceptance fee payment before you can print your admission letter.'}
             </p>
           </div>
         </div>
@@ -232,7 +262,7 @@ export default function StudentAdmissionLetter() {
           <div className="space-y-3">
             <Field label="Programme" value={application.courseOfStudy || application.firstChoiceCourse || '—'} />
             <Field label="Session" value={`${new Date().getFullYear()}/${new Date().getFullYear() + 1}`} />
-            <Field label="Acceptance Fee" value={acceptancePaid ? 'PAID / CLEARED' : 'NOT PAID'} paid={acceptancePaid} />
+            <Field label="Acceptance Fee" value={isContinuingStudent ? 'N/A — Continuing Student' : (acceptancePaid ? 'PAID / CLEARED' : 'NOT PAID')} paid={acceptancePaid} />
           </div>
         </div>
       </div>
@@ -243,9 +273,15 @@ export default function StudentAdmissionLetter() {
             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Document Preview</h3>
             <button
               onClick={() => letterData && openAdmissionLetterWindow(letterData)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition-all"
+              disabled={!canPrintDownload}
+              className={cn(
+                'inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all',
+                canPrintDownload
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed',
+              )}
             >
-              <Printer className="w-4 h-4" /> Print
+              <Printer className="w-4 h-4" /> {canPrintDownload ? 'Print' : 'Print Locked'}
             </button>
           </div>
           <iframe

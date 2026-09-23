@@ -167,6 +167,7 @@ const createEmptyStudentForm = (portalLevel: PortalLevel): StudentFormState => {
     acceptanceLetter: '',
     guarantorForm: '',
     passportDocument: '',
+    admissionLetterAccessGranted: false,
   };
 };
 

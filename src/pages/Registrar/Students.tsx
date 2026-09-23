@@ -1,22 +1,60 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Eye, Users, CheckCircle, AlertCircle, GraduationCap, Filter, X } from 'lucide-react';
+import { Search, Eye, Users, CheckCircle, AlertCircle, GraduationCap, Filter, X, FileText } from 'lucide-react';
 import { cn } from '@/utils';
 import { useDataStore, Student } from '@/store/useDataStore';
 import { useAuthStore } from '@/store/useAuthStore';
-import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
+import { useToastStore } from '@/store/useToastStore';
+import { resolveSchoolProfile, getPortalLevelLabels, getDefaultEntryLevel, promotesByClass } from '@/utils/schoolProfile';
 import { KPICard } from '@/components/ui/KPICard';
 import Pagination from '@/components/ui/Pagination';
 import { usePagination } from '@/hooks/usePagination';
 
 export default function RegistrarStudents() {
-  const { students, schools } = useDataStore();
+  const { students, schools, updateStudent } = useDataStore();
   const user = useAuthStore((state) => state.user);
+  const showToast = useToastStore((state) => state.showToast);
   const schoolProfile = resolveSchoolProfile(user, schools);
   const labels = getPortalLevelLabels(schoolProfile.portalLevel);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | Student['status']>('All');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+
+  const isContinuingStudent = (student: Student) => {
+    const entryLevel = getDefaultEntryLevel(schoolProfile.portalLevel);
+    const rawYear = (promotesByClass(schoolProfile.portalLevel)
+      ? student.class
+      : student.level || student.class)?.trim() ?? '';
+    const normalize = (value: string) =>
+      value
+        .replace(/\s+student$/i, '')
+        .replace(/^(\d+)\s+level$/i, '$1L')
+        .trim()
+        .toLowerCase();
+    const normalizedEntry = normalize(entryLevel);
+    return !!normalizedEntry && !!normalize(rawYear) && normalize(rawYear) !== normalizedEntry;
+  };
+
+  const handleToggleLetterAccess = (student: Student) => {
+    const granted = !student.admissionLetterAccessGranted;
+    const result = updateStudent(student.id, { admissionLetterAccessGranted: granted });
+    if (!result.success) {
+      showToast({
+        title: 'Admission letter access update blocked',
+        description: result.error || 'Unable to update print access right now.',
+        variant: 'error',
+      });
+      return;
+    }
+    showToast({
+      title: granted ? 'Print access granted' : 'Print access revoked',
+      description: `${student.name} ${granted ? 'can now' : 'can no longer'} download/print their admission letter.`,
+      variant: granted ? 'success' : 'warning',
+    });
+    setSelectedStudent((prev) =>
+      prev && prev.id === student.id ? { ...prev, admissionLetterAccessGranted: granted } : prev,
+    );
+  };
 
   const stats = useMemo(() => ({
     total: students.length,
@@ -220,6 +258,34 @@ export default function RegistrarStudents() {
                   <DetailRow label="Status" value={selectedStudent.status} />
                 </div>
               </Section>
+
+              {isContinuingStudent(selectedStudent) && (
+                <Section title="Admission Letter Access">
+                  <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 px-4 py-3">
+                    <div className="flex items-start gap-3">
+                      <FileText className="w-5 h-5 text-violet-500 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">Admission Letter Print Access</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                          Allow this continuing {labels.learnerSingular.toLowerCase()} to download/print their admission letter.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleLetterAccess(selectedStudent)}
+                      className={cn(
+                        'shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold border transition-all',
+                        selectedStudent.admissionLetterAccessGranted
+                          ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/40'
+                          : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800',
+                      )}
+                    >
+                      {selectedStudent.admissionLetterAccessGranted ? 'Access Granted' : 'Grant Access'}
+                    </button>
+                  </div>
+                </Section>
+              )}
 
               <Section title="Parent / Guardian">
                 <div className="grid grid-cols-2 gap-4">

@@ -192,6 +192,9 @@ export interface Student {
 
   // Student self-service profile update tracking
   profileSelfUpdateAt?: string;
+
+  // Admission letter access control (continuing students: view-only unless granted)
+  admissionLetterAccessGranted?: boolean;
 }
 
 export interface Parent {
