@@ -56,6 +56,14 @@ export default function StudentCourses() {
     return departments.find((d) => d.name === name || d.code === name || d.id === name)?.id || '';
   }, [myStudent, departments]);
 
+  const myYearDigit = useMemo(() => {
+    const raw = [myStudent?.level, myStudent?.class, myStudent?.classDepartment, myStudent?.department]
+      .map((v) => (v ? String(v) : ''))
+      .find((v) => /\d/.test(v));
+    const m = raw ? raw.match(/\d+/) : null;
+    return m ? m[0] : '';
+  }, [myStudent?.level, myStudent?.class, myStudent?.classDepartment, myStudent?.department]);
+
   const activeSession = useMemo(() => academicSessions.find((s) => s.active), [academicSessions]);
   const academicSessionName = activeSession?.name || 'Current Session';
 
@@ -79,18 +87,37 @@ export default function StudentCourses() {
   }, [subjects, isCollege]);
 
   const filteredSubjects = useMemo(() => {
-    let result = isCollege
-      ? subjects.filter((s) => s.session && (myDepartmentId ? s.departmentId === myDepartmentId : true))
-      : subjects;
+    if (isCollege) {
+      const deptK = myDepartmentId
+        ? myDepartmentId
+        : (myStudent?.classDepartment || myStudent?.department || '');
+      let result = subjects.filter(
+        (s) =>
+          s.session &&
+          (deptK
+            ? s.departmentId === deptK || (myYearDigit ? s.code.startsWith(myYearDigit) : false)
+            : Boolean(myYearDigit ? s.code.startsWith(myYearDigit) : true)),
+      );
+      if (searchTerm) {
+        const t = searchTerm.toLowerCase();
+        result = result.filter((s) => s.name.toLowerCase().includes(t) || s.code.toLowerCase().includes(t));
+      }
+      if (filterTerm !== 'all') {
+        result = result.filter((s) => s.session === filterTerm);
+      }
+      return result;
+    }
+
+    let result = subjects;
     if (searchTerm) {
       const t = searchTerm.toLowerCase();
       result = result.filter((s) => s.name.toLowerCase().includes(t) || s.code.toLowerCase().includes(t));
     }
     if (filterTerm !== 'all') {
-      result = result.filter((s) => isCollege ? s.session === filterTerm : s.term === filterTerm);
+      result = result.filter((s) => s.term === filterTerm);
     }
     return result;
-  }, [subjects, searchTerm, filterTerm, isCollege, myDepartmentId, myStudent?.classDepartment, myStudent?.department]);
+  }, [subjects, searchTerm, filterTerm, isCollege, myYearDigit, myDepartmentId, myStudent?.classDepartment, myStudent?.department]);
 
   const progressMap = useMemo(() => {
     const map: Record<string, number> = {};
