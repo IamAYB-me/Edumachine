@@ -34,6 +34,84 @@ async function uploadDataUrlToStorage(dataUrl: string, prefix: string, peerId: s
 }
 
 /**
+ * Normalizes a matric number for case/whitespace-insensitive matching.
+ */
+function normalizeMatric(value: string): string {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "");
+}
+
+/**
+ * resolveLoginIdentifier
+ *
+ * Publicly callable helper used by the login screen so students can sign in
+ * with either their registered email OR their matric number. Matric numbers
+ * (regNo, admissionNumber, or matricNumber) are resolved case-insensitively
+ * against the students collection to the account email. Only the account
+ * email is ever returned (never the password).
+ */
+export const resolveLoginIdentifier = functions.https.onCall(async (request: any) => {
+  const data = request.data || {};
+  const identifier = String(data.identifier || "").trim();
+  if (!identifier) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "An email or matric number is required."
+    );
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)) {
+    const normalized = normalizeMatric(identifier);
+    let email = "";
+    try {
+      // Exact match on any identifier field (single-field equality queries
+      // are covered by Firestore's built-in per-field indexes).
+      const identifierFields = ["regNo", "admissionNumber", "matricNumber"];
+      for (const field of identifierFields) {
+        const exact = await db
+          .collection("students")
+          .where(field, "==", identifier)
+          .limit(1)
+          .get();
+        if (!exact.empty) {
+          email = String((exact.docs[0].data() as any)?.email || "");
+          break;
+        }
+      }
+      if (!email) {
+        // Case-insensitive fallback scan (small roster; avoids composite indexes).
+        const all = await db
+          .collection("students")
+          .select("regNo", "admissionNumber", "matricNumber", "email")
+          .get();
+        for (const doc of all.docs) {
+          const s = doc.data() as any;
+          const candidate =
+            normalizeMatric(String(s.regNo || "")) ||
+            normalizeMatric(String(s.admissionNumber || "")) ||
+            normalizeMatric(String(s.matricNumber || ""));
+          if (candidate && candidate === normalized) {
+            email = String(s.email || "");
+            break;
+          }
+        }
+      }
+    } catch (error: any) {
+      console.error("[resolveLoginIdentifier] student lookup failed:", error);
+    }
+    if (!email) {
+      throw new functions.https.HttpsError(
+        "not-found",
+        "No account found with this matric number."
+      );
+    }
+    return { success: true, email };
+  }
+  return { success: true, email: identifier.toLowerCase() };
+});
+
+/**
  * verifyPaystackPayment
  *
  * Callable function invoked by the frontend after Paystack popup succeeds.
@@ -105,6 +183,9 @@ export const verifyPaystackPayment = functions.https.onCall(async (request: any)
       paymentChannel: txnData.channel,
       paymentIpAddress: txnData.ip_address,
     });
+
+    // Reflect the admission form fee in the Finance dashboard.
+    await ensureAdmissionFeeRecord(appDoc, reference);
 
     return {
       success: true,
@@ -306,6 +387,43 @@ export const payAcceptanceFee = functions.https.onCall(async (request: any) => {
  * as paid. Shared by the callable (fallback) and the Paystack webhook so the
  * verification behavior stays consistent.
  */
+
+/**
+ * Records the admission form (processing) fee into feeRecords so the payment
+ * shows up in the Finance dashboard. Idempotent: skips when a feeRecord with
+ * the same paymentReference and type already exists (a verification can run
+ * both via the callable and the webhook for the same reference).
+ */
+async function ensureAdmissionFeeRecord(appDoc: FirebaseFirestore.DocumentSnapshot, reference: string) {
+  const app = appDoc.exists ? (appDoc.data() as any) : {};
+  const amount = Number(app.admissionFee || 0);
+  if (!amount || !reference) return;
+
+  const existing = await db
+    .collection("feeRecords")
+    .where("paymentReference", "==", reference)
+    .where("type", "==", "Admission Processing Fee")
+    .limit(1)
+    .get();
+  if (!existing.empty) return;
+
+  const feeRecordId = `FR-ADM-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+  await db.collection("feeRecords").doc(feeRecordId).set({
+    id: feeRecordId,
+    studentId: app.id || appDoc.id || reference,
+    studentName: `${app.surname || ""} ${app.firstName || ""}`.trim() || app.email || "Applicant",
+    regNo: app.applicationFormNumber || "",
+    amount,
+    status: "Paid",
+    date: new Date().toISOString().split("T")[0],
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    paidAt: admin.firestore.FieldValue.serverTimestamp(),
+    type: "Admission Processing Fee",
+    paymentReference: reference,
+  });
+  console.log(`[admission-fee] Recorded ₦${amount} admission fee (${app.applicationFormNumber || app.id}, ref ${reference})`);
+}
+
 async function findAndMarkPaid(reference: string, txn: any) {
   const snap = await db
     .collection("admissionApplications")
@@ -321,6 +439,9 @@ async function findAndMarkPaid(reference: string, txn: any) {
     paymentChannel: txn?.channel || "",
     paymentIpAddress: txn?.ip_address || "",
   });
+  if (reference) {
+    await ensureAdmissionFeeRecord(doc, reference);
+  }
   return { found: true as const, id: doc.id };
 }
 
