@@ -352,9 +352,9 @@ export default function ExamSession() {
         <div className="hidden print:block mt-20 pt-8 border-t border-slate-200">
           <div className="grid grid-cols-3 gap-4">
             {[
-              { label: schoolProfile.portalLevel === 'Primary' || schoolProfile.portalLevel === 'Secondary' ? 'Class Teacher' : 'Course Adviser', name: schoolProfile.teacherSignatoryName || 'Teacher Signatory', signatureUrl: schoolProfile.teacherSignatureUrl },
-              { label: schoolProfile.portalLevel === 'Primary' ? 'Head Teacher' : schoolProfile.portalLevel === 'Secondary' ? 'Head of Department' : 'Dean / Head of Department', name: schoolProfile.hodSignatoryName || 'HOD Signatory', signatureUrl: schoolProfile.hodSignatureUrl },
-              { label: schoolProfile.portalLevel === 'University' ? 'Registrar / Provost' : schoolProfile.portalLevel === 'College' || schoolProfile.portalLevel === 'Polytechnic' ? 'Rector / Provost' : 'Principal', name: schoolProfile.principalSignatoryName || 'Principal Signatory', signatureUrl: schoolProfile.principalSignatureUrl },
+              { label: schoolProfile.portalLevel === 'Primary' || schoolProfile.portalLevel === 'Secondary' ? 'Class Teacher' : 'Course Adviser', name: schoolProfile.registrarSignatoryName || schoolProfile.teacherSignatoryName || 'Teacher Signatory', signatureUrl: schoolProfile.registrarSignatureUrl || schoolProfile.teacherSignatureUrl },
+              { label: schoolProfile.portalLevel === 'Primary' ? 'Head Teacher' : schoolProfile.portalLevel === 'Secondary' ? 'Head of Department' : 'Dean / Head of Department', name: schoolProfile.provostSignatoryName || schoolProfile.hodSignatoryName || 'HOD Signatory', signatureUrl: schoolProfile.provostSignatureUrl || schoolProfile.hodSignatureUrl },
+              { label: schoolProfile.portalLevel === 'University' ? 'Registrar / Provost' : schoolProfile.portalLevel === 'College' || schoolProfile.portalLevel === 'Polytechnic' ? 'Rector / Provost' : 'Principal', name: schoolProfile.authorisedSignatoryName || schoolProfile.principalSignatoryName || 'Principal Signatory', signatureUrl: schoolProfile.authorisedSignatureUrl || schoolProfile.principalSignatureUrl },
             ].map((signatory) => (
               <div key={signatory.label} className="rounded-2xl border border-slate-200 p-4">
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">{signatory.label}</p>

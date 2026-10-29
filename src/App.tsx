@@ -88,6 +88,7 @@ const StudentAssignments = lazyComponent(() => import('./pages/Student/Assignmen
 const StudentFees = lazyComponent(() => import('./pages/Student/Fees'));
 const ExamSession = lazyComponent(() => import('./pages/Student/Exams'));
 const StudentAttendance = lazyComponent(() => import('./pages/Student/Attendance'));
+const StudentAccessGate = lazyComponent(() => import('./components/gates/StudentAccessGate'));
 const StudentAdmissionLetter = lazyComponent(() => import('./pages/Student/AdmissionLetter'));
 
 const ParentDashboard = lazyComponent(() => import('./pages/Parent'));
@@ -274,13 +275,13 @@ export default function App() {
         </Route>
 
         <Route element={<DashboardLayout />}>
-          <Route path="/student" element={<StudentDashboard />} />
-          <Route path="/student/courses" element={<StudentCourses />} />
-          <Route path="/student/assignments" element={<StudentAssignments />} />
-          <Route path="/student/exams" element={<ExamSession />} />
-          <Route path="/student/attendance" element={<StudentAttendance />} />
+          <Route path="/student" element={<StudentAccessGate><StudentDashboard /></StudentAccessGate>} />
+          <Route path="/student/courses" element={<StudentAccessGate><StudentCourses /></StudentAccessGate>} />
+          <Route path="/student/assignments" element={<StudentAccessGate><StudentAssignments /></StudentAccessGate>} />
+          <Route path="/student/exams" element={<StudentAccessGate><ExamSession /></StudentAccessGate>} />
+          <Route path="/student/attendance" element={<StudentAccessGate><StudentAttendance /></StudentAccessGate>} />
           <Route path="/student/fees" element={<StudentFees />} />
-          <Route path="/student/admission-letter" element={<StudentAdmissionLetter />} />
+          <Route path="/student/admission-letter" element={<StudentAccessGate><StudentAdmissionLetter /></StudentAccessGate>} />
         </Route>
 
         <Route element={<DashboardLayout />}>

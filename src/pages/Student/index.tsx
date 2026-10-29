@@ -30,6 +30,7 @@ export default function StudentDashboard() {
   const examResults = useDataStore((state) => state.examResults);
   const courseRegistrations = useDataStore((state) => state.courseRegistrations);
   const subjects = useDataStore((state) => state.subjects);
+  const notices = useDataStore((state) => state.notices);
   const schoolProfile = resolveSchoolProfile(user, schools);
   const labels = getPortalLevelLabels(schoolProfile.portalLevel);
 
@@ -71,6 +72,21 @@ export default function StudentDashboard() {
       });
     return list;
   }, [courseRegistrations, subjects, user?.id, currentSemester]);
+
+  const registrationDone = myCourses.length > 0;
+
+  const announcements = useMemo(() => {
+    const priorityWeight: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
+    return (notices || [])
+      .filter((n) => n.targetAudience === 'All' || n.targetAudience === 'Students')
+      .filter((n) => (n.title || '').trim() && (n.content || '').trim())
+      .sort(
+        (a, b) =>
+          priorityWeight[a.priority] - priorityWeight[b.priority] ||
+          new Date(b.date).getTime() - new Date(a.date).getTime(),
+      )
+      .slice(0, 6);
+  }, [notices]);
 
   const myCoursesPagination = usePagination(myCourses, 5);
 
@@ -323,7 +339,7 @@ return (
           </motion.div>
         )}
 
-        {courseRegStructure && courseRegEnabled && !courseRegLocked && (
+        {courseRegStructure && courseRegEnabled && !courseRegLocked && !registrationDone && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -357,7 +373,7 @@ return (
           </motion.div>
         )}
 
-        {courseRegStructure && !courseRegEnabled && (
+        {courseRegStructure && !courseRegEnabled && !registrationDone && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -372,6 +388,44 @@ return (
               <p className="mt-0.5 text-[11px] text-slate-600 sm:text-sm dark:text-slate-300">
                 The school has temporarily closed registration. Your registered courses remain available.
               </p>
+            </div>
+          </motion.div>
+        )}
+
+        {courseRegStructure && registrationDone && announcements.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 20, delay: 0.1 }}
+            className="flex flex-col gap-2.5 overflow-hidden rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 p-3.5 shadow-sm sm:p-4 dark:border-amber-800 dark:from-amber-950/30 dark:to-orange-950/20"
+          >
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/40">
+                <Bell className="h-4 w-4 text-amber-700 dark:text-amber-300" />
+              </div>
+              <h3 className="text-xs font-bold uppercase tracking-wide text-slate-900 dark:text-white">Announcements</h3>
+            </div>
+            <div className="relative overflow-hidden">
+              <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-amber-50 to-transparent dark:from-amber-950/30" />
+              <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-orange-50 to-transparent dark:from-orange-950/20" />
+              <div className="announcement-marquee">
+                <div className="flex items-center gap-8 pr-8">
+                  {announcements.map((n) => (
+                    <span key={n.id} className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                      <span className="mr-1.5 font-bold text-amber-600 dark:text-amber-400">•</span>
+                      {n.title}: {n.content}
+                    </span>
+                  ))}
+                </div>
+                <div className="flex items-center gap-8 pr-8" aria-hidden="true">
+                  {announcements.map((n) => (
+                    <span key={`${n.id}-dup`} className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                      <span className="mr-1.5 font-bold text-amber-600 dark:text-amber-400">•</span>
+                      {n.title}: {n.content}
+                    </span>
+                  ))}
+                </div>
+              </div>
             </div>
           </motion.div>
         )}

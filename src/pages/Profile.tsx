@@ -4,8 +4,9 @@ import { Mail, Phone, MapPin, Shield, Camera, Save, X, Lock, CheckCircle2, Users
 import { cn } from '@/utils';
 import { useDataStore } from '@/store/useDataStore';
 import { useToastStore } from '@/store/useToastStore';
-import { resolveSchoolProfile, getDefaultEntryLevel, promotesByClass } from '@/utils/schoolProfile';
+import { resolveSchoolProfile } from '@/utils/schoolProfile';
 import { PrintableIdCardModal } from '@/components/ui/PrintableIdCardModal';
+import { filterFeeRecordsForStudent, getPaidForCategory } from '@/utils/feeGating';
 import { changeUserPassword } from '@/services/authService';
 import { uploadImage } from '@/services/storageService';
 import { friendlyErrorMessage } from '@/utils/errors';
@@ -16,7 +17,7 @@ const PORTAL_LEVELS = ['Nursery', 'Primary', 'Secondary', 'College', 'Polytechni
 export default function Profile() {
   const navigate = useNavigate();
   const { user, updateProfile } = useAuthStore();
-  const { schools, students, updateSchool } = useDataStore();
+  const { schools, students, feeRecords, feeStructures, updateSchool } = useDataStore();
   const showToast = useToastStore((s) => s.showToast);
   const [isEditing, setIsEditing] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -46,22 +47,22 @@ export default function Profile() {
     students.find((s) => s.id === user?.id) ||
     students.find((s) => s.email === user?.email);
   const isStudent = user.role === 'STUDENT';
-  const isContinuingStudent = isStudent &&
-    (() => {
-      const entryLevel = getDefaultEntryLevel(schoolProfile.portalLevel);
-      const rawYear = (promotesByClass(schoolProfile.portalLevel)
-        ? myStudent?.class
-        : myStudent?.level || myStudent?.class)?.trim() ?? '';
-      const normalize = (value: string) =>
-        value
-          .replace(/\s+student$/i, '')
-          .replace(/^(\d+)\s+level$/i, '$1L')
-          .trim()
-          .toLowerCase();
-      const normalizedEntry = normalize(entryLevel);
-      return !!normalizedEntry && !!normalize(rawYear) && normalize(rawYear) !== normalizedEntry;
-    })();
-  const idCardPrintLocked = isContinuingStudent && myStudent?.admissionLetterAccessGranted !== true;
+
+  // ID card access control: students can print their ID card only once the
+  // "ID Card" fee is fully Paid. Other gated documents use their own fee gates.
+  const myFeeRecords = filterFeeRecordsForStudent(feeRecords, [
+    user?.id,
+    myStudent?.id,
+    myStudent?.regNo,
+    myStudent?.email,
+  ]);
+  const idCardStructure = feeStructures.find(
+    (s) => s.status === 'Active' && s.category.trim().toLowerCase() === 'id card',
+  );
+  const idCardPaidForPrint = idCardStructure
+    ? getPaidForCategory(myFeeRecords, idCardStructure.category) >= idCardStructure.amount
+    : true;
+  const idCardPrintLocked = isStudent && !idCardPaidForPrint;
 
   const handleSave = (e?: React.FormEvent | React.MouseEvent) => {
     e?.preventDefault?.();
@@ -185,7 +186,7 @@ export default function Profile() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowIdCard(true)}
-                  title={idCardPrintLocked ? 'View only — ID card download/print requires Registrar approval.' : undefined}
+                  title={idCardPrintLocked ? 'View only — pay the ID Card fee to unlock printing your ID card.' : undefined}
                   className={cn(
                     'flex items-center gap-2 border px-4 py-2 rounded-xl text-sm font-bold transition-all',
                     idCardPrintLocked

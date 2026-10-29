@@ -87,3 +87,30 @@
     display: none !important;
   }
 }
+
+/* Scrolling announcement ticker */
+@keyframes marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.announcement-marquee {
+  display: flex;
+  width: max-content;
+  flex-wrap: nowrap;
+  animation: marquee-scroll 28s linear infinite;
+  will-change: transform;
+}
+
+.announcement-marquee:hover {
+  animation-play-state: paused;
+}
+
+.announcement-marquee > * {
+  flex-shrink: 0;
+  white-space: nowrap;
+}

@@ -15,7 +15,7 @@ import {
 
 export default function StudentAdmissionLetter() {
   const user = useAuthStore((s) => s.user);
-  const { students, schools, feeStructures, feeRecords } = useDataStore();
+  const { students, schools, feeStructures, feeRecords, academicSessions } = useDataStore();
   const schoolProfile = resolveSchoolProfile(user, schools);
 
   const [directApplication, setDirectApplication] = useState<AdmissionApplication | null>(null);
@@ -107,6 +107,10 @@ export default function StudentAdmissionLetter() {
     }
     const verificationCode = (Math.abs(hash) >>> 0).toString(16).toUpperCase().padStart(12, '0').slice(0, 12);
 
+    const activeSession = academicSessions.find((s) => s.active);
+    const sessionResumption = activeSession?.resumptionDate || activeSession?.sessionResumptionDate;
+    const fallbackResumption = `${yearShort + 1}-01-12`;
+
     const matricNumber =
       myStudent?.matricNumber ||
       myStudent?.admissionNumber ||
@@ -121,8 +125,9 @@ export default function StudentAdmissionLetter() {
         location: 'IKARE-AKOKO, ONDO STATE, NIGERIA',
         address: 'Ikare-Akoko, Ondo State, Nigeria',
         logo: schoolProfile.logoUrl,
-        registrarName: schoolProfile.principalSignatoryName || 'Mrs. T.B. ATANSUYI',
+        registrarName: schoolProfile.registrarSignatoryName || schoolProfile.principalSignatoryName || 'Mrs. T.B. ATANSUYI',
         registrarCredentials: 'B.Sc., MSc., PhD (in View)',
+        registrarSignature: schoolProfile.registrarSignatureUrl || schoolProfile.principalSignatureUrl || undefined,
       },
       student: {
         fullName,
@@ -138,13 +143,13 @@ export default function StudentAdmissionLetter() {
         level: myStudent?.level || getDefaultEntryLevel(schoolProfile.portalLevel),
         department: application.courseOfStudy || application.firstChoiceCourse || '',
         admissionDate: formatLongDate(new Date()),
-        resumptionDate: formatLongDate(new Date(`${yearShort + 1}-01-12`)),
+        resumptionDate: formatLongDate(new Date(sessionResumption || fallbackResumption)),
         verificationCode,
         status: 'ADMITTED',
         acceptanceFeeStatus: 'PAID / CLEARED',
       },
     };
-  }, [application, myStudent, user?.email, schoolProfile]);
+  }, [application, myStudent, user?.email, schoolProfile, academicSessions]);
 
   const [previewOpen, setPreviewOpen] = useState(false);
 

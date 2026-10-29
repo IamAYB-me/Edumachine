@@ -24,6 +24,11 @@ const COLOR_MAP: Record<string, { bg: string; border: string; text: string }> = 
   teal: { bg: 'bg-teal-50 dark:bg-teal-900/20', border: 'border-teal-200 dark:border-teal-800', text: 'text-teal-600 dark:text-teal-400' },
 };
 
+const codeLevelDigit = (code?: string): string => {
+  const m = String(code || '').match(/(\d)\d{2}\b/);
+  return m ? m[1] : '';
+};
+
 type PrintableCourse = { name: string; code: string; type: string; creditHours: number; session?: string };
 
 export default function StudentCourses() {
@@ -52,8 +57,20 @@ export default function StudentCourses() {
   const registrationClosed = useSettingsStore((s) => s.globalSettings.courseRegistrationEnabled) === false;
   const cannotRegister = registrationBlocked || registrationClosed;
   const myDepartmentId = useMemo(() => {
-    const name = myStudent?.classDepartment || myStudent?.department || '';
-    return departments.find((d) => d.name === name || d.code === name || d.id === name)?.id || '';
+    const name = (myStudent?.classDepartment || myStudent?.department || '').trim();
+    const exact = departments.find((d) => d.name === name || d.code === name || d.id === name);
+    if (exact) return exact.id;
+    // Fall back to matching a trailing "(CODE)" parenthetical or a stripped name,
+    // e.g. "Community Health (CHEW)" vs department code "CHEW".
+    const stripped = name.replace(/\s*\(([^)]*)\)\s*$/g, ' $1').replace(/\s+/g, ' ').trim();
+    return (
+      departments.find((d) => d.code && d.code.toLowerCase() === stripped.toLowerCase()) ||
+      departments.find(
+        (d) =>
+          name.includes(`(${d.code})`) ||
+          name.replace(/\s*\([^)]*\)\s*/g, '').trim().toLowerCase() === d.name.toLowerCase(),
+      )
+    )?.id || '';
   }, [myStudent, departments]);
 
   const myYearDigit = useMemo(() => {
@@ -94,9 +111,8 @@ export default function StudentCourses() {
       let result = subjects.filter(
         (s) =>
           s.session &&
-          (deptK
-            ? s.departmentId === deptK || (myYearDigit ? s.code.startsWith(myYearDigit) : false)
-            : Boolean(myYearDigit ? s.code.startsWith(myYearDigit) : true)),
+          (deptK ? s.departmentId === deptK : false) &&
+          (myYearDigit ? codeLevelDigit(s.code) === myYearDigit : true),
       );
       if (searchTerm) {
         const t = searchTerm.toLowerCase();
@@ -223,7 +239,7 @@ export default function StudentCourses() {
     const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const schoolAddress = schoolProfile.address || '';
     const schoolCode = schoolProfile.code || '';
-    const signatoryName = schoolProfile.principalSignatoryName || schoolProfile.hodSignatoryName || schoolProfile.teacherSignatoryName || '';
+    const signatoryName = schoolProfile.registrarSignatoryName || schoolProfile.authorisedSignatoryName || schoolProfile.principalSignatoryName || schoolProfile.hodSignatoryName || schoolProfile.teacherSignatoryName || '';
 
     const totalCreditsVal = courses.reduce((sum, s) => sum + s.creditHours, 0);
 
@@ -250,40 +266,41 @@ export default function StudentCourses() {
           * { margin: 0; padding: 0; box-sizing: border-box; }
           html, body { font-family: 'Segoe UI', system-ui, Arial, sans-serif; font-size: 10px; color: #0f172a; }
           ${schoolProfile.logoUrl ? `body::before { content: ''; position: fixed; top: 45%; left: 45%; width: 180mm; height: 180mm; background-image: url(${schoolProfile.logoUrl}); background-repeat: no-repeat; background-position: center; background-size: contain; opacity: 0.04; z-index: 0; pointer-events: none; }` : ''}
-          .wrap { width: 100%; }
-          .head { display: flex; align-items: flex-start; gap: 8px; border-bottom: 1.5px solid #1d4ed8; padding-bottom: 6px; margin-bottom: 6px; }
-          .head img { width: 34px; height: 34px; object-fit: contain; }
-          .head .t1 { font-size: 13px; font-weight: 800; letter-spacing: .02em; line-height: 1.15; }
-          .head .t2 { font-size: 8.5px; color: #475569; }
-          .head .badge { margin-left: 2px; margin-top: 1px; border: 1.5px solid #1d4ed8; color: #1d4ed8; font-size: 7.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; white-space: nowrap; background: #eff6ff; }
-          .title { text-align: center; font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; color: #1e293b; border-bottom: 1px dotted #cbd5e1; padding-bottom: 4px; margin-bottom: 6px; }
+          .wrap { width: 100%; padding-top: 30px; }
+          .head { display: flex; align-items: flex-start; gap: 14px; border-bottom: 2px solid #1d4ed8; padding-bottom: 10px; margin-bottom: 14px; }
+          .head img { width: 46px; height: 46px; object-fit: contain; border-radius: 4px; }
+          .head .head-info { flex: 1 1 auto; min-width: 0; }
+          .head .t1 { font-size: 14px; font-weight: 800; letter-spacing: .02em; line-height: 1.2; }
+          .head .t2 { font-size: 8.5px; color: #475569; margin-top: 2px; line-height: 1.5; }
+          .head .badge { margin-left: auto; margin-top: 2px; border: 1.5px solid #1d4ed8; color: #1d4ed8; font-size: 7.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; padding: 4px 12px; border-radius: 999px; white-space: nowrap; background: #eff6ff; }
+          .title { text-align: center; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; color: #1e293b; border-bottom: 1px dotted #cbd5e1; padding-bottom: 6px; margin-bottom: 12px; }
           .title .sub { font-size: 8.5px; font-weight: 400; letter-spacing: .04em; color: #475569; text-transform: none; }
-          .info { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px 14px; margin-bottom: 6px; }
-          .info div { display: flex; justify-content: space-between; gap: 6px; font-size: 8.5px; padding: 1.5px 0; border-bottom: 1px dotted #e2e8f0; }
+          .info { display: grid; grid-template-columns: repeat(3, 1fr); column-gap: 18px; row-gap: 4px; margin-bottom: 12px; }
+          .info div { display: flex; justify-content: space-between; gap: 6px; font-size: 8.5px; padding: 3px 0; border-bottom: 1px dotted #e2e8f0; }
           .info span { color: #64748b; white-space: nowrap; }
           .info strong { font-weight: 700; }
-          .section { display: flex; align-items: center; gap: 6px; font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: #1d4ed8; margin: 2px 0 3px; }
+          .section { display: flex; align-items: center; gap: 6px; font-size: 8.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: #1d4ed8; margin: 14px 0 7px; }
           .section::after { content: ''; flex: 1; height: 1px; background: #dbeafe; }
           table { width: 100%; border-collapse: collapse; }
           thead { display: table-header-group; }
-          th { background: #1d4ed8; color: #fff; padding: 3px 6px; text-align: left; font-size: 7.5px; text-transform: uppercase; letter-spacing: .05em; }
+          th { background: #1d4ed8; color: #fff; padding: 7px 10px; text-align: left; font-size: 8px; text-transform: uppercase; letter-spacing: .05em; }
           th:last-child, td:last-child { text-align: center; }
-          td { padding: 3px 6px; font-size: 9.5px; border-bottom: 0.5px solid #e2e8f0; }
+          td { padding: 11px 10px; font-size: 10px; border-bottom: 1px solid #e2e8f0; }
           tbody tr { page-break-inside: avoid; }
           tbody tr:nth-child(even) td { background: #f8fafc; }
-          .total-row td { background: #eff6ff; font-weight: 800; font-size: 10px; color: #1d4ed8; border-top: 1.5px solid #bfdbfe; }
-          .sig { display: flex; justify-content: space-between; gap: 24px; margin-top: 8px; }
-          .sig .box { text-align: center; width: 48%; }
-          .sig .box .line { border-top: 1px solid #475569; padding-top: 2px; font-size: 9px; font-weight: 700; }
-          .sig .box .role { font-size: 7.5px; color: #64748b; text-transform: uppercase; letter-spacing: .08em; }
-          .foot { margin-top: 6px; padding-top: 3px; border-top: 1px solid #e2e8f0; font-size: 7.5px; color: #94a3b8; text-align: center; }
+          .total-row td { background: #eff6ff; font-weight: 800; font-size: 10px; color: #1d4ed8; border-top: 1.5px solid #bfdbfe; padding: 9px 10px; }
+          .sig { display: flex; justify-content: space-between; gap: 48px; margin-top: 36px; page-break-inside: avoid; }
+          .sig .box { text-align: center; width: 46%; }
+          .sig .box .line { border-top: 1.5px solid #334155; padding-top: 6px; font-size: 10px; font-weight: 700; }
+          .sig .box .role { font-size: 8px; color: #64748b; text-transform: uppercase; letter-spacing: .08em; margin-top: 3px; }
+          .foot { margin-top: 16px; padding-top: 5px; border-top: 1px solid #e2e8f0; font-size: 7.5px; color: #94a3b8; text-align: center; }
         </style>
       </head>
       <body>
         <div class="wrap">
           <div class="head">
             ${schoolProfile.logoUrl ? `<img src="${schoolProfile.logoUrl}" alt="" />` : ''}
-            <div>
+            <div class="head-info">
               <div class="t1">${schoolName}</div>
               <div class="t2">${[schoolCode, schoolAddress].filter(Boolean).join(' &middot; ')}</div>
             </div>
@@ -545,12 +562,44 @@ export default function StudentCourses() {
       {/* Course Cards - Print hidden area */}
       <div ref={printRef}>
         {filteredSubjects.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <BookOpen className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-4" />
-            <p className="text-lg font-bold text-slate-700 dark:text-slate-300">No {labels.subjectPlural.toLowerCase()} found</p>
-            <p className="text-sm text-slate-400 mt-1">You have no {labels.subjectPlural.toLowerCase()} for this {labels.termLabel.toLowerCase()}.</p>
-          </div>
-        ) : (
+          registrationBlocked && !registrationClosed ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center mb-4">
+                <Lock className="w-8 h-8 text-rose-500 dark:text-rose-400" />
+              </div>
+              <p className="text-xl font-bold text-slate-900 dark:text-white">Registration Locked — Fees Required</p>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-2 max-w-md">
+                {gatingBlockerMessage('course_registration', myStudent?.class)} Pay the required amounts below to unlock your ${labels.subjectPlural.toLowerCase()} for this ${labels.termLabel.toLowerCase()}.
+              </p>
+              <div className="mt-5 w-full max-w-md space-y-2">
+                {gating.blockers.map((b) => (
+                  <div key={b.structure.id} className="flex items-center justify-between gap-3 rounded-xl border border-rose-100 dark:border-rose-900/30 bg-rose-50/40 dark:bg-rose-950/20 px-4 py-2.5">
+                    <div className="text-left">
+                      <p className="text-[13px] font-bold text-slate-900 dark:text-white">{b.structure.category}</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Paid {format(b.studentsPaid)} / Required {format(b.required)} ({b.structure.requiredPercentage ?? 100}%)</p>
+                    </div>
+                    <span className="text-xs font-bold text-rose-600 dark:text-rose-400">{Math.round(b.percentagePaid)}%</span>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => {
+                  const cat = gating.blockers?.[0]?.structure?.category;
+                  navigate(cat ? `/student/fees?pay=${encodeURIComponent(cat)}` : '/student/fees');
+                }}
+                className="mt-6 inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-bold shadow-lg shadow-rose-900/20 transition-colors"
+              >
+                Pay Fees Now
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <BookOpen className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-4" />
+              <p className="text-lg font-bold text-slate-700 dark:text-slate-300">No ${labels.subjectPlural.toLowerCase()} found</p>
+              <p className="text-sm text-slate-400 mt-1">You have no ${labels.subjectPlural.toLowerCase()} for this ${labels.termLabel.toLowerCase()}.</p>
+            </div>
+        )) : (
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredSubjects.map((subject, i) => {
               const colorKey = COLORS[i % COLORS.length];

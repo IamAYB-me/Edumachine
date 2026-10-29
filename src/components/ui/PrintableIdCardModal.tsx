@@ -65,7 +65,7 @@ export function PrintableIdCardModal({
             <button
               onClick={() => window.print()}
               disabled={!canPrint}
-              title={canPrint ? undefined : 'Print disabled — contact the Registrar to grant document access.'}
+              title={canPrint ? undefined : 'Print locked — the ID Card fee must be fully paid before printing.'}
               className={cn(
                 'inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-bold text-white transition',
                 canPrint ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-400 dark:bg-slate-600 cursor-not-allowed',
@@ -185,17 +185,17 @@ export function PrintableIdCardModal({
                 <div className="grid grid-cols-[1fr_auto] gap-4 border-t border-slate-200 pt-5">
                   <div>
                     <div className="flex h-12 items-end justify-center rounded-xl border-b border-dashed border-slate-300 bg-slate-50">
-                      {schoolProfile.principalSignatureUrl ? (
+                      {schoolProfile.registrarSignatureUrl || schoolProfile.principalSignatureUrl ? (
                         <img
-                          src={schoolProfile.principalSignatureUrl}
-                          alt="Principal signature"
+                          src={schoolProfile.registrarSignatureUrl || schoolProfile.principalSignatureUrl}
+                          alt="Registrar signature"
                           className="max-h-10 object-contain"
                         />
                       ) : null}
                     </div>
                     <p className="mt-2 text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Authorized By</p>
                     <p className="mt-1 text-sm font-semibold text-slate-900">
-                      {schoolProfile.principalSignatoryName || 'Principal Signatory'}
+                      {schoolProfile.registrarSignatoryName || schoolProfile.principalSignatoryName || 'Registrar'}
                     </p>
                   </div>
                   <div className="flex flex-col items-end justify-end">
