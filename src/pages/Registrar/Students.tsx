@@ -251,7 +251,7 @@ export default function RegistrarStudents() {
               <Section title="Enrollment Details">
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   <DetailRow label="Reg No." value={selectedStudent.regNo} />
-                  <DetailRow label="Admission Number" value={selectedStudent.admissionNumber} />
+                  <DetailRow label="Matric Number" value={selectedStudent.admissionNumber} />
                   <DetailRow label={labels.structureSingular} value={selectedStudent.classDepartment || selectedStudent.class} />
                   <DetailRow label="Date of Admission" value={selectedStudent.dateOfAdmission} />
                   <DetailRow label="Academic Session" value={selectedStudent.academicSession} />

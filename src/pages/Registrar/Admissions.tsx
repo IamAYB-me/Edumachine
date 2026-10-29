@@ -177,7 +177,7 @@ export default function RegistrarAdmissions() {
         </p>
       </div>
 
-      {/* Admission Number Allocation */}
+      {/* Matric Number Allocation */}
       <div className="max-w-2xl">
         <AllocateAdmissionNumbersButton />
       </div>

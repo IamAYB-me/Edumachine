@@ -6,7 +6,7 @@ import { useDataStore, Student, PortalLevel, AdmissionFieldKey, buildDefaultAdmi
 import ExcelImport from '@/components/ui/ExcelImport';
 import { KPICard } from '@/components/ui/KPICard';
 import { useAuthStore } from '@/store/useAuthStore';
-import { resolveSchoolProfile, getPortalLevelLabels, getStudentYearLabel } from '@/utils/schoolProfile';
+import { resolveSchoolProfile, getPortalLevelLabels, getStudentYearLabel, promotesByClass, getPromotionPath } from '@/utils/schoolProfile';
 import { COLLEGE_PROGRAMMES, POLYTECHNIC_PROGRAMMES } from '@/utils/portalProgrammes';
 import { PrintableIdCardModal } from '@/components/ui/PrintableIdCardModal';
 import Pagination from '@/components/ui/Pagination';
@@ -176,7 +176,7 @@ const baseSections: Array<{ title: string; fields: FieldConfig[] }> = [
     title: 'System Details',
     fields: [
       { name: 'portalLevel', label: 'Portal Level', type: 'select', options: portalLevelOptions, colSpan: 1 },
-      { name: 'admissionNumber', label: 'Admission Number' },
+      { name: 'admissionNumber', label: 'Matric Number' },
       { name: 'regNo', label: 'Registration Number', readOnly: true },
       { name: 'nin', label: 'NIN' },
       { name: 'status', label: 'Status', type: 'select', options: ['Active', 'Inactive', 'Graduated', 'Suspended', 'Withdrawn'] },
@@ -445,6 +445,14 @@ type StudentFormErrors = Partial<Record<keyof StudentFormState | 'name', string>
 
 const normalizeValue = (value?: string) => value?.trim().toLowerCase() ?? '';
 
+const getStudentYearValue = (
+  student: Partial<Pick<Student, 'level' | 'class'>>,
+  portalLevel: PortalLevel,
+): string | null => {
+  const raw = (promotesByClass(portalLevel) ? student.class : student.level || student.class)?.trim();
+  return raw || null;
+};
+
 const buildStudentDisplayName = (student: Partial<StudentFormState>) =>
   [student.surname, student.firstName, student.middleName].filter(Boolean).join(' ').trim() || student.name?.trim() || '';
 
@@ -526,6 +534,7 @@ export default function StudentsDirectory() {
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
   const [statusFilter, setStatusFilter] = useState<StudentFilterStatus>('All');
   const [portalLevelFilter, setPortalLevelFilter] = useState<StudentFilterPortalLevel>('All');
+  const [yearFilter, setYearFilter] = useState<string>('All');
   const [formErrors, setFormErrors] = useState<StudentFormErrors>({});
   const [formData, setFormData] = useState<StudentFormState>(() => createEmptyStudentForm(activePortalLevel));
   const [studentPassword, setStudentPassword] = useState('');
@@ -540,6 +549,18 @@ export default function StudentsDirectory() {
     classes: new Set(students.map((student) => student.classDepartment || student.class).filter(Boolean)).size,
   }), [students]);
 
+  const yearOptions = useMemo(() => {
+    const seen = new Set<string>();
+    getPromotionPath(activePortalLevel).forEach((year) => seen.add(year));
+    students.forEach((student) => {
+      const value = getStudentYearValue(student, activePortalLevel);
+      if (value) seen.add(value);
+    });
+    return Array.from(seen).sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }),
+    );
+  }, [activePortalLevel, students]);
+
   const filteredStudents = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
 
@@ -551,6 +572,7 @@ export default function StudentsDirectory() {
         student.email,
         student.classDepartment,
         student.class,
+        student.level,
         student.parentName,
       ]
         .filter(Boolean)
@@ -558,13 +580,14 @@ export default function StudentsDirectory() {
 
       const matchesStatus = statusFilter === 'All' || student.status === statusFilter;
       const matchesPortalLevel = portalLevelFilter === 'All' || (student.portalLevel || activePortalLevel) === portalLevelFilter;
+      const matchesYear = yearFilter === 'All' || getStudentYearValue(student, activePortalLevel) === yearFilter;
 
-      return matchesSearch && matchesStatus && matchesPortalLevel;
+      return matchesSearch && matchesStatus && matchesPortalLevel && matchesYear;
     });
     return result.sort((a, b) => (a.name || '').trim().localeCompare((b.name || '').trim()));
-  }, [activePortalLevel, portalLevelFilter, searchTerm, statusFilter, students]);
+  }, [activePortalLevel, portalLevelFilter, searchTerm, statusFilter, students, yearFilter]);
 
-  const activeFilterCount = [statusFilter !== 'All', portalLevelFilter !== 'All', searchTerm.trim().length > 0].filter(Boolean).length;
+  const activeFilterCount = [statusFilter !== 'All', portalLevelFilter !== 'All', yearFilter !== 'All', searchTerm.trim().length > 0].filter(Boolean).length;
 
   const pages = usePagination(filteredStudents, 10);
 
@@ -572,6 +595,7 @@ export default function StudentsDirectory() {
     setSearchTerm('');
     setStatusFilter('All');
     setPortalLevelFilter('All');
+    setYearFilter('All');
   };
 
   const closeModal = () => {
@@ -631,7 +655,7 @@ export default function StudentsDirectory() {
         // Core identity
         name,
         regNo: pick('regNo', 'Reg No', 'RegNo', 'Registration Number', 'ID') || base.regNo,
-        admissionNumber: pick('admissionNumber', 'Admission Number', 'AdmissionNo', 'Adm No') || base.admissionNumber,
+        admissionNumber: pick('admissionNumber', 'Admission Number', 'AdmissionNo', 'Adm No', 'Matric Number', 'Matric No', 'Matriculation Number') || base.admissionNumber,
         nin: pick('nin', 'NIN', 'National Identification Number'),
         class: pick('class', 'Class', 'Grade', 'Level'),
         classDepartment: pick('classDepartment', 'Class / Department', 'Class Department', 'Department', 'class', 'Class'),
@@ -1168,6 +1192,16 @@ export default function StudentsDirectory() {
                   <option key={status} value={status}>{status}</option>
                 ))}
               </select>
+              <select
+                value={yearFilter}
+                onChange={(e) => setYearFilter(e.target.value)}
+                className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 focus:outline-none focus:border-blue-500"
+              >
+                <option value="All">All years / levels</option>
+                {yearOptions.map((year) => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
               <button
                 type="button"
                 onClick={resetFilters}
@@ -1240,7 +1274,7 @@ export default function StudentsDirectory() {
                   />
                 </th>
                 <th className="py-4 px-6">{labels.learnerSingular} Information</th>
-                <th className="py-4 px-6">Admission No / Reg No</th>
+                <th className="py-4 px-6">Matric No</th>
                 <th className="py-4 px-6">Portal Level</th>
                 <th className="py-4 px-6">{labels.structureSingular}</th>
                 <th className="py-4 px-6">Parent / Guardian</th>

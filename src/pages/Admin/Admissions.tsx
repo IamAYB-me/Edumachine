@@ -88,6 +88,11 @@ export default function AdmissionsManagement() {
   const handleAdmit = async (app: AdmissionApplication) => {
     setAdmitting(true);
 
+    const applicantUser = platformUsers.find(
+      (u) => u.email && app.email && u.email.toLowerCase() === app.email.toLowerCase(),
+    );
+    const applicantUid = applicantUser?.id || applicantUser?.uid;
+
     const regNo = 'REG-' + Date.now().toString(36).toUpperCase();
     const classValue = app.courseOfStudy || app.firstChoiceCourse || '';
     const portalLevel = schoolProfile.portalLevel;
@@ -98,11 +103,46 @@ export default function AdmissionsManagement() {
       dateOfAdmission: new Date().toISOString().split('T')[0],
     });
 
-    addStudent(studentPayload);
+    // Create a single student record keyed by the applicant's auth uid when it is
+    // known. Writing under students/{uid} keeps one true record per applicant so
+    // admission-number allocation and the duplicate checks never collide with a
+    // sibling row.
+    const created = addStudent(applicantUid ? { ...studentPayload, id: applicantUid } : studentPayload);
+    if (!created.success) {
+      showToast({
+        title: `${labels.learnerSingular} could not be added`,
+        description: created.error || 'A student record already exists for this applicant.',
+        variant: 'error',
+      });
+      setSelectedApp(null);
+      setAdmitting(false);
+      return;
+    }
 
     // Promote the applicant's auth account from APPLICANT to STUDENT so they
-    // no longer keep the applicant role after admission.
-    await promoteApplicant(app, regNo, classValue, portalLevel);
+    // no longer keep the applicant role after admission. Signature merges onto
+    // the existing students/{uid} record instead of replacing it.
+    if (applicantUid) {
+      const res = await promoteApplicantToStudent(applicantUid, {
+        name: `${app.surname} ${app.firstName}`,
+        email: app.email,
+        schoolName: user?.schoolName || schoolProfile.name,
+        phone: app.phone,
+        portalLevel,
+        surname: app.surname,
+        firstName: app.firstName,
+        middleName: app.middleName,
+        regNo,
+        class: classValue,
+      });
+      if (res.success) {
+        updatePlatformUser(applicantUid, {
+          name: `${app.surname} ${app.firstName}`,
+          role: 'STUDENT',
+          roleLabel: 'Student',
+        });
+      }
+    }
 
     updateAdmissionApplication(app.id, { applicationStatus: 'Admitted', reviewedAt: new Date().toISOString().split('T')[0], reviewedBy: user?.name || 'Admin' });
     showToast({
@@ -260,7 +300,7 @@ export default function AdmissionsManagement() {
         </button>
       </div>
 
-      {/* Admission Number Allocation */}
+      {/* Matric Number Allocation */}
       <AllocateAdmissionNumbersButton />
 
       {/* Settings Panel */}

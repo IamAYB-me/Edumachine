@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { BookOpen, Edit2, Plus, Trash2, Wallet, X, Lock, Unlock } from 'lucide-react';
+import { BookOpen, ChevronDown, Edit2, Plus, Trash2, Wallet, X, Lock, Unlock } from 'lucide-react';
 import { cn } from '@/utils';
 import { FeeStructure, useDataStore } from '@/store/useDataStore';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -28,6 +28,7 @@ export function FeeStructureManager({
   const resolvedTitle = title ?? `Fee Categories By ${labels.structurePlural}`;
   const resolvedDescription = description ?? `Set fee categories and payable amounts for each ${labels.structureSingular.toLowerCase()}.`;
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [selectedClass, setSelectedClass] = useState(`All ${labels.structurePlural}`);
   const [editingStructure, setEditingStructure] = useState<FeeStructure | null>(null);
   const [isUniversal, setIsUniversal] = useState(false);
@@ -462,20 +463,40 @@ export function FeeStructureManager({
         </div>
       ) : null}
 
-      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white">{resolvedTitle}</h3>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{resolvedDescription}</p>
-        </div>
+      <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <button
+          type="button"
+          onClick={() => setIsCollapsed((current) => !current)}
+          aria-expanded={!isCollapsed}
+          className="flex flex-1 items-start gap-3 rounded-2xl text-left transition-colors hover:bg-slate-50/60 dark:hover:bg-slate-800/30"
+        >
+          <div className="min-w-0 flex-1">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">{resolvedTitle}</h3>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{resolvedDescription}</p>
+          </div>
+          <span
+            className={cn(
+              'mt-1 inline-flex shrink-0 items-center gap-1.5 rounded-2xl border px-3.5 py-2 text-xs font-bold uppercase tracking-wider transition-colors',
+              isCollapsed
+                ? 'border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800'
+                : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/60 dark:bg-blue-900/30 dark:text-blue-300',
+            )}
+          >
+            <ChevronDown className={cn('h-4 w-4 transition-transform', !isCollapsed && 'rotate-180')} />
+            {isCollapsed ? 'Show' : 'Hide'}
+          </span>
+        </button>
         <button
           onClick={openCreateModal}
-          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-900/20 transition-all hover:bg-blue-700"
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-900/20 transition-all hover:bg-blue-700"
         >
           <Plus className="h-4 w-4" />
           Manage Fee Categories
         </button>
       </div>
 
+      {!isCollapsed ? (
+      <>
       <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="rounded-3xl bg-slate-50 p-5 dark:bg-slate-800/60">
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Active Categories</p>
@@ -595,6 +616,18 @@ export function FeeStructureManager({
           ))
         )}
       </div>
+      </>
+        ) : (
+          <div className="rounded-3xl border border-dashed border-slate-200 px-6 py-10 text-center dark:border-slate-700">
+            <p className="text-sm font-bold text-slate-900 dark:text-white">
+              {filteredStructures.length} fee categor{filteredStructures.length === 1 ? 'y' : 'ies'} configured
+              {selectedClass !== `All ${labels.structurePlural}` ? ` for ${selectedClass}` : ''}.
+            </p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Expand to view and manage the fee setup by {labels.structureSingular.toLowerCase()}.
+            </p>
+          </div>
+        )}
     </div>
   );
 }

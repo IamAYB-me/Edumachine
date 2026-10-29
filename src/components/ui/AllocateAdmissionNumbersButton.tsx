@@ -49,11 +49,11 @@ export default function AllocateAdmissionNumbersButton() {
   const handleAllocate = () => {
     const allocations = allocateAdmissionNumbers(students, admissionApplications, schoolCode);
     if (allocations.length === 0) {
-      showToast({ title: 'Nothing to allocate', description: 'Every student already has an admission number.', variant: 'info' });
+      showToast({ title: 'Nothing to allocate', description: 'Every student already has a matric number.', variant: 'info' });
       return;
     }
     if (!confirm(
-      `Allocate admission numbers for ${allocations.length} newly admitted student(s) (e.g. ${allocations[0].admissionNumber})?`,
+      `Allocate matric numbers for ${allocations.length} newly admitted student(s) (e.g. ${allocations[0].admissionNumber})?`,
     )) return;
 
     setAllocating(true);
@@ -67,7 +67,7 @@ export default function AllocateAdmissionNumbersButton() {
     setAllocating(false);
     if (done > 0) {
       showToast({
-        title: `${done} admission number(s) allocated`,
+        title: `${done} matric number(s) allocated`,
         description: `Example: ${allocations[0].admissionNumber}${failed > 0 ? ` (${failed} failed)` : ''}`,
         variant: 'success',
       });
@@ -84,7 +84,7 @@ export default function AllocateAdmissionNumbersButton() {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Allocate Admission Numbers</span>
+            <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Allocate Matric Numbers</span>
             <span className={cn(
               "inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold",
               pending.length > 0

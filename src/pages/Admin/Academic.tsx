@@ -12,6 +12,13 @@ import { usePagination } from '@/hooks/usePagination';
 type TabKey = 'subjects' | 'courses' | 'faculties' | 'sessions';
 type ModalKind = 'subject' | 'faculty' | 'department' | 'session' | null;
 
+const formatDateLabel = (value?: string) => {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+};
+
 export default function AcademicManagement() {
   const { subjects, addSubject, updateSubject, deleteSubject, faculties, addFaculty, updateFaculty, deleteFaculty, departments, addDepartment, updateDepartment, deleteDepartment, academicSessions, addAcademicSession, updateAcademicSession, deleteAcademicSession, setActiveSession, schools } = useDataStore();
   const user = useAuthStore((state) => state.user);
@@ -113,7 +120,7 @@ export default function AcademicManagement() {
   const [subjectForm, setSubjectForm] = useState({ name: '', code: '', type: 'Core' as 'Core' | 'Elective', creditHours: 3, term: '', session: '', facultyId: '', departmentId: '' });
   const [facultyForm, setFacultyForm] = useState({ name: '', code: '', headName: '' });
   const [deptForm, setDeptForm] = useState<{ name: string; code: string; headName: string; facultyId: string; portalLevel: PortalLevel }>({ name: '', code: '', headName: '', facultyId: '', portalLevel: schoolProfile.portalLevel });
-  const [sessionForm, setSessionForm] = useState<{ name: string; semester: 'First Semester' | 'Second Semester'; active: boolean }>({ name: '', semester: 'First Semester', active: false });
+  const [sessionForm, setSessionForm] = useState<{ name: string; semester: 'First Semester' | 'Second Semester'; active: boolean; resumptionDate: string; sessionResumptionDate: string }>({ name: '', semester: 'First Semester', active: false, resumptionDate: '', sessionResumptionDate: '' });
 
   const coreCount = safeSubjects.filter((s) => s.type === 'Core').length;
   const electiveCount = safeSubjects.filter((s) => s.type === 'Elective').length;
@@ -159,10 +166,10 @@ export default function AcademicManagement() {
   const openSessionModal = (session?: AcademicSession) => {
     if (session) {
       setEditingItem(session);
-      setSessionForm({ name: session.name, semester: session.semester || 'First Semester', active: !!session.active });
+      setSessionForm({ name: session.name, semester: session.semester || 'First Semester', active: !!session.active, resumptionDate: session.resumptionDate || '', sessionResumptionDate: session.sessionResumptionDate || '' });
     } else {
       setEditingItem(null);
-      setSessionForm({ name: '', semester: 'First Semester', active: false });
+      setSessionForm({ name: '', semester: 'First Semester', active: false, resumptionDate: '', sessionResumptionDate: '' });
     }
     setModalKind('session');
   };
@@ -216,7 +223,7 @@ export default function AcademicManagement() {
     e.preventDefault();
     if (editingItem && modalKind === 'session') {
       if (sessionForm.active) setActiveSession(editingItem.id);
-      updateAcademicSession(editingItem.id, { name: sessionForm.name, semester: sessionForm.semester, active: sessionForm.active });
+      updateAcademicSession(editingItem.id, { name: sessionForm.name, semester: sessionForm.semester, active: sessionForm.active, resumptionDate: sessionForm.resumptionDate, sessionResumptionDate: sessionForm.sessionResumptionDate });
       showToast({ title: 'Updated', description: `${sessionForm.name} has been saved.`, variant: 'success' });
     } else {
       addAcademicSession(sessionForm);
@@ -520,6 +527,8 @@ export default function AcademicManagement() {
               <thead className="bg-slate-50 dark:bg-slate-800 sticky top-0 z-10">
                 <tr className="border-b border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   <th className="py-3 px-6">Session Name</th>
+                  <th className="py-3 px-6">Session Resumption</th>
+                  <th className="py-3 px-6">Semester Resumption</th>
                   <th className="py-3 px-6 text-center">Status</th>
                   <th className="py-3 px-6 text-center">Actions</th>
                 </tr>
@@ -536,6 +545,8 @@ export default function AcademicManagement() {
                         )}
                       </div>
                     </td>
+                    <td className="py-3 px-6 text-sm text-slate-600 dark:text-slate-400">{formatDateLabel(session.sessionResumptionDate)}</td>
+                    <td className="py-3 px-6 text-sm text-slate-600 dark:text-slate-400">{formatDateLabel(session.resumptionDate)}</td>
                     <td className="py-3 px-6 text-center">
                       {session.active ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase rounded-full">
@@ -563,7 +574,7 @@ export default function AcademicManagement() {
                   </tr>
                 ))}
                 {filteredSessions.length === 0 && (
-                  <tr><td colSpan={3} className="py-12 text-center text-slate-400">No academic sessions found.</td></tr>
+                  <tr><td colSpan={5} className="py-12 text-center text-slate-400">No academic sessions found.</td></tr>
                 )}
               </tbody>
             </table>
@@ -806,6 +817,18 @@ export default function AcademicManagement() {
                   </select>
                 </div>
               )}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-500 uppercase">Session Resumption Date</label>
+                  <input type="date" value={sessionForm.sessionResumptionDate} onChange={(e) => setSessionForm({ ...sessionForm, sessionResumptionDate: e.target.value })}
+                    className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-amber-500 dark:text-white" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-500 uppercase">{sessionForm.semester === 'Second Semester' ? 'Second' : 'First'} Semester Resumption Date</label>
+                  <input type="date" value={sessionForm.resumptionDate} onChange={(e) => setSessionForm({ ...sessionForm, resumptionDate: e.target.value })}
+                    className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-amber-500 dark:text-white" />
+                </div>
+              </div>
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
