@@ -90,6 +90,7 @@ export default function AccountantFees() {
     status: 'Pending',
     date: new Date().toISOString().split('T')[0],
     type: 'Tuition Fee',
+    description: '',
     attachmentName: '',
     attachmentUrl: '',
   });
@@ -248,6 +249,7 @@ export default function AccountantFees() {
       status: 'Pending',
       date: new Date().toISOString().split('T')[0],
       type: 'Tuition Fee',
+      description: '',
       attachmentName: '',
       attachmentUrl: '',
     });
@@ -285,6 +287,7 @@ export default function AccountantFees() {
       studentName: student?.name ?? '',
       type: defaultStructure?.category ?? current.type,
       amount: defaultStructure?.amount ?? current.amount,
+      description: defaultStructure?.description ?? current.description,
     }));
   };
 
@@ -295,6 +298,7 @@ export default function AccountantFees() {
       ...current,
       type: category,
       amount: matchedStructure?.amount ?? current.amount,
+      description: matchedStructure?.description ?? current.description,
     }));
   };
 
@@ -755,7 +759,12 @@ export default function AccountantFees() {
                         </div>
                       </td>
                       <td className="px-8 py-5">
-                        <span className="font-medium text-slate-600 dark:text-slate-400">{fee.type}</span>
+                        <div>
+                          <span className="font-medium text-slate-600 dark:text-slate-400">{fee.type}</span>
+                          {fee.description ? (
+                            <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{fee.description}</p>
+                          ) : null}
+                        </div>
                       </td>
                       <td className="px-8 py-5 text-right font-black text-slate-900 dark:text-white">
                         {format(fee.amount)}
@@ -887,9 +896,9 @@ export default function AccountantFees() {
       <div className="hidden print:block mt-10 pt-6 border-t border-slate-200">
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: `${labels.teacherSingular}`, name: schoolProfile.teacherSignatoryName || `${labels.teacherSingular} Signatory`, signatureUrl: schoolProfile.teacherSignatureUrl },
-            { label: labels.hodSignatoryLabel, name: schoolProfile.hodSignatoryName || 'HOD Signatory', signatureUrl: schoolProfile.hodSignatureUrl },
-            { label: labels.headSignatoryLabel, name: schoolProfile.principalSignatoryName || `${labels.headSignatoryLabel} Signatory`, signatureUrl: schoolProfile.principalSignatureUrl },
+            { label: `${labels.teacherSingular}`, name: schoolProfile.registrarSignatoryName || schoolProfile.teacherSignatoryName || `${labels.teacherSingular} Signatory`, signatureUrl: schoolProfile.registrarSignatureUrl || schoolProfile.teacherSignatureUrl },
+            { label: labels.hodSignatoryLabel, name: schoolProfile.provostSignatoryName || schoolProfile.hodSignatoryName || 'HOD Signatory', signatureUrl: schoolProfile.provostSignatureUrl || schoolProfile.hodSignatureUrl },
+            { label: labels.headSignatoryLabel, name: schoolProfile.authorisedSignatoryName || schoolProfile.principalSignatoryName || `${labels.headSignatoryLabel} Signatory`, signatureUrl: schoolProfile.authorisedSignatureUrl || schoolProfile.principalSignatureUrl },
           ].map((signatory) => (
             <div key={signatory.label} className="rounded-2xl border border-slate-200 p-4">
               <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">{signatory.label}</p>
@@ -984,6 +993,19 @@ export default function AccountantFees() {
                       : `No ${labels.structureSingular.toLowerCase()} fee setup found for ${selectedStudent.class} yet.`}
                   </p>
                 ) : null}
+              </div>
+
+              <div className="space-y-2">
+                <label className="px-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                  Description / Payment Purpose
+                </label>
+                <textarea
+                  rows={2}
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="e.g. Tuition Fee for First Term, 2025/2026 session"
+                  className="w-full rounded-2xl border border-slate-100 bg-slate-50 px-5 py-3.5 text-sm font-medium outline-none transition-all focus:border-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">

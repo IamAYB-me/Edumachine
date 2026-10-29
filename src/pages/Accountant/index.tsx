@@ -12,6 +12,7 @@ import { studentStructureKey, buildOnRollLookup } from '@/utils/studentFilters';
 import { useOnRollFilters } from '@/hooks/useOnRollFilters';
 import { AnimatedCard } from '@/components/ui/AnimatedCard';
 import { AnimatedPage, StaggerContainer, StaggerItem, AnimatedButton, AnimatedProgress } from '@/components/ui/motion';
+import { formatTransactionTime } from '@/utils/feeGating';
 
 export default function AccountantDashboard() {
   const { format } = useCurrency();
@@ -77,7 +78,7 @@ export default function AccountantDashboard() {
   const recentTransactions = [
     ...feeRecords.filter(f => f.status === 'Paid').slice(0, 5).map(f => ({
       id: f.id.slice(0, 12),
-      date: f.date,
+      date: formatTransactionTime({ date: f.date, createdAt: f.createdAt, paidAt: f.paidAt }),
       desc: `Fee Payment - ${f.studentName}`,
       amount: f.amount,
       isPos: true,
@@ -85,7 +86,7 @@ export default function AccountantDashboard() {
     })),
     ...expenses.slice(0, 5).map(e => ({
       id: e.id.slice(0, 12),
-      date: e.date,
+      date: formatTransactionTime({ date: e.date, createdAt: e.createdAt }),
       desc: e.title,
       amount: e.amount,
       isPos: false,

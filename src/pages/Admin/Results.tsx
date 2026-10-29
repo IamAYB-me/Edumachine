@@ -508,18 +508,18 @@ export default function ResultSheet() {
           {[
             {
               label: labels.teacherSignatoryLabel,
-              name: schoolProfile.teacherSignatoryName || `${labels.teacherSingular} Signatory`,
-              signatureUrl: schoolProfile.teacherSignatureUrl,
+              name: schoolProfile.registrarSignatoryName || schoolProfile.teacherSignatoryName || `${labels.teacherSingular} Signatory`,
+              signatureUrl: schoolProfile.registrarSignatureUrl || schoolProfile.teacherSignatureUrl,
             },
             {
               label: labels.hodSignatoryLabel,
-              name: schoolProfile.hodSignatoryName || 'HOD Signatory',
-              signatureUrl: schoolProfile.hodSignatureUrl,
+              name: schoolProfile.provostSignatoryName || schoolProfile.hodSignatoryName || 'HOD Signatory',
+              signatureUrl: schoolProfile.provostSignatureUrl || schoolProfile.hodSignatureUrl,
             },
             {
               label: labels.headSignatoryLabel,
-              name: schoolProfile.principalSignatoryName || `${labels.headSignatoryLabel} Signatory`,
-              signatureUrl: schoolProfile.principalSignatureUrl,
+              name: schoolProfile.authorisedSignatoryName || schoolProfile.principalSignatoryName || `${labels.headSignatoryLabel} Signatory`,
+              signatureUrl: schoolProfile.authorisedSignatureUrl || schoolProfile.principalSignatureUrl,
             },
           ].map((signatory) => (
             <div key={signatory.label} className="rounded-2xl border border-slate-200 p-4">

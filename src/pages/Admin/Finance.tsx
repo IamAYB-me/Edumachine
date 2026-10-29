@@ -12,6 +12,7 @@ import { downloadFromUrl, readFileAsDataUrl } from '@/utils/fileHelpers';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/useAuthStore';
 import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
+import { formatTransactionTime } from '@/utils/feeGating';
 
 export default function AdminFinanceDashboard() {
   const { format, currency, symbol } = useCurrency();
@@ -53,6 +54,7 @@ export default function AdminFinanceDashboard() {
     status: 'Pending',
     date: new Date().toISOString().split('T')[0],
     type: 'Tuition Fee',
+    description: '',
     attachmentName: '',
     attachmentUrl: '',
   });
@@ -75,6 +77,7 @@ export default function AdminFinanceDashboard() {
         status: 'Pending',
         date: new Date().toISOString().split('T')[0],
         type: 'Tuition Fee',
+        description: '',
         attachmentName: '',
         attachmentUrl: '',
       });
@@ -107,6 +110,7 @@ export default function AdminFinanceDashboard() {
       studentName: student?.name ?? '',
       type: defaultStructure?.category ?? current.type,
       amount: defaultStructure?.amount ?? current.amount,
+      description: defaultStructure?.description ?? current.description,
     }));
   };
 
@@ -117,6 +121,7 @@ export default function AdminFinanceDashboard() {
       ...current,
       type: category,
       amount: matchedStructure?.amount ?? current.amount,
+      description: matchedStructure?.description ?? current.description,
     }));
   };
 
@@ -276,6 +281,16 @@ export default function AdminFinanceDashboard() {
                     </p>
                   ) : null}
                 </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Description / Payment Purpose</label>
+                <textarea
+                  rows={2}
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  placeholder="e.g. Tuition Fee for First Term, 2025/2026 session"
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:border-emerald-500 dark:text-white text-sm"
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
@@ -608,7 +623,7 @@ export default function AdminFinanceDashboard() {
                   </div>
                   <div>
                     <p className="font-bold text-slate-900 dark:text-white text-sm">{tx.type} - {tx.studentName}</p>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{tx.date}</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{formatTransactionTime({ date: tx.date, createdAt: tx.createdAt, paidAt: tx.paidAt })}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
@@ -684,9 +699,9 @@ export default function AdminFinanceDashboard() {
       <div className="hidden print:block mt-10 pt-6 border-t border-slate-200">
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: `${labels.teacherSignatoryLabel}`, name: schoolProfile.teacherSignatoryName || `${labels.teacherSingular} Signatory`, signatureUrl: schoolProfile.teacherSignatureUrl },
-            { label: labels.hodSignatoryLabel, name: schoolProfile.hodSignatoryName || 'HOD Signatory', signatureUrl: schoolProfile.hodSignatureUrl },
-            { label: labels.headSignatoryLabel, name: schoolProfile.principalSignatoryName || `${labels.headSignatoryLabel} Signatory`, signatureUrl: schoolProfile.principalSignatureUrl },
+            { label: `${labels.teacherSignatoryLabel}`, name: schoolProfile.registrarSignatoryName || schoolProfile.teacherSignatoryName || `${labels.teacherSingular} Signatory`, signatureUrl: schoolProfile.registrarSignatureUrl || schoolProfile.teacherSignatureUrl },
+            { label: labels.hodSignatoryLabel, name: schoolProfile.provostSignatoryName || schoolProfile.hodSignatoryName || 'HOD Signatory', signatureUrl: schoolProfile.provostSignatureUrl || schoolProfile.hodSignatureUrl },
+            { label: labels.headSignatoryLabel, name: schoolProfile.authorisedSignatoryName || schoolProfile.principalSignatoryName || `${labels.headSignatoryLabel} Signatory`, signatureUrl: schoolProfile.authorisedSignatureUrl || schoolProfile.principalSignatureUrl },
           ].map((signatory) => (
             <div key={signatory.label} className="rounded-2xl border border-slate-200 p-4">
               <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">{signatory.label}</p>

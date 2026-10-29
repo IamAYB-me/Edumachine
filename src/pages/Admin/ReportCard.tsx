@@ -155,9 +155,9 @@ export default function ReportCard() {
   }, [subjectResults, selectedStudent, students, examResults, selectedTerm, attendance, classes, feeRecords]);
 
   const signatories = [
-    { label: labels.teacherSignatoryLabel, name: schoolProfile.teacherSignatoryName || `${labels.teacherSingular} Signatory`, signatureUrl: schoolProfile.teacherSignatureUrl },
-    { label: labels.hodSignatoryLabel, name: schoolProfile.hodSignatoryName || 'HOD Signatory', signatureUrl: schoolProfile.hodSignatureUrl },
-    { label: labels.headSignatoryLabel, name: schoolProfile.principalSignatoryName || `${labels.headSignatoryLabel} Signatory`, signatureUrl: schoolProfile.principalSignatureUrl },
+    { label: labels.teacherSignatoryLabel, name: schoolProfile.registrarSignatoryName || schoolProfile.teacherSignatoryName || `${labels.teacherSingular} Signatory`, signatureUrl: schoolProfile.registrarSignatureUrl || schoolProfile.teacherSignatureUrl },
+    { label: labels.hodSignatoryLabel, name: schoolProfile.provostSignatoryName || schoolProfile.hodSignatoryName || 'HOD Signatory', signatureUrl: schoolProfile.provostSignatureUrl || schoolProfile.hodSignatureUrl },
+    { label: labels.headSignatoryLabel, name: schoolProfile.authorisedSignatoryName || schoolProfile.principalSignatoryName || `${labels.headSignatoryLabel} Signatory`, signatureUrl: schoolProfile.authorisedSignatureUrl || schoolProfile.principalSignatureUrl },
   ];
 
   const isDebtor = overallStats.pendingFees > 0;

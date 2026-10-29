@@ -46,70 +46,84 @@ function escapeHtml(value: string) {
 }
 
 export function openPaymentReceiptWindow(options: PaymentReceiptOptions) {
+  const schoolName = escapeHtml(options.schoolName || 'EduPlatform');
+  const schoolCode = escapeHtml(options.schoolCode || 'School Payment Desk');
+  const receiptNo = escapeHtml(options.receiptNumber);
+  const payerName = escapeHtml(options.payerName);
+  const feeLabel = escapeHtml(options.feeLabel);
+  const amount = escapeHtml(options.amount);
+  const paymentDate = escapeHtml(options.paymentDate);
+  const paymentMethod = escapeHtml(options.paymentMethod || 'Recorded Payment');
+  const note = escapeHtml(
+    options.note ||
+      'This receipt serves as evidence of payment and can be presented for school verification, finance review, and clearance procedures.',
+  );
+  const logoHtml = options.schoolLogoUrl
+    ? `<img class="logo" src="${escapeHtml(options.schoolLogoUrl)}" alt="School Logo" />`
+    : `<div class="logo-fallback">${schoolName.charAt(0)}</div>`;
+
   const receiptHtml = `<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>${escapeHtml(options.receiptNumber)} Receipt</title>
+    <title>${receiptNo} Receipt</title>
     <style>
-      * { box-sizing: border-box; }
-      body { margin: 0; padding: 32px; background: #eef4ff; font-family: Inter, Arial, sans-serif; color: #0f172a; ${options.schoolLogoUrl ? `--receipt-logo: url(${options.schoolLogoUrl});` : ''} }
-      .sheet { max-width: 820px; margin: 0 auto; background: #fff; border-radius: 28px; overflow: hidden; box-shadow: 0 30px 90px rgba(37,99,235,.16); border: 1px solid #dbeafe; }
-      .hero { background: linear-gradient(135deg, #1d4ed8, #4f46e5); color: #fff; padding: 32px; }
-      .eyebrow { margin: 0 0 8px; font-size: 11px; letter-spacing: .28em; text-transform: uppercase; opacity: .78; font-weight: 700; }
-      .title { margin: 0; font-size: 32px; font-weight: 900; letter-spacing: -.03em; }
-      .subtitle { margin: 10px 0 0; font-size: 14px; opacity: .88; }
-      .meta-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 24px; }
-      .meta-card { background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.16); border-radius: 18px; padding: 16px 18px; }
-      .meta-label { font-size: 10px; font-weight: 800; letter-spacing: .24em; text-transform: uppercase; opacity: .72; }
-      .meta-value { margin-top: 8px; font-size: 18px; font-weight: 800; }
-      .content { padding: 32px; }
-      .summary { display: grid; grid-template-columns: 1.2fr .8fr; gap: 20px; }
-      .card { border: 1px solid #e2e8f0; border-radius: 22px; padding: 22px; background: #f8fbff; }
-      .card h3 { margin: 0 0 18px; font-size: 13px; font-weight: 900; letter-spacing: .2em; text-transform: uppercase; color: #64748b; }
-      .detail-row { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px dashed #dbe3f0; }
-      .detail-row:last-child { border-bottom: none; }
-      .detail-key { font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .14em; }
-      .detail-value { text-align: right; font-size: 14px; font-weight: 800; }
-      .amount-box { background: linear-gradient(180deg, #eff6ff, #ffffff); text-align: center; }
-      .amount { font-size: 40px; font-weight: 900; color: #1d4ed8; letter-spacing: -.04em; }
-      .status { display: inline-block; margin-top: 10px; padding: 8px 14px; border-radius: 999px; background: #dcfce7; color: #047857; font-size: 11px; font-weight: 900; letter-spacing: .22em; text-transform: uppercase; }
-      .footer { display: flex; justify-content: space-between; align-items: end; gap: 20px; margin-top: 28px; padding-top: 24px; border-top: 1px dashed #cbd5e1; }
-      .footer-note { max-width: 420px; font-size: 13px; line-height: 1.6; color: #475569; }
-      .receipt-stamp { min-width: 180px; border: 2px solid #1d4ed8; color: #1d4ed8; border-radius: 18px; padding: 12px 16px; text-align: center; font-size: 11px; font-weight: 900; letter-spacing: .24em; text-transform: uppercase; }
-      @media print { body { background: white; padding: 0; } .sheet { box-shadow: none; border-radius: 0; border: none; } body::before { content: ''; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 260px; height: 260px; background-image: var(--receipt-logo); background-repeat: no-repeat; background-position: center; background-size: contain; opacity: 0.06; z-index: -1; pointer-events: none; } }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { background: #dbe8f7; font-family: Inter, Arial, sans-serif; color: #0f172a; }
+      .sheet { width: 72mm; margin: 12px auto; background: #fff; border: 1px solid #cbd5e1; box-shadow: 0 2px 14px rgba(15,23,42,.18); }
+      .inner { padding: 10px 8px; font-size: 10px; line-height: 1.45; }
+      .center { text-align: center; }
+      .logo { display: block; margin: 0 auto 6px; max-height: 40px; max-width: 180px; object-fit: contain; }
+      .logo-fallback { width: 38px; height: 38px; margin: 0 auto 6px; border-radius: 50%; background: linear-gradient(135deg,#1d4ed8,#4f46e5); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 900; }
+      .school { font-size: 14px; font-weight: 900; letter-spacing: .02em; }
+      .school-code { font-size: 8px; font-weight: 700; color: #475569; letter-spacing: .12em; text-transform: uppercase; margin-top: 2px; }
+      .title { margin: 8px 0; padding: 4px 0; border-top: 1px dashed #94a3b8; border-bottom: 1px dashed #94a3b8; font-size: 11px; font-weight: 900; letter-spacing: .16em; text-transform: uppercase; }
+      .row { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; border-bottom: 1px dotted #cbd5e1; }
+      .row:last-child { border-bottom: none; }
+      .k { font-weight: 700; color: #334155; font-size: 8px; text-transform: uppercase; letter-spacing: .05em; }
+      .v { font-weight: 800; font-size: 10px; text-align: right; }
+      .sec { margin: 9px 0 3px; font-size: 9px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: #1e293b; }
+      .amount { text-align: center; font-size: 20px; font-weight: 900; color: #1d4ed8; margin-top: 7px; padding: 6px 0; border: 1px solid #dbeafe; background: #eff6ff; border-radius: 6px; }
+      .status { text-align: center; font-size: 9px; font-weight: 900; color: #047857; letter-spacing: .08em; margin-top: 4px; }
+      .note { margin-top: 7px; font-size: 8px; color: #475569; line-height: 1.5; }
+      .footer { margin-top: 9px; padding-top: 6px; border-top: 1px dashed #94a3b8; display: flex; justify-content: space-between; gap: 6px; font-size: 8px; font-weight: 700; color: #334155; }
+      @media print { body { background: #fff; } .sheet { box-shadow: none; border: none; margin: 0 auto; } }
     </style>
   </head>
   <body>
     <div class="sheet">
-      <div class="hero">
-        <p class="eyebrow">Official Payment Receipt</p>
-        <h1 class="title">${escapeHtml(options.schoolName || 'EduPlatform')}</h1>
-        <p class="subtitle">${escapeHtml(options.schoolCode || 'School Payment Desk')} • Verified transaction acknowledgement</p>
-        <div class="meta-grid">
-          <div class="meta-card"><div class="meta-label">Receipt No</div><div class="meta-value">${escapeHtml(options.receiptNumber)}</div></div>
-          <div class="meta-card"><div class="meta-label">Payment Date</div><div class="meta-value">${escapeHtml(options.paymentDate)}</div></div>
-        </div>
-      </div>
-      <div class="content">
-        <div class="summary">
-          <div class="card">
-            <h3>Transaction Details</h3>
-            <div class="detail-row"><span class="detail-key">Payer</span><span class="detail-value">${escapeHtml(options.payerName)}</span></div>
-            <div class="detail-row"><span class="detail-key">Fee Item</span><span class="detail-value">${escapeHtml(options.feeLabel)}</span></div>
-            <div class="detail-row"><span class="detail-key">Method</span><span class="detail-value">${escapeHtml(options.paymentMethod || 'Recorded Payment')}</span></div>
-            <div class="detail-row"><span class="detail-key">Platform</span><span class="detail-value">EduPlatform Finance Desk</span></div>
-          </div>
-          <div class="card amount-box">
-            <h3>Amount Settled</h3>
-            <div class="amount">${escapeHtml(options.amount)}</div>
-            <div class="status">Payment Confirmed</div>
-          </div>
-        </div>
+      <div class="inner">
+        <div class="center">${logoHtml}</div>
+        <div class="center school">${schoolName}</div>
+        <div class="center school-code">${schoolCode}</div>
+        <div class="center title">Official Payment Receipt</div>
+
+        <div class="sec">Transaction</div>
+        <div class="row"><span class="k">Receipt No</span><span class="v">${receiptNo}</span></div>
+        <div class="row"><span class="k">Payment Date</span><span class="v">${paymentDate}</span></div>
+        <div class="row"><span class="k">Payer</span><span class="v">${payerName}</span></div>
+
+        <div class="sec">Ledger</div>
+        <div class="row"><span class="k">Fee Item</span><span class="v">${feeLabel}</span></div>
+        <div class="row"><span class="k">Payment Method</span><span class="v">${paymentMethod}</span></div>
+        <div class="row"><span class="k">Platform</span><span class="v">BROCHEST Financial Desk</span></div>
+        <div class="row"><span class="k">Account</span><span class="v">Tuition &amp; School Fees</span></div>
+        <div class="row"><span class="k">Reference</span><span class="v">${receiptNo}</span></div>
+
+        <div class="sec">Amount Settled</div>
+        <div class="amount">${amount}</div>
+        <div class="status">&#10003; Payment Confirmed</div>
+
+        <div class="sec">Verification &amp; Clearance</div>
+        <div class="row"><span class="k">Status</span><span class="v">Verified &amp; Reconciled</span></div>
+        <div class="row"><span class="k">Finance Desk</span><span class="v">BROCHEST Financial Desk</span></div>
+
+        <div class="note">${note}</div>
+
         <div class="footer">
-          <div class="footer-note">${escapeHtml(options.note || 'This receipt serves as evidence of payment and can be presented for school verification, finance review, and clearance procedures.')}</div>
-          <div class="receipt-stamp">Finance Verified</div>
+          <span>Generated by BROCHEST Financial Desk</span>
+          <span>Finance Verified</span>
         </div>
       </div>
     </div>
@@ -117,7 +131,7 @@ export function openPaymentReceiptWindow(options: PaymentReceiptOptions) {
   </body>
 </html>`;
 
-  const receiptWindow = window.open('', '_blank', 'width=900,height=1000');
+  const receiptWindow = window.open('', '_blank', 'width=320,height=560');
   if (!receiptWindow) return;
   receiptWindow.document.open();
   receiptWindow.document.write(receiptHtml);

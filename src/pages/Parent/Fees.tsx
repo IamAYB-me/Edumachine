@@ -10,6 +10,7 @@ import { useDataStore } from '@/store/useDataStore';
 import { downloadFromUrl, openPaymentReceiptWindow, readFileAsDataUrl } from '@/utils/fileHelpers';
 import { useLocation } from 'react-router-dom';
 import { useToastStore } from '@/store/useToastStore';
+import { formatTransactionTime } from '@/utils/feeGating';
 
 export default function FeesAndPayments() {
   const { format } = useCurrency();
@@ -325,7 +326,7 @@ export default function FeesAndPayments() {
                       <td className="py-4 px-6 font-bold text-slate-900 dark:text-white">{tx.studentName}</td>
                       <td className="py-4 px-6 text-slate-600 dark:text-slate-400 font-medium">{tx.type}</td>
                       <td className="py-4 px-6 font-black text-emerald-600">{format(tx.amount)}</td>
-                      <td className="py-4 px-6 text-slate-500 text-xs font-medium">{tx.date}</td>
+                      <td className="py-4 px-6 text-slate-500 text-xs font-medium">{formatTransactionTime({ date: tx.date, createdAt: tx.createdAt, paidAt: tx.paidAt })}</td>
                       <td className="py-4 px-6 text-center">
                         <button onClick={() => handleDownloadReceipt(tx)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors">
                           <Download className="w-4 h-4" />

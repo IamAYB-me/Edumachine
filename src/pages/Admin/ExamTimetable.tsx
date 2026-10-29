@@ -373,9 +373,9 @@ export default function ExamTimetable() {
       <div className="hidden print:block mt-10 pt-6 border-t border-slate-200">
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: labels.teacherSignatoryLabel, name: schoolProfile.teacherSignatoryName || `${labels.teacherSingular} Signatory`, signatureUrl: schoolProfile.teacherSignatureUrl },
-            { label: labels.hodSignatoryLabel, name: schoolProfile.hodSignatoryName || 'HOD Signatory', signatureUrl: schoolProfile.hodSignatureUrl },
-            { label: labels.headSignatoryLabel, name: schoolProfile.principalSignatoryName || `${labels.headSignatoryLabel} Signatory`, signatureUrl: schoolProfile.principalSignatureUrl },
+            { label: labels.teacherSignatoryLabel, name: schoolProfile.registrarSignatoryName || schoolProfile.teacherSignatoryName || `${labels.teacherSingular} Signatory`, signatureUrl: schoolProfile.registrarSignatureUrl || schoolProfile.teacherSignatureUrl },
+            { label: labels.hodSignatoryLabel, name: schoolProfile.provostSignatoryName || schoolProfile.hodSignatoryName || 'HOD Signatory', signatureUrl: schoolProfile.provostSignatureUrl || schoolProfile.hodSignatureUrl },
+            { label: labels.headSignatoryLabel, name: schoolProfile.authorisedSignatoryName || schoolProfile.principalSignatoryName || `${labels.headSignatoryLabel} Signatory`, signatureUrl: schoolProfile.authorisedSignatureUrl || schoolProfile.principalSignatureUrl },
           ].map((signatory) => (
             <div key={signatory.label} className="rounded-2xl border border-slate-200 p-4">
               <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">{signatory.label}</p>
