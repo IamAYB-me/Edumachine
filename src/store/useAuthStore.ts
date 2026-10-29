@@ -70,6 +70,8 @@ export interface User {
   address?: string;
   isTwoFactorEnabled?: boolean;
   portalLevel?: string;
+  /** Set only while a session-level role switch is active (e.g. SUPER_ADMIN acting as ADMIN). */
+  baseRole?: Role;
 }
 
 export interface RegisteredUser {
@@ -140,10 +142,12 @@ interface AuthState {
   _hasHydrated: boolean;
   setHasHydrated: (value: boolean) => void;
   initAuthListener: () => void;
-  loginWithCredentials: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  loginWithCredentials: (identifier: string, password: string) => Promise<{ success: boolean; error?: string }>;
   register: (data: { name: string; email: string; password: string; role: Role; schoolName: string; phone?: string; portalLevel?: string; roleLabel?: string; surname?: string; firstName?: string; middleName?: string }) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   updateProfile: (updates: Partial<User>) => Promise<void>;
+  setRoleSwitch: (role: Role) => Promise<void>;
+  clearRoleSwitch: () => Promise<void>;
 }
 
 const cachedSession = readCachedUser();
@@ -175,6 +179,13 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
           if (profile) {
             const promotedUser = await autoPromoteApplicantIfAdmitted(firebaseUser.uid, profile);
             nextUser = firestoreUserToUser(promotedUser);
+            // Preserve an active session-level role switch across auth refreshes:
+            // the switched role is session-scoped (stored in the cache only) and
+            // must survive Firebase re-firing auth state without touching Firestore.
+            const cached = readCachedUser();
+            if (cached?.baseRole && cached.baseRole === nextUser.role) {
+              nextUser = { ...nextUser, role: cached.role, roleLabel: cached.roleLabel, baseRole: cached.baseRole };
+            }
           } else {
             nextUser = cachedUser;
           }
@@ -192,8 +203,8 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     });
   },
 
-  loginWithCredentials: async (email, password) => {
-    const result = await loginUser(email, password);
+  loginWithCredentials: async (identifier, password) => {
+    const result = await loginUser(identifier, password);
     if (result.success && result.user) {
       const promotedUser = await autoPromoteApplicantIfAdmitted(result.user.uid, result.user);
       const user = firestoreUserToUser(promotedUser);
@@ -242,6 +253,36 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       portalLevel: updates.portalLevel,
     });
     const nextUser = { ...user, ...updates };
+    set({ user: nextUser });
+    writeCachedUser(nextUser);
+  },
+
+  setRoleSwitch: async (role: Role) => {
+    const { user } = get();
+    if (!user || user.role !== 'SUPER_ADMIN') return;
+    if (role !== 'SUPER_ADMIN' && role !== 'ADMIN') return;
+    if (user.role === role) return;
+    const nextUser: User = {
+      ...user,
+      role,
+      roleLabel: ROLE_LABELS[role],
+      baseRole: user.baseRole || 'SUPER_ADMIN',
+    };
+    logActivity({ action: 'UPDATE', module: 'auth', description: `Role switch: ${user.email} acting as ${role}`, user: { id: user.id, name: user.name, role: user.role } }).catch(console.error);
+    set({ user: nextUser });
+    writeCachedUser(nextUser);
+  },
+
+  clearRoleSwitch: async () => {
+    const { user } = get();
+    if (!user?.baseRole) return;
+    const nextUser: User = {
+      ...user,
+      role: user.baseRole,
+      roleLabel: ROLE_LABELS[user.baseRole],
+      baseRole: undefined,
+    };
+    logActivity({ action: 'UPDATE', module: 'auth', description: `Role switch: ${user.email} restored to ${user.baseRole}`, user: { id: user.id, name: user.name, role: user.role } }).catch(console.error);
     set({ user: nextUser });
     writeCachedUser(nextUser);
   },

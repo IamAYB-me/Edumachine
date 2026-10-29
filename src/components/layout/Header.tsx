@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, Search, Menu, Moon, Sun, X, CheckCheck, LogOut } from 'lucide-react';
+import { Bell, Search, Menu, Moon, Sun, X, CheckCheck, LogOut, ArrowLeftRight } from 'lucide-react';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useDataStore, type Notification } from '@/store/useDataStore';
@@ -17,6 +17,21 @@ export default function Header({ userName, userRole, schoolName, avatarUrl, onMe
   const { theme, toggleTheme, globalSettings } = useSettingsStore();
   const { user } = useAuthStore();
   const logout = useAuthStore((state) => state.logout);
+  const setRoleSwitch = useAuthStore((state) => state.setRoleSwitch);
+  const clearRoleSwitch = useAuthStore((state) => state.clearRoleSwitch);
+  const isSwitchedAdmin = user?.role === 'ADMIN' && user?.baseRole === 'SUPER_ADMIN';
+  const showRoleSwitch = user?.role === 'SUPER_ADMIN' || isSwitchedAdmin;
+
+  const handleRoleSwitch = async () => {
+    if (!user) return;
+    if (user.role === 'SUPER_ADMIN') {
+      await setRoleSwitch('ADMIN');
+      navigate('/admin');
+    } else if (isSwitchedAdmin) {
+      await clearRoleSwitch();
+      navigate('/super-admin');
+    }
+  };
   const notifications = useDataStore((s) => s.notifications);
   const markNotificationRead = useDataStore((s) => s.markNotificationRead);
   const markAllNotificationsRead = useDataStore((s) => s.markAllNotificationsRead);
@@ -27,7 +42,7 @@ export default function Header({ userName, userRole, schoolName, avatarUrl, onMe
   const notifRef = useRef<HTMLDivElement>(null);
 
   const displayName = user?.role === 'SUPER_ADMIN' ? globalSettings.appName : schoolName;
-  const myNotifications = notifications.filter((n) => n.userId === user?.id);
+  const myNotifications = notifications.filter((n) => n.userId === user?.id && n.title);
   const unreadCount = myNotifications.filter((n) => !n.read).length;
 
   useEffect(() => {
@@ -121,7 +136,7 @@ export default function Header({ userName, userRole, schoolName, avatarUrl, onMe
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden z-50">
+            <div className="fixed left-2 right-2 top-16 z-50 md:absolute md:left-auto md:right-0 md:top-full md:mt-2 md:w-80 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
               <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">Notifications</h3>
                 <div className="flex items-center gap-1">
@@ -175,6 +190,17 @@ export default function Header({ userName, userRole, schoolName, avatarUrl, onMe
           <LogOut className="w-5 h-5" />
         </button>
 
+        {showRoleSwitch && (
+          <button
+            onClick={handleRoleSwitch}
+            className="inline-flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-semibold border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+            title={isSwitchedAdmin ? 'Switch back to System Admin view' : 'Act as Administrator to access admin tools'}
+          >
+            <ArrowLeftRight className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">{isSwitchedAdmin ? 'Super Admin' : 'Admin View'}</span>
+          </button>
+        )}
+
         <Link
           to="/profile"
           className="flex items-center gap-3 border-l border-slate-200 dark:border-slate-700 hover:opacity-80 transition-opacity sm:pl-4 pl-2"
@@ -214,7 +240,7 @@ export default function Header({ userName, userRole, schoolName, avatarUrl, onMe
             </div>
             <div className="px-6 py-5">
               <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300 whitespace-pre-wrap break-words">
-                {selectedNotification.description}
+                {selectedNotification.description || 'No additional details available.'}
               </p>
               {selectedNotification.link && (
                 <Link

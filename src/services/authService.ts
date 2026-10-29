@@ -2,6 +2,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendEmailVerification,
+  sendPasswordResetEmail,
   signOut,
   onAuthStateChanged,
   reauthenticateWithCredential,
@@ -10,8 +11,9 @@ import {
   deleteUser,
   type User as FirebaseUser,
 } from 'firebase/auth';
+import { httpsCallable } from 'firebase/functions';
 import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
-import { auth, db } from '@/config/firebase';
+import { auth, db, functions } from '@/config/firebase';
 import { friendlyErrorMessage } from '@/utils/errors';
 import { getDefaultEntryLevel } from '@/utils/schoolProfile';
 import type { PortalLevel } from '@/store/useDataStore';
@@ -193,10 +195,21 @@ export async function adminCreateUser(
 }
 
 export async function loginUser(
-  email: string,
+  identifier: string,
   password: string,
 ): Promise<{ success: boolean; error?: string; user?: FirestoreUser }> {
   try {
+    let email = identifier.trim();
+    if (!looksLikeEmail(email)) {
+      const resolved = await resolveLoginIdentifier(email);
+      if (!resolved.success || !resolved.email) {
+        return {
+          success: false,
+          error: resolved.error || 'No account found with this matric number. Check the number or use your email.',
+        };
+      }
+      email = resolved.email;
+    }
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const firebaseUser = userCredential.user;
 
@@ -214,9 +227,81 @@ export async function loginUser(
       return { success: false, error: 'No account found with this email address.' };
     }
     if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-      return { success: false, error: 'Incorrect email or password.' };
+      return { success: false, error: 'Incorrect email/matric number or password.' };
     }
     return { success: false, error: friendlyErrorMessage(error, 'Login failed. Please try again.') };
+  }
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function looksLikeEmail(value: string): boolean {
+  return EMAIL_RE.test(value.trim());
+}
+
+/**
+ * Resolves a login identifier to the account email.
+ * Emails pass through unchanged; matric numbers are resolved server-side via
+ * the `resolveLoginIdentifier` Cloud Function (students regNo lookup).
+ */
+async function resolveLoginIdentifier(
+  identifier: string,
+): Promise<{ success: boolean; email?: string; error?: string }> {
+  try {
+    const resolve = httpsCallable<{ identifier: string }, { success: boolean; email: string }>(
+      functions,
+      'resolveLoginIdentifier',
+    );
+    const res = await resolve({ identifier });
+    const email = String(res.data?.email || '');
+    if (res.data?.success && email) return { success: true, email };
+    return {
+      success: false,
+      error: 'No account found with this matric number. Check the number or use your email.',
+    };
+  } catch (error: unknown) {
+    const err = error as { code?: string; message?: string };
+    const code = typeof err?.code === 'string' ? err.code.split('/').pop() : '';
+    const message = typeof err?.message === 'string' ? err.message : '';
+    if (code === 'not-found' || /no account found/i.test(message)) {
+      return {
+        success: false,
+        error: 'No account found with this matric number. Check the number or use your email.',
+      };
+    }
+    return { success: false, error: 'Could not check that matric number. Please try again.' };
+  }
+}
+
+/**
+ * Sends a password-reset link for an email OR matric number identifier.
+ * Always reports success for non-existent accounts so the flow does not
+ * reveal whether an account exists.
+ */
+export async function sendForgotPasswordEmail(
+  identifier: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    let email = identifier.trim();
+    if (!looksLikeEmail(email)) {
+      const resolved = await resolveLoginIdentifier(email);
+      if (!resolved.success || !resolved.email) {
+        return {
+          success: false,
+          error: resolved.error || 'No account found with this matric number. Check the number or use your email.',
+        };
+      }
+      email = resolved.email;
+    }
+    await sendPasswordResetEmail(auth, email);
+    return { success: true };
+  } catch (error: unknown) {
+    const err = error as { code?: string };
+    if (err.code === 'auth/user-not-found') {
+      // Do not reveal whether an account exists.
+      return { success: true };
+    }
+    return { success: false, error: friendlyErrorMessage(error, 'Could not send reset email. Please try again.') };
   }
 }
 
@@ -334,21 +419,28 @@ export async function promoteApplicantToStudent(
     );
 
     await writeDocWithRetry(() =>
-      setDoc(doc(db, 'students', uid), {
-        id: uid,
-        name: studentData.name,
-        surname: studentData.surname || '',
-        firstName: studentData.firstName || '',
-        middleName: studentData.middleName || '',
-        email: studentData.email,
-        phone: studentData.phone || '',
-        regNo: studentData.regNo || '',
-        class: studentData.class || '',
-        level: getDefaultEntryLevel((studentData.portalLevel || 'College') as PortalLevel),
-        parentName: '',
-        status: 'Active',
-        portalLevel: studentData.portalLevel || 'College',
-      }),
+      setDoc(
+        doc(db, 'students', uid),
+        {
+          id: uid,
+          name: studentData.name,
+          surname: studentData.surname || '',
+          firstName: studentData.firstName || '',
+          middleName: studentData.middleName || '',
+          email: studentData.email,
+          phone: studentData.phone || '',
+          regNo: studentData.regNo || '',
+          class: studentData.class || '',
+          level: getDefaultEntryLevel((studentData.portalLevel || 'College') as PortalLevel),
+          parentName: '',
+          status: 'Active',
+          portalLevel: studentData.portalLevel || 'College',
+        },
+        // Merge onto the existing profile (created from the full application
+        // payload) instead of replacing it, so a single students/{uid} record
+        // remains authoritative.
+        { merge: true },
+      ),
     );
 
     return { success: true };

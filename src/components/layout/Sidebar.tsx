@@ -286,6 +286,11 @@ export default function Sidebar({ role, open, onClose }: SidebarProps) {
   
   const links = useMemo(() => {
     const baseLinks = [...(roleNavLinks[role] || roleNavLinks['ADMIN'])];
+    // Platform-level school management is only reachable while a Super Admin is
+    // acting as an Administrator (session role switch); school Admins never see it.
+    if (role === 'ADMIN' && user?.baseRole === 'SUPER_ADMIN') {
+      baseLinks.push({ name: 'Schools', icon: Home, path: '/super-admin/schools' });
+    }
     const schoolProfile = resolveSchoolProfile(user, schools);
     const labels = getPortalLevelLabels(schoolProfile.portalLevel);
     const userDelegation = delegatedAccess.find((entry) =>

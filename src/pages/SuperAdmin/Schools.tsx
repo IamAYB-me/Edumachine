@@ -3,6 +3,7 @@ import { Search, Plus, Building2, Edit, Trash2, X, Calendar, Settings2, RefreshC
 import { cn } from '@/utils';
 import { SchoolIntegrations, useDataStore, School, AdmissionFieldKey, buildDefaultAdmissionFormConfig } from '@/store/useDataStore';
 import { useToastStore } from '@/store/useToastStore';
+import { useAuthStore } from '@/store/useAuthStore';
 import { readFileAsDataUrl } from '@/utils/fileHelpers';
 import { getAdmissionBuilderSections } from '@/utils/admissionBuilder';
 import { getPortalLevelLabels } from '@/utils/schoolProfile';
@@ -42,7 +43,11 @@ const createDefaultIntegrations = (): SchoolIntegrations => ({
 export default function SchoolsManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const { schools, addSchool, updateSchool, deleteSchool } = useDataStore();
+  const { user } = useAuthStore();
   const showToast = useToastStore((state) => state.showToast);
+  // A Super Admin acting as Administrator (session role switch) keeps access to
+  // platform-level school settings; a genuine school Admin does not.
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN' || user?.baseRole === 'SUPER_ADMIN';
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSchool, setEditingSchool] = useState<School | null>(null);
   const [formData, setFormData] = useState({
@@ -54,12 +59,12 @@ export default function SchoolsManagement() {
     address: '',
     portalLevel: 'Secondary' as School['portalLevel'],
     logoUrl: '',
-    teacherSignatoryName: '',
-    hodSignatoryName: '',
-    principalSignatoryName: '',
-    teacherSignatureUrl: '',
-    hodSignatureUrl: '',
-    principalSignatureUrl: '',
+    registrarSignatoryName: '',
+    provostSignatoryName: '',
+    authorisedSignatoryName: '',
+    registrarSignatureUrl: '',
+    provostSignatureUrl: '',
+    authorisedSignatureUrl: '',
     integrations: createDefaultIntegrations(),
     admissionFormConfig: buildDefaultAdmissionFormConfig('Secondary'),
     status: 'Active' as 'Active' | 'Suspended',
@@ -87,12 +92,12 @@ export default function SchoolsManagement() {
         address: school.address,
         portalLevel: school.portalLevel,
         logoUrl: school.logoUrl ?? '',
-        teacherSignatoryName: school.teacherSignatoryName ?? '',
-        hodSignatoryName: school.hodSignatoryName ?? '',
-        principalSignatoryName: school.principalSignatoryName ?? '',
-        teacherSignatureUrl: school.teacherSignatureUrl ?? '',
-        hodSignatureUrl: school.hodSignatureUrl ?? '',
-        principalSignatureUrl: school.principalSignatureUrl ?? '',
+        registrarSignatoryName: school.registrarSignatoryName ?? '',
+        provostSignatoryName: school.provostSignatoryName ?? '',
+        authorisedSignatoryName: school.authorisedSignatoryName ?? '',
+        registrarSignatureUrl: school.registrarSignatureUrl ?? '',
+        provostSignatureUrl: school.provostSignatureUrl ?? '',
+        authorisedSignatureUrl: school.authorisedSignatureUrl ?? '',
         integrations: school.integrations ?? createDefaultIntegrations(),
         admissionFormConfig: school.admissionFormConfig ?? buildDefaultAdmissionFormConfig(school.portalLevel),
         status: school.status,
@@ -110,12 +115,12 @@ export default function SchoolsManagement() {
         address: '',
         portalLevel: 'Secondary',
         logoUrl: '',
-        teacherSignatoryName: '',
-        hodSignatoryName: '',
-        principalSignatoryName: '',
-        teacherSignatureUrl: '',
-        hodSignatureUrl: '',
-        principalSignatureUrl: '',
+        registrarSignatoryName: '',
+        provostSignatoryName: '',
+        authorisedSignatoryName: '',
+        registrarSignatureUrl: '',
+        provostSignatureUrl: '',
+        authorisedSignatureUrl: '',
         integrations: createDefaultIntegrations(),
         admissionFormConfig: buildDefaultAdmissionFormConfig('Secondary'),
         status: 'Active',
@@ -194,7 +199,7 @@ const resetAdmissionBuilder = () => {
   });
 };
   const handleAssetSelected = async (
-    field: 'logoUrl' | 'teacherSignatureUrl' | 'hodSignatureUrl' | 'principalSignatureUrl',
+    field: 'logoUrl' | 'registrarSignatureUrl' | 'provostSignatureUrl' | 'authorisedSignatureUrl',
     file?: File
   ) => {
     if (!file) return;
@@ -239,6 +244,20 @@ const resetAdmissionBuilder = () => {
     });
     setIsModalOpen(false);
   };
+
+  // Direct URL access guard: only platform-level Super Admin sessions may open
+  // the schools management screen (sidebar hides the link for school Admins).
+  const canManageSchools = user?.role === 'SUPER_ADMIN' || user?.baseRole === 'SUPER_ADMIN';
+  if (!canManageSchools) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center px-4 py-24 text-center">
+        <h1 className="text-xl font-bold text-slate-900 dark:text-white">Schools Management</h1>
+        <p className="mt-2 max-w-md text-sm text-slate-500 dark:text-slate-400">
+          Platform-level school management is only available to the system administrator.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 h-full flex flex-col relative">
@@ -460,6 +479,8 @@ const resetAdmissionBuilder = () => {
                     className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500 dark:text-white"
                   />
                 </div>
+                {isSuperAdmin && (
+                <>
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-500 uppercase">Portal Level</label>
                   <select
@@ -498,6 +519,8 @@ const resetAdmissionBuilder = () => {
                     className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500 dark:text-white"
                   />
                 </div>
+                </>
+                )}
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-500 uppercase">Status</label>
                   <select 
@@ -579,6 +602,7 @@ const resetAdmissionBuilder = () => {
   </div>
 </div>
 
+{isSuperAdmin && (
 <div className="col-span-2 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 space-y-4 bg-slate-50/60 dark:bg-slate-800/40">
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">School Service Integrations</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -653,6 +677,7 @@ const resetAdmissionBuilder = () => {
                     </div>
                   </div>
                 </div>
+                )}
                 <div className="col-span-2 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 space-y-4 bg-slate-50/60 dark:bg-slate-800/40">
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">Result Sheet Branding</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -671,71 +696,81 @@ const resetAdmissionBuilder = () => {
                   </div>
                 </div>
                 <div className="col-span-2 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 space-y-4 bg-slate-50/60 dark:bg-slate-800/40">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Result Sheet Signatories</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <label className="space-y-1">
-                      <span className="text-xs font-bold text-slate-500 uppercase">Teacher Signatory Name</span>
-                      <input
-                        type="text"
-                        value={formData.teacherSignatoryName}
-                        onChange={(e) => setFormData({...formData, teacherSignatoryName: e.target.value})}
-                        className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500 dark:text-white"
-                      />
-                    </label>
-                    <label className="space-y-2">
-                      <span className="text-xs font-bold text-slate-500 uppercase">Teacher Signature</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => void handleAssetSelected('teacherSignatureUrl', e.target.files?.[0])}
-                        className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-xl file:border-0 file:bg-blue-600 file:px-4 file:py-2 file:font-semibold file:text-white"
-                      />
-                      {formData.teacherSignatureUrl ? (
-                        <img src={formData.teacherSignatureUrl} alt="Teacher signature preview" className="h-16 w-32 rounded-xl border border-slate-200 object-contain bg-white" />
-                      ) : null}
-                    </label>
-                    <label className="space-y-1">
-                      <span className="text-xs font-bold text-slate-500 uppercase">HOD Signatory Name</span>
-                      <input
-                        type="text"
-                        value={formData.hodSignatoryName}
-                        onChange={(e) => setFormData({...formData, hodSignatoryName: e.target.value})}
-                        className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500 dark:text-white"
-                      />
-                    </label>
-                    <label className="space-y-2">
-                      <span className="text-xs font-bold text-slate-500 uppercase">HOD Signature</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => void handleAssetSelected('hodSignatureUrl', e.target.files?.[0])}
-                        className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-xl file:border-0 file:bg-blue-600 file:px-4 file:py-2 file:font-semibold file:text-white"
-                      />
-                      {formData.hodSignatureUrl ? (
-                        <img src={formData.hodSignatureUrl} alt="HOD signature preview" className="h-16 w-32 rounded-xl border border-slate-200 object-contain bg-white" />
-                      ) : null}
-                    </label>
-                    <label className="space-y-1">
-                      <span className="text-xs font-bold text-slate-500 uppercase">Principal Signatory Name</span>
-                      <input
-                        type="text"
-                        value={formData.principalSignatoryName}
-                        onChange={(e) => setFormData({...formData, principalSignatoryName: e.target.value})}
-                        className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500 dark:text-white"
-                      />
-                    </label>
-                    <label className="space-y-2">
-                      <span className="text-xs font-bold text-slate-500 uppercase">Principal Signature</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => void handleAssetSelected('principalSignatureUrl', e.target.files?.[0])}
-                        className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-xl file:border-0 file:bg-blue-600 file:px-4 file:py-2 file:font-semibold file:text-white"
-                      />
-                      {formData.principalSignatureUrl ? (
-                        <img src={formData.principalSignatureUrl} alt="Principal signature preview" className="h-16 w-32 rounded-xl border border-slate-200 object-contain bg-white" />
-                      ) : null}
-                    </label>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Document Signatories</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Signature columns used across official documents. Only the Registrar signature appears on the admission letter.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+                      <p className="text-xs font-bold text-slate-500 uppercase">Registrar</p>
+                      <label className="block space-y-1">
+                        <span className="text-[11px] font-bold text-slate-400 uppercase">Signatory Name</span>
+                        <input
+                          type="text"
+                          value={formData.registrarSignatoryName}
+                          onChange={(e) => setFormData({...formData, registrarSignatoryName: e.target.value})}
+                          className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500 dark:text-white"
+                        />
+                      </label>
+                      <label className="block space-y-1">
+                        <span className="text-[11px] font-bold text-slate-400 uppercase">Signature Image</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => void handleAssetSelected('registrarSignatureUrl', e.target.files?.[0])}
+                          className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-xl file:border-0 file:bg-blue-600 file:px-3 file:py-2 file:font-semibold file:text-white"
+                        />
+                        {formData.registrarSignatureUrl ? (
+                          <img src={formData.registrarSignatureUrl} alt="Registrar signature preview" className="h-16 w-32 rounded-xl border border-slate-200 object-contain bg-white" />
+                        ) : null}
+                      </label>
+                    </div>
+                    <div className="space-y-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+                      <p className="text-xs font-bold text-slate-500 uppercase">Provost</p>
+                      <label className="block space-y-1">
+                        <span className="text-[11px] font-bold text-slate-400 uppercase">Signatory Name</span>
+                        <input
+                          type="text"
+                          value={formData.provostSignatoryName}
+                          onChange={(e) => setFormData({...formData, provostSignatoryName: e.target.value})}
+                          className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500 dark:text-white"
+                        />
+                      </label>
+                      <label className="block space-y-1">
+                        <span className="text-[11px] font-bold text-slate-400 uppercase">Signature Image</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => void handleAssetSelected('provostSignatureUrl', e.target.files?.[0])}
+                          className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-xl file:border-0 file:bg-blue-600 file:px-3 file:py-2 file:font-semibold file:text-white"
+                        />
+                        {formData.provostSignatureUrl ? (
+                          <img src={formData.provostSignatureUrl} alt="Provost signature preview" className="h-16 w-32 rounded-xl border border-slate-200 object-contain bg-white" />
+                        ) : null}
+                      </label>
+                    </div>
+                    <div className="space-y-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+                      <p className="text-xs font-bold text-slate-500 uppercase">Authorised Signature</p>
+                      <label className="block space-y-1">
+                        <span className="text-[11px] font-bold text-slate-400 uppercase">Signatory Name</span>
+                        <input
+                          type="text"
+                          value={formData.authorisedSignatoryName}
+                          onChange={(e) => setFormData({...formData, authorisedSignatoryName: e.target.value})}
+                          className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500 dark:text-white"
+                        />
+                      </label>
+                      <label className="block space-y-1">
+                        <span className="text-[11px] font-bold text-slate-400 uppercase">Signature Image</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => void handleAssetSelected('authorisedSignatureUrl', e.target.files?.[0])}
+                          className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-xl file:border-0 file:bg-blue-600 file:px-3 file:py-2 file:font-semibold file:text-white"
+                        />
+                        {formData.authorisedSignatureUrl ? (
+                          <img src={formData.authorisedSignatureUrl} alt="Authorised signature preview" className="h-16 w-32 rounded-xl border border-slate-200 object-contain bg-white" />
+                        ) : null}
+                      </label>
+                    </div>
                   </div>
                 </div>
               </div>
