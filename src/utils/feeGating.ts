@@ -212,6 +212,55 @@ export function deriveStudentFees(
   });
 }
 
+export type StoredTimestamp =
+  | string
+  | number
+  | Date
+  | { toDate?: () => Date; seconds?: number };
+
+export interface TransactionTimeSource {
+  date?: string;
+  createdAt?: StoredTimestamp;
+  paidAt?: StoredTimestamp;
+}
+
+function toDate(value?: StoredTimestamp): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  if (typeof value === 'object') {
+    const stamp = value as { toDate?: () => Date; seconds?: number };
+    if (typeof stamp.toDate === 'function') {
+      const d = stamp.toDate();
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+    if (typeof stamp.seconds === 'number') {
+      const d = new Date(stamp.seconds * 1000);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+    return null;
+  }
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Renders the full date + time of a payment/transaction from any stored form a
+ * timestamp may take (Firestore Timestamp object, ISO string, epoch, Date).
+ */
+export function formatTransactionTime(source?: TransactionTimeSource | null): string {
+  const d = toDate(source?.paidAt) || toDate(source?.createdAt);
+  if (d) {
+    return d.toLocaleString('en-NG', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+  return source?.date || '—';
+}
+
 /**
  * Human readable description of a blocked action.
  */

@@ -239,6 +239,12 @@ export function resolveSchoolProfile(user: User | null, schools: School[]): Scho
     teacherSignatureUrl: school?.teacherSignatureUrl || '',
     hodSignatureUrl: school?.hodSignatureUrl || '',
     principalSignatureUrl: school?.principalSignatureUrl || '',
+    registrarSignatoryName: school?.registrarSignatoryName || '',
+    provostSignatoryName: school?.provostSignatoryName || '',
+    authorisedSignatoryName: school?.authorisedSignatoryName || '',
+    registrarSignatureUrl: school?.registrarSignatureUrl || '',
+    provostSignatureUrl: school?.provostSignatureUrl || '',
+    authorisedSignatureUrl: school?.authorisedSignatureUrl || '',
     integrations: school?.integrations || {
       paymentGateway: { enabled: false, provider: '', publicKey: '', secretKey: '', merchantId: '', callbackUrl: '' },
       smsApi: { enabled: false, provider: '', senderId: '', apiKey: '', apiUrl: '' },

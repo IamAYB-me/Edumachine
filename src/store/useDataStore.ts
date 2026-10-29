@@ -274,6 +274,12 @@ export interface School {
   teacherSignatureUrl?: string;
   hodSignatureUrl?: string;
   principalSignatureUrl?: string;
+  registrarSignatoryName?: string;
+  provostSignatoryName?: string;
+  authorisedSignatoryName?: string;
+  registrarSignatureUrl?: string;
+  provostSignatureUrl?: string;
+  authorisedSignatureUrl?: string;
   integrations: SchoolIntegrations;
   portalLevel: PortalLevel;
   status: 'Active' | 'Suspended';
@@ -366,6 +372,8 @@ export interface AcademicSession {
   name: string;
   semester?: 'First Semester' | 'Second Semester';
   active?: boolean;
+  resumptionDate?: string;
+  sessionResumptionDate?: string;
 }
 
 export interface Subject {
@@ -391,7 +399,10 @@ export interface FeeRecord {
   amount: number;
   status: 'Paid' | 'Pending' | 'Partial';
   date: string;
+  createdAt?: string;
+  paidAt?: string;
   type: string;
+  description?: string;
   attachmentName?: string;
   attachmentUrl?: string;
 }
@@ -444,6 +455,7 @@ export interface Expense {
   category: string;
   amount: number;
   date: string;
+  createdAt?: string;
   status: 'Paid' | 'Pending' | 'Approved';
   method: string;
   attachmentName?: string;
@@ -1330,27 +1342,54 @@ export const useDataStore = create<DataState>()((set, get) => ({
 
   addFeeRecord: (record) => {
     const id = generateId();
-    const entry = { ...record, id };
+    const isPayment = record.status === 'Paid' || record.status === 'Partial';
+    const entry = {
+      ...record,
+      id,
+      createdAt: record.createdAt ?? new Date().toISOString(),
+      paidAt: isPayment ? record.paidAt ?? new Date().toISOString() : record.paidAt,
+    };
     set((state) => ({ feeRecords: [...state.feeRecords, entry] }));
     addDocumentWithId('feeRecords', id, entry).catch(console.error);
-    logActivity({ action: 'CREATE', module: 'fees', description: `Created fee record for ${record.studentName || 'student'}`, targetId: id, targetName: record.studentName }).catch(console.error);
-    // Notify the student
+    const purpose = [record.description, record.type].filter(Boolean).join(' — ');
+    logActivity({ action: 'CREATE', module: 'fees', description: `Created fee record for ${record.studentName || 'student'}${purpose ? ` — ${purpose}` : ''}${typeof record.amount === 'number' ? ` (Amount: ${record.amount.toLocaleString()})` : ''}`, targetId: id, targetName: record.studentName }).catch(console.error);
+    // Notify the student and any linked parents
     if (record.studentId) {
       const now = new Date().toLocaleString();
-      const nid = generateId();
-      const notif = { id: nid, userId: record.studentId, title: 'New Fee Record', description: `A new fee record has been created for you. Amount: ${record.amount || 'N/A'}`, time: now, read: false, type: 'info' as const, link: '/student/fees' };
-      addDocumentWithId('notifications', nid, notif).catch(console.error);
+      const makeNotif = (uid: string, link: string, label: string) => {
+        const nid = generateId();
+        const notif = { id: nid, userId: uid, title: 'New Fee Record', description: `${label} ${record.studentName || 'student'}${purpose ? ` — ${purpose}` : ''} (Amount: ${typeof record.amount === 'number' ? record.amount.toLocaleString() : 'N/A'})`, time: now, read: false, type: 'info' as const, link };
+        addDocumentWithId('notifications', nid, notif).catch(console.error);
+      };
+      makeNotif(record.studentId, '/student/fees', 'A new fee record has been created for');
+      const parents = get().parents.filter((p) => p.children.includes(record.studentId));
+      parents.forEach((p) => makeNotif(p.id, '/parent/fees', 'A new fee record has been created for your ward'));
     }
   },
   updateFeeRecord: (id, updatedRecord) => {
-    set((state) => ({ feeRecords: state.feeRecords.map((r) => (r.id === id ? { ...r, ...updatedRecord } : r)) }));
-    updateDocument('feeRecords', id, updatedRecord as Record<string, unknown>).catch(console.error);
-    logActivity({ action: 'UPDATE', module: 'fees', description: `Updated fee record`, targetId: id }).catch(console.error);
+    const isPayment = updatedRecord.status === 'Paid' || updatedRecord.status === 'Partial';
+    const nowIso = new Date().toISOString();
+    set((state) => ({
+      feeRecords: state.feeRecords.map((r) => {
+        if (r.id !== id) return r;
+        return {
+          ...r,
+          ...updatedRecord,
+          createdAt: r.createdAt ?? updatedRecord.createdAt ?? nowIso,
+          paidAt: isPayment ? nowIso : r.paidAt,
+        };
+      }),
+    }));
+    updateDocument('feeRecords', id, isPayment ? { ...updatedRecord, paidAt: nowIso } : updatedRecord).catch(console.error);
+    const purpose = [updatedRecord.description, updatedRecord.type].filter(Boolean).join(' — ');
+    logActivity({ action: 'UPDATE', module: 'fees', description: `Updated fee record for ${updatedRecord.studentName || 'student'}${purpose ? ` — ${purpose}` : ''}${typeof updatedRecord.amount === 'number' ? ` (Amount: ${updatedRecord.amount.toLocaleString()})` : ''}`, targetId: id }).catch(console.error);
   },
   deleteFeeRecord: (id) => {
+    const existing = get().feeRecords.find((r) => r.id === id);
     set((state) => ({ feeRecords: state.feeRecords.filter((r) => r.id !== id) }));
     deleteDocument('feeRecords', id).catch(console.error);
-    logActivity({ action: 'DELETE', module: 'fees', description: `Deleted fee record`, targetId: id }).catch(console.error);
+    const purpose = [existing?.description, existing?.type].filter(Boolean).join(' — ');
+    logActivity({ action: 'DELETE', module: 'fees', description: `Deleted fee record for ${existing?.studentName || 'student'}${purpose ? ` — ${purpose}` : ''}`, targetId: id }).catch(console.error);
   },
 
   addFeeStructure: (structure) => {
@@ -1688,7 +1727,7 @@ export const useDataStore = create<DataState>()((set, get) => ({
 
   addExpense: (expense) => {
     const id = `EXP-${generateId()}`;
-    const record = { ...expense, id };
+    const record = { ...expense, id, createdAt: expense.createdAt ?? new Date().toISOString() };
     set((state) => ({ expenses: [...state.expenses, record] }));
     addDocumentWithId('expenses', id, record).catch(console.error);
     logActivity({ action: 'CREATE', module: 'expenses', description: `Recorded expense: ${expense.title}`, targetId: id, targetName: expense.title }).catch(console.error);
@@ -1824,21 +1863,25 @@ export const useDataStore = create<DataState>()((set, get) => ({
     set((state) => ({ notices: [record, ...state.notices] }));
     addDocumentWithId('notices', id, record).catch(console.error);
     logActivity({ action: 'CREATE', module: 'notices', description: `Posted notice: ${notice.title}`, targetId: id, targetName: notice.title }).catch(console.error);
-    // Notify all students, teachers, and parents
+    // Notify the intended audience (students, teachers/staff, parents) with role-appropriate info
     const state = get();
-    const userIds = [
-      ...state.students.map((s) => s.id),
-      ...state.teachers.map((t) => t.id),
-      ...state.parents.map((p) => p.id),
-    ].filter(Boolean);
-    if (userIds.length > 0) {
-      const now = new Date().toLocaleString();
-      userIds.forEach((uid) => {
-        const nid = generateId();
-        const record = { id: nid, userId: uid, title: `New Notice: ${notice.title}`, description: notice.content.slice(0, 100) + (notice.content.length > 100 ? '...' : ''), time: now, read: false, type: notice.priority === 'High' ? 'warning' as const : 'info' as const, link: '/admin/notices' };
-        addDocumentWithId('notifications', nid, record).catch(console.error);
-      });
+    const now = new Date().toLocaleString();
+    const aud = notice.targetAudience;
+    const recipients: { uid: string; link?: string }[] = [];
+    if (aud === 'Students' || aud === 'All') state.students.forEach((s) => recipients.push({ uid: s.id, link: '/student' }));
+    if (aud === 'Parents' || aud === 'All') state.parents.forEach((p) => recipients.push({ uid: p.id, link: '/parent' }));
+    if (aud === 'Teachers' || aud === 'All') {
+      state.teachers.forEach((t) => recipients.push({ uid: t.id, link: '/teacher' }));
+      state.staff.forEach((s) => recipients.push({ uid: s.id, link: '/admin/notices' }));
     }
+    const seen = new Set<string>();
+    recipients.forEach(({ uid, link }) => {
+      if (!uid || seen.has(uid)) return;
+      seen.add(uid);
+      const nid = generateId();
+      const record = { id: nid, userId: uid, title: `New Notice: ${notice.title}`, description: notice.content, time: now, read: false, type: notice.priority === 'High' ? 'warning' as const : 'info' as const, link };
+      addDocumentWithId('notifications', nid, record).catch(console.error);
+    });
   },
   updateNotice: (id, updatedNotice) => {
     set((state) => ({ notices: state.notices.map((n) => (n.id === id ? { ...n, ...updatedNotice } : n)) }));
