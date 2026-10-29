@@ -17,7 +17,7 @@ const commonBuilderSections: AdmissionBuilderSection[] = [
     title: 'Student Identification',
     description: 'System and record identifiers.',
     fields: [
-      { key: 'admissionNumber', label: 'Admission Number' },
+      { key: 'admissionNumber', label: 'Matric Number' },
       { key: 'regNo', label: 'Registration Number' },
       { key: 'qrCode', label: 'QR Code' },
       { key: 'barcode', label: 'Barcode' },
@@ -87,7 +87,7 @@ const byPortalLevelBase: Record<Exclude<PortalLevel, 'Nursery'>, AdmissionBuilde
     {
       title: 'Personal Information',
       fields: [
-        { key: 'admissionNumber', label: 'Admission Number (Auto-generated)' },
+        { key: 'admissionNumber', label: 'Matric Number (Auto-generated)' },
         { key: 'surname', label: 'Surname' },
         { key: 'firstName', label: 'First Name' },
         { key: 'middleName', label: 'Middle Name' },
@@ -177,7 +177,7 @@ const byPortalLevelBase: Record<Exclude<PortalLevel, 'Nursery'>, AdmissionBuilde
     {
       title: 'Personal Information',
       fields: [
-        { key: 'admissionNumber', label: 'Admission Number (Auto-generated)' },
+        { key: 'admissionNumber', label: 'Matric Number (Auto-generated)' },
         { key: 'surname', label: 'Surname' },
         { key: 'firstName', label: 'First Name' },
         { key: 'middleName', label: 'Middle Name' },
@@ -421,7 +421,7 @@ const byPortalLevelBase: Record<Exclude<PortalLevel, 'Nursery'>, AdmissionBuilde
         { key: 'matricNumber', label: 'Matric Number' },
         { key: 'jambRegistrationNumber', label: 'JAMB Registration Number' },
         { key: 'jambScore', label: 'JAMB Score' },
-        { key: 'admissionNumber', label: 'Admission Number' },
+        { key: 'admissionNumber', label: 'Matric Number' },
         { key: 'surname', label: 'Surname' },
         { key: 'firstName', label: 'First Name' },
         { key: 'middleName', label: 'Middle Name' },

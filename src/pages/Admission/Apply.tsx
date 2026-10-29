@@ -138,7 +138,7 @@ const initialForm: FormData = {
 };
 
 export default function AdmissionApply() {
-  const { subjects, classes, schools } = useDataStore();
+  const { classes, schools } = useDataStore();
   const { globalSettings } = useSettingsStore();
   const { format } = useCurrency();
   const loginWithCredentials = useAuthStore((state) => state.loginWithCredentials);
@@ -150,33 +150,27 @@ export default function AdmissionApply() {
   const [paymentReference, setPaymentReference] = useState('');
   const [applicationId, setApplicationId] = useState('');
   const [error, setError] = useState('');
-  const [remoteSubjects, setRemoteSubjects] = useState<{ name: string; code: string; facultyId?: string; departmentId?: string }[]>([]);
   const [remoteFaculties, setRemoteFaculties] = useState<{ id: string; name: string; code: string }[]>([]);
   const [remoteDepartments, setRemoteDepartments] = useState<{ id: string; name: string; code: string; facultyId: string; portalLevel?: PortalLevel }[]>([]);
 
   useEffect(() => {
-    const unsubSubjects = subscribeToCollection('subjects', (data) => {
-      setRemoteSubjects(data.map((d: any) => ({ name: d.name, code: d.code, facultyId: d.facultyId || '', departmentId: d.departmentId || '' })));
-    }, (err) => console.error('[Apply] subjects subscription error:', err));
     const unsubFaculties = subscribeToCollection('faculties', (data) => {
       setRemoteFaculties(data.map((d: any) => ({ id: d.id, name: d.name, code: d.code })));
     }, (err) => console.error('[Apply] faculties subscription error:', err));
     const unsubDepts = subscribeToCollection('departments', (data) => {
       setRemoteDepartments(data.map((d: any) => ({ id: d.id, name: d.name, code: d.code, facultyId: d.facultyId || '', portalLevel: (d.portalLevel as PortalLevel) || undefined })));
     }, (err) => console.error('[Apply] departments subscription error:', err));
-    return () => { unsubSubjects(); unsubFaculties(); unsubDepts(); };
+    return () => { unsubFaculties(); unsubDepts(); };
   }, []);
 
   const prefix = globalSettings.admissionFormPrefix || 'BRO';
   const nextSeq = globalSettings.admissionFormNextSequence || 1;
   const formNumber = generateFormNumber(prefix, nextSeq);
 
-  const availableSubjects = remoteSubjects.length > 0
-    ? remoteSubjects.map((s) => s.name).filter((n, i, a) => a.indexOf(n) === i)
-    : subjects.length > 0
-      ? subjects.map((s) => s.name).filter((n, i, a) => a.indexOf(n) === i)
-      : COMMON_SUBJECTS;
-  const availableFaculties = remoteFaculties;
+  // WAEC/NECO/NABTEB entries are secondary-school subjects, NOT the college
+  // course list. Always present the senior secondary subject set here, so the
+  // sitting dropdowns never leak the school's tertiary course names.
+  const sittingSubjects = COMMON_SUBJECTS;
   const availableClasses = classes.length > 0
     ? classes.map((c) => c.name).filter((n, i, a) => a.indexOf(n) === i)
     : CLASS_OPTIONS;
@@ -982,7 +976,7 @@ export default function AdmissionApply() {
                         {i < 2 ? (
                           <option value={i === 0 ? 'English Language' : 'Mathematics'}>{i === 0 ? 'English Language' : 'Mathematics'}</option>
                         ) : (
-                          availableSubjects.filter((s) => !form.firstSittingSubjects.some((x, j) => j !== i && x.subject === s)).map((s) => (
+                          sittingSubjects.filter((s) => !form.firstSittingSubjects.some((x, j) => j !== i && x.subject === s)).map((s) => (
                             <option key={s} value={s}>{s}</option>
                           ))
                         )}
@@ -1051,7 +1045,7 @@ export default function AdmissionApply() {
                           {i < 2 ? (
                             <option value={i === 0 ? 'English Language' : 'Mathematics'}>{i === 0 ? 'English Language' : 'Mathematics'}</option>
                           ) : (
-                            availableSubjects.filter((s) => !form.secondSittingSubjects.some((x, j) => j !== i && x.subject === s)).map((s) => (
+                            sittingSubjects.filter((s) => !form.secondSittingSubjects.some((x, j) => j !== i && x.subject === s)).map((s) => (
                               <option key={s} value={s}>{s}</option>
                             ))
                           )}

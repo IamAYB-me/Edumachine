@@ -8,6 +8,7 @@ import { cn } from '@/utils';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useDataStore } from '@/store/useDataStore';
 import { useCurrency } from '@/hooks/useCurrency';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import { checkFeeGate, filterFeeRecordsForStudent } from '@/utils/feeGating';
 import { resolveSchoolProfile, getDefaultEntryLevel } from '@/utils/schoolProfile';
 import { getDocumentsWhere } from '@/services/firestoreService';
@@ -30,7 +31,9 @@ export default function AdmissionProgress() {
   const feeStructures = useDataStore((s) => s.feeStructures);
   const schools = useDataStore((s) => s.schools);
   const students = useDataStore((s) => s.students);
+  const academicSessions = useDataStore((s) => s.academicSessions);
   const { format } = useCurrency();
+  const { globalSettings } = useSettingsStore();
 
   const [directApplication, setDirectApplication] = useState<AdmissionApplication | null>(null);
   const [directLoaded, setDirectLoaded] = useState(false);
@@ -127,8 +130,11 @@ export default function AdmissionProgress() {
     // Academic session: current year / next year.
     const academicSession = `${yearShort}/${yearShort + 1}`;
 
-    // Resumption: a configured date via application if present, else a default.
-    const resumptionDate = application.notes || `${yearShort + 1}-01-12`;
+    // Resumption: prefer the active academic session's configured date,
+    // then a per-application override, else a default.
+    const activeSession = academicSessions.find((s) => s.active);
+    const sessionResumption = activeSession?.resumptionDate || activeSession?.sessionResumptionDate;
+    const resumptionDate = sessionResumption || application.notes || `${yearShort + 1}-01-12`;
 
     const data: AdmissionLetterData = {
       documentType: 'ORIGINAL',
@@ -136,10 +142,13 @@ export default function AdmissionProgress() {
         name: schoolProfile.name,
         acronym: schoolProfile.code || 'BROCHEST',
         location: 'IKARE-AKOKO, ONDO STATE, NIGERIA',
-        address: 'Ikare-Akoko, Ondo State, Nigeria',
-        logo: schoolProfile.logoUrl,
-        registrarName: schoolProfile.principalSignatoryName || 'Mrs. T.B. ATANSUYI',
+        address: schoolProfile.address || 'Ikare-Akoko, Ondo State, Nigeria',
+        phone: schoolProfile.phone || '',
+        email: schoolProfile.email || globalSettings.supportEmail || '',
+        logo: schoolProfile.logoUrl || globalSettings.logoUrl || undefined,
+        registrarName: schoolProfile.registrarSignatoryName || schoolProfile.principalSignatoryName || 'Mrs. T.B. ATANSUYI',
         registrarCredentials: 'B.Sc., MSc., PhD (in View)',
+        registrarSignature: schoolProfile.registrarSignatureUrl || schoolProfile.principalSignatureUrl || undefined,
       },
       student: {
         fullName,
