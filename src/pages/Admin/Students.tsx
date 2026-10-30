@@ -443,6 +443,40 @@ type StudentFilterStatus = 'All' | Student['status'];
 type StudentFilterPortalLevel = 'All' | PortalLevel;
 type StudentFormErrors = Partial<Record<keyof StudentFormState | 'name', string>>;
 
+// Excel headers rarely match the portal template exactly ("Email Address",
+// "Phone Number", "Registration Number (Reg No)", even typos like
+// "Satet of Origin"). Map them onto the canonical field names.
+const IMPORT_HEADER_ALIASES: Record<string, string[]> = {
+  email: ['emailaddress', 'emailaddr', 'mail', 'emailid', 'studentemail'],
+  phone: ['phonenumber', 'phoneno', 'telephone', 'tel', 'mobile', 'mobileno', 'gsm', 'contactphone'],
+  stateoforigin: ['satetoforigin', 'stateoforigin', 'stateofresidence'],
+  parentname: ['parentguardianname', 'parentorguardianname', 'guardianname'],
+  regno: ['registrationnumber', 'registrationnumberregno', 'registrationno', 'matricno'],
+  admissionnumber: ['admissionnumber', 'admissionno', 'admno'],
+  dateofbirth: ['dateofbirth', 'dob', 'birthdate'],
+  previousschoolname: ['previousschoolname', 'previousschool', 'lastschool'],
+  jambregistrationnumber: ['jambregistrationnumber', 'jambregno', 'jambreg'],
+  jambscore: ['jambscore', 'jambs'],
+  olevelresults: ['olevelresults', 'olevel', 'olevelgrades'],
+  classdepartment: ['classdepartment', 'classdept'],
+  academicsession: ['academicsession', 'session'],
+};
+
+/**
+ * Sheets often write the year as "100 level" / "100L" / "100lavel". For
+ * College/Polytechnic portals those should read "Year 1"/"Year 2"; University
+ * portals use "100 Level"/"200 Level".
+ */
+const normalizeTertiaryYear = (raw: string, portalLevel: PortalLevel): string => {
+  const value = (raw || '').trim();
+  if (!value) return '';
+  const digits = value.match(/(\d{1,3})/);
+  if (!digits) return value;
+  const hundred = Math.floor(Number(digits[1]) / 100);
+  if (!hundred || hundred > 6) return value;
+  return portalLevel === 'University' ? `${hundred * 100} Level` : `Year ${hundred}`;
+};
+
 const getStudentYearValue = (
   student: Partial<Pick<Student, 'level' | 'class'>>,
   portalLevel: PortalLevel,
@@ -627,8 +661,16 @@ export default function StudentsDirectory() {
           if (!k) continue;
           const direct = (item as Record<string, unknown>)[k];
           if (direct !== undefined && direct !== '') return String(direct);
-          const normalized = normalizedItem.get(normalizeKey(k));
+          const normalizedKey = normalizeKey(k);
+          const normalized = normalizedItem.get(normalizedKey);
           if (normalized !== undefined && normalized !== '') return String(normalized);
+          const aliases = IMPORT_HEADER_ALIASES[normalizedKey];
+          if (aliases) {
+            for (const alias of aliases) {
+              const value = normalizedItem.get(alias);
+              if (value !== undefined && value !== '') return String(value);
+            }
+          }
         }
         return '';
       };
@@ -668,7 +710,7 @@ export default function StudentsDirectory() {
       const pickedLevelRaw = pick('level', 'Level', 'Year / Level', 'Current Level');
       const yearValue = promotesByClass(activePortalLevel)
         ? pickedClass
-        : (pickedLevelRaw || pickedClass);
+        : normalizeTertiaryYear(pickedLevelRaw || pickedClass, activePortalLevel);
 
       const payload = {
         ...base,
