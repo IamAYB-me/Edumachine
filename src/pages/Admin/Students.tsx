@@ -603,7 +603,7 @@ export default function StudentsDirectory() {
     setFormData(createEmptyStudentForm(activePortalLevel));
   };
 
-  const handleImport = async (data: any[]) => {
+  const handleImport = async (data: Record<string, unknown>[]) => {
     let importedCount = 0;
     let skippedCount = 0;
     let accountsCreated = 0;
@@ -613,9 +613,22 @@ export default function StudentsDirectory() {
     for (const item of data) {
       const base = createEmptyStudentForm(activePortalLevel);
 
+      // Excel headers vary ("Email", "E-mail", "Email Address", "EMAIL "), so
+      // match keys case/space/punctuation-insensitively.
+      const normalizeKey = (value: string) =>
+        value.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const normalizedItem = new Map<string, unknown>();
+      Object.entries(item as Record<string, unknown>).forEach(([key, value]) => {
+        normalizedItem.set(normalizeKey(key), value);
+      });
+
       const pick = (...keys: (string | undefined)[]) => {
         for (const k of keys) {
-          if (k && item[k] !== undefined && item[k] !== '') return String(item[k]);
+          if (!k) continue;
+          const direct = (item as Record<string, unknown>)[k];
+          if (direct !== undefined && direct !== '') return String(direct);
+          const normalized = normalizedItem.get(normalizeKey(k));
+          if (normalized !== undefined && normalized !== '') return String(normalized);
         }
         return '';
       };
@@ -657,7 +670,7 @@ export default function StudentsDirectory() {
         ? pickedClass
         : (pickedLevelRaw || pickedClass);
 
-      const result = addStudent({
+      const payload = {
         ...base,
         ...(authUid ? { id: authUid } : {}),
         // Core identity
@@ -795,7 +808,31 @@ export default function StudentsDirectory() {
         hostelName: pick('hostelName', 'Hostel Name'),
         roomNumber: pick('roomNumber', 'Room Number', 'Room'),
         bedSpace: pick('bedSpace', 'Bed Space', 'Bed'),
-      });
+      };
+
+      // Re-uploading a sheet should fill in missing details (email, phone,
+      // class, year…) instead of creating a second copy of the same learner,
+      // so match an existing record by full name first.
+      const normalizeName = (value?: string) =>
+        (value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      const existingByName = name
+        ? students.find((s) => normalizeName(s.name) === normalizeName(name) && s.id !== authUid)
+        : undefined;
+
+      let result: { success: boolean; error?: string };
+      if (existingByName) {
+        const patch: Record<string, unknown> = {};
+        Object.entries(payload as Record<string, unknown>).forEach(([key, value]) => {
+          if (value === undefined || value === '') return;
+          const current = (existingByName as unknown as Record<string, unknown>)[key];
+          if (current === undefined || current === '') patch[key] = value;
+        });
+        result = Object.keys(patch).length
+          ? updateStudent(existingByName.id, patch as Partial<Student>)
+          : { success: true };
+      } else {
+        result = addStudent(payload as Parameters<typeof addStudent>[0]);
+      }
 
       if (result.success) {
         importedCount += 1;
