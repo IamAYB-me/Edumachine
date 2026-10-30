@@ -12,11 +12,9 @@ import {
   type User as FirebaseUser,
 } from 'firebase/auth';
 import { httpsCallable } from 'firebase/functions';
-import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db, functions } from '@/config/firebase';
 import { friendlyErrorMessage } from '@/utils/errors';
-import { getDefaultEntryLevel } from '@/utils/schoolProfile';
-import type { PortalLevel } from '@/store/useDataStore';
 
 export interface FirestoreUser {
   uid: string;
@@ -310,10 +308,10 @@ export async function logoutUser(): Promise<void> {
 }
 
 /**
- * If the signed-in user is an APPLICANT who has an application with status
- * 'Admitted', upgrades their account role to STUDENT automatically (and creates
- * their student profile). Returns the freshly-read profile so the caller can
- * reflect the promoted role without a full re-login.
+ * If the signed-in user is an APPLICANT who has been admitted, upgrade their
+ * account to STUDENT. The role change happens server-side in the
+ * `promoteAdmittedApplicant` callable, which re-checks the admission status;
+ * account roles are never writable from the browser.
  */
 export async function autoPromoteApplicantIfAdmitted(
   uid: string,
@@ -322,47 +320,10 @@ export async function autoPromoteApplicantIfAdmitted(
   if (profile.role !== 'APPLICANT') return profile;
 
   try {
-    const q = query(
-      collection(db, 'admissionApplications'),
-      where('email', '==', profile.email),
-    );
-    const snap = await getDocs(q);
-    const admitted = snap.docs
-      .map((d) => d.data() as Record<string, unknown>)
-      .find((a) => a.applicationStatus === 'Admitted');
-    if (!admitted) return profile;
-
-    const app = admitted;
-    const surname = String(app.surname || '').trim();
-    const firstName = String(app.firstName || '').trim();
-    const middleName = String(app.middleName || '').trim();
-    const courseOfStudy = String(app.courseOfStudy || '').trim();
-    const phone = String(app.phone || profile.phone || '');
-    const portalLevel = profile.portalLevel || 'College';
-    const regNo = 'REG-' + Date.now().toString(36).toUpperCase();
-
-    // If a student record already exists for this user, only upgrade the role
-    // instead of overwriting the (possibly richer) student doc.
-    const existingStudent = await getDoc(doc(db, 'students', uid));
-    if (existingStudent.exists()) {
-      await setDoc(doc(db, 'users', uid), { role: 'STUDENT', roleLabel: 'Student' }, { merge: true });
-    } else {
-      const res = await promoteApplicantToStudent(uid, {
-        name: `${surname} ${firstName}`.trim() || profile.name,
-        email: profile.email,
-        schoolName: profile.schoolName,
-        phone,
-        portalLevel,
-        surname,
-        firstName,
-        middleName,
-        regNo,
-        class: courseOfStudy,
-      });
-      if (!res.success) return profile;
-    }
-  } catch (error) {
-    console.warn('[authService] Auto-promote check failed:', error);
+    const promote = httpsCallable(functions, 'promoteAdmittedApplicant');
+    await promote({ uid });
+  } catch {
+    // Not admitted yet, or offline: leave the applicant untouched.
     return profile;
   }
 
@@ -379,24 +340,35 @@ export async function updateUserProfile(
   uid: string,
   updates: Partial<FirestoreUser>,
 ): Promise<void> {
-  const { uid: _uid, createdAt: _createdAt, ...safeUpdates } = updates;
-  const cleanUpdates = Object.fromEntries(
-    Object.entries(safeUpdates).filter(([, value]) => value !== undefined),
-  );
+  const cleanUpdates: Record<string, unknown> = { ...updates };
+  delete cleanUpdates.uid;
+  delete cleanUpdates.createdAt;
+  // `role`, `roleLabel` and `isVerified` are server-owned (see firestore.rules);
+  // sending them here would be rejected, so drop them on the client too.
+  delete cleanUpdates.role;
+  delete cleanUpdates.roleLabel;
+  delete cleanUpdates.isVerified;
+  for (const key of Object.keys(cleanUpdates)) {
+    if (cleanUpdates[key] === undefined) delete cleanUpdates[key];
+  }
   await setDoc(doc(db, 'users', uid), cleanUpdates, { merge: true });
 }
 
 /**
  * Promotes an admitted applicant's auth record to a STUDENT role and creates
- * their student profile record. Once admitted, the applicant no longer keeps
- * the APPLICANT account role.
+ * their student profile record. The write happens in the
+ * `promoteAdmittedApplicant` callable: roles are server-owned, and the
+ * admission status is verified there instead of trusting the caller.
+ *
+ * Identity fields (name, email, phone, regNo, class) are derived server-side
+ * from the admitted application; only the optional overrides below are read.
  */
 export async function promoteApplicantToStudent(
   uid: string,
-  studentData: {
-    name: string;
-    email: string;
-    schoolName: string;
+  studentData?: {
+    name?: string;
+    email?: string;
+    schoolName?: string;
     phone?: string;
     portalLevel?: string;
     surname?: string;
@@ -407,42 +379,13 @@ export async function promoteApplicantToStudent(
   },
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await writeDocWithRetry(() =>
-      setDoc(
-        doc(db, 'users', uid),
-        {
-          role: 'STUDENT',
-          roleLabel: 'Student',
-        },
-        { merge: true },
-      ),
-    );
-
-    await writeDocWithRetry(() =>
-      setDoc(
-        doc(db, 'students', uid),
-        {
-          id: uid,
-          name: studentData.name,
-          surname: studentData.surname || '',
-          firstName: studentData.firstName || '',
-          middleName: studentData.middleName || '',
-          email: studentData.email,
-          phone: studentData.phone || '',
-          regNo: studentData.regNo || '',
-          class: studentData.class || '',
-          level: getDefaultEntryLevel((studentData.portalLevel || 'College') as PortalLevel),
-          parentName: '',
-          status: 'Active',
-          portalLevel: studentData.portalLevel || 'College',
-        },
-        // Merge onto the existing profile (created from the full application
-        // payload) instead of replacing it, so a single students/{uid} record
-        // remains authoritative.
-        { merge: true },
-      ),
-    );
-
+    const promote = httpsCallable(functions, 'promoteAdmittedApplicant');
+    await promote({
+      uid,
+      regNo: studentData?.regNo,
+      class: studentData?.class,
+      portalLevel: studentData?.portalLevel,
+    });
     return { success: true };
   } catch (error: unknown) {
     return { success: false, error: friendlyErrorMessage(error, 'Could not promote applicant. Please try again.') };

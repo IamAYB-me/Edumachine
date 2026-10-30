@@ -93,11 +93,10 @@ export default function RegistrarAdmissions() {
         regNo,
         class: classValue,
       });
+      // Role + name are persisted by the callable (server-owned fields).
       if (res.success) {
         updatePlatformUser(applicantUid, {
           name: `${app.surname} ${app.firstName}`,
-          role: 'STUDENT',
-          roleLabel: 'Student',
         });
         return true;
       }

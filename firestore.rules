@@ -20,15 +20,32 @@ service cloud.firestore {
       );
     }
 
+    // Helper: true when an update touches a server-owned user field. Roles are
+    // granted only by SUPER_ADMIN or by the promoteAdmittedApplicant callable
+    // (Admin SDK, which bypasses these rules).
+    function isPrivilegedUserChange() {
+      return request.resource.data.diff(resource.data)
+        .affectedKeys()
+        .hasAny(['role', 'roleLabel', 'isVerified', 'email', 'uid']);
+    }
+
     // ─── Users collection ─────────────────────────────────────────────
-    // Authenticated users can read all user documents (needed for dashboard KPIs)
-    // Only the document owner or admins can update
-    // Only admins or the document owner can delete
+    // Authenticated users can read all user documents (needed for dashboard KPIs).
+    // A registration creates only the caller's own profile (school owners choose
+    // an admin role at signup), so nobody can mint a profile for another uid.
+    // Afterwards role/roleLabel/isVerified are server-owned: a signed-in student
+    // can no longer promote themselves to SUPER_ADMIN and satisfy isAdmin().
     match /users/{userId} {
       allow read: if isAuth();
-      allow create: if isAuth();
-      allow update: if isAuth() && (request.auth.uid == userId || isAdmin());
-      allow delete: if isAuth() && (request.auth.uid == userId || isAdmin());
+
+      allow create: if (isAuth() && request.auth.uid == userId) ||
+        hasRole('SUPER_ADMIN');
+
+      allow update: if (isAuth() && request.auth.uid == userId && !isPrivilegedUserChange()) ||
+        (isAdmin() && !isPrivilegedUserChange()) ||
+        hasRole('SUPER_ADMIN');
+
+      allow delete: if isAdmin();
     }
 
     // ─── Schools ──────────────────────────────────────────────────────

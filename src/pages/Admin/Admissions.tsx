@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   Search, Eye, CheckCircle, XCircle, Clock, UserCheck, Trash2,
-  X, GraduationCap, CreditCard, ChevronDown, Settings, Link2,
+  X, GraduationCap, ChevronDown, Settings, Link2,
   Copy, Check, Globe, DollarSign, Hash, Sparkles,
 } from 'lucide-react';
 import { cn } from '@/utils';
@@ -135,11 +135,11 @@ export default function AdmissionsManagement() {
         regNo,
         class: classValue,
       });
+      // The callable also persists the STUDENT role and name server-side;
+      // account roles are not writable from the browser.
       if (res.success) {
         updatePlatformUser(applicantUid, {
           name: `${app.surname} ${app.firstName}`,
-          role: 'STUDENT',
-          roleLabel: 'Student',
         });
       }
     }
@@ -175,11 +175,10 @@ export default function AdmissionsManagement() {
         regNo,
         class: classValue,
       });
+      // Role + name are persisted by the callable (server-owned fields).
       if (res.success) {
         updatePlatformUser(applicantUid, {
           name: `${app.surname} ${app.firstName}`,
-          role: 'STUDENT',
-          roleLabel: 'Student',
         });
         return true;
       }
@@ -273,8 +272,6 @@ export default function AdmissionsManagement() {
     updateGlobalSettings({ admissionFee: fee, admissionFormPrefix: prefix.toUpperCase(), admissionFormNextSequence: seq });
     showToast({ title: 'Admission form settings saved', variant: 'success' });
   };
-
-  const inputClass = "w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:border-blue-500 dark:text-white transition-colors";
 
   return (
     <div className="space-y-6">

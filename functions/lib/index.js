@@ -44,7 +44,7 @@ var __rest = (this && this.__rest) || function (s, e) {
     return t;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteUserAccount = exports.submitAdmissionApplication = exports.handlePaystackWebhook = exports.payAcceptanceFee = exports.verifyPaystackPayment = exports.resolveLoginIdentifier = void 0;
+exports.promoteAdmittedApplicant = exports.deleteUserAccount = exports.submitAdmissionApplication = exports.handlePaystackWebhook = exports.payAcceptanceFee = exports.verifyPaystackPayment = exports.resolveLoginIdentifier = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 admin.initializeApp();
@@ -856,4 +856,125 @@ async function getEmailForUid(uid) {
         return "";
     }
 }
+/** First step of a portal's promotion path; mirrors getDefaultEntryLevel() on the client. */
+function defaultEntryLevel(portalLevel) {
+    switch (portalLevel) {
+        case "Nursery":
+            return "Creche";
+        case "Primary":
+            return "Primary 1";
+        case "Secondary":
+            return "JSS 1";
+        case "College":
+        case "Polytechnic":
+            return "Year 1";
+        case "University":
+            return "100 Level";
+        default:
+            return "";
+    }
+}
+/**
+ * promoteAdmittedApplicant
+ *
+ * The only path that may grant the STUDENT role. Account roles are server-owned:
+ * Firestore rules reject any client write to `users/{uid}.role`, so a signed-in
+ * user can no longer promote themselves to SUPER_ADMIN.
+ *
+ * Authorised callers:
+ *  - the applicant themselves (upgrade only after their application is Admitted), or
+ *  - SUPER_ADMIN / ADMIN / REGISTRAR promoting an applicant they admitted.
+ *
+ * The admission status is re-checked here from Firestore, so the promotion
+ * cannot be forged from the browser.
+ */
+exports.promoteAdmittedApplicant = functions.https.onCall(async (request) => {
+    var _a;
+    const auth = request.auth;
+    if (!auth) {
+        throw new functions.https.HttpsError("unauthenticated", "Sign in to continue.");
+    }
+    const data = request.data || {};
+    const targetUid = String(data.uid || auth.uid || "").trim();
+    if (!targetUid) {
+        throw new functions.https.HttpsError("invalid-argument", "A user id is required.");
+    }
+    const callerSnap = await db.collection("users").doc(auth.uid).get();
+    const callerRole = callerSnap.exists ? String(((_a = callerSnap.data()) === null || _a === void 0 ? void 0 : _a.role) || "") : "";
+    const callerIsStaff = ["SUPER_ADMIN", "ADMIN", "REGISTRAR"].includes(callerRole);
+    if (targetUid !== auth.uid && !callerIsStaff) {
+        throw new functions.https.HttpsError("permission-denied", "You are not allowed to promote another account.");
+    }
+    const userRef = db.collection("users").doc(targetUid);
+    const userSnap = await userRef.get();
+    if (!userSnap.exists) {
+        throw new functions.https.HttpsError("not-found", "Applicant account not found.");
+    }
+    const user = userSnap.data();
+    if (String(user.role || "") === "STUDENT") {
+        return { success: true, alreadyStudent: true, role: "STUDENT", roleLabel: "Student" };
+    }
+    const email = String(user.email || "").trim();
+    if (!email) {
+        throw new functions.https.HttpsError("failed-precondition", "This account has no email address on file.");
+    }
+    // Emails are stored as submitted on the public form, so try the common casings.
+    let application = null;
+    for (const candidate of Array.from(new Set([email, email.toLowerCase(), email.toUpperCase()]))) {
+        if (!candidate)
+            continue;
+        const snap = await db
+            .collection("admissionApplications")
+            .where("email", "==", candidate)
+            .get();
+        application =
+            snap.docs
+                .map((d) => d.data())
+                .find((a) => String(a.applicationStatus || "") === "Admitted") || null;
+        if (application)
+            break;
+    }
+    if (!application) {
+        throw new functions.https.HttpsError("failed-precondition", "No admitted application was found for this account.");
+    }
+    const surname = String(application.surname || "").trim();
+    const firstName = String(application.firstName || "").trim();
+    const middleName = String(application.middleName || "").trim();
+    const fullName = `${surname} ${firstName}`.trim() || String(user.name || "").trim() || email;
+    const portalLevel = String((callerIsStaff ? data.portalLevel : "") ||
+        user.portalLevel ||
+        application.portalLevel ||
+        "College");
+    const classValue = String((callerIsStaff ? data.class : "") ||
+        application.courseOfStudy ||
+        application.firstChoiceCourse ||
+        "").trim();
+    const regNo = String((callerIsStaff ? data.regNo : "") ||
+        application.regNo ||
+        `REG-${Date.now().toString(36).toUpperCase()}`).trim();
+    const batch = db.batch();
+    batch.set(userRef, {
+        name: fullName,
+        role: "STUDENT",
+        roleLabel: "Student",
+        promotedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    batch.set(db.collection("students").doc(targetUid), {
+        id: targetUid,
+        name: fullName,
+        surname,
+        firstName,
+        middleName,
+        email,
+        phone: String(application.phone || user.phone || ""),
+        regNo,
+        class: classValue,
+        level: defaultEntryLevel(portalLevel),
+        parentName: application.parentName || application.guardianName || "",
+        status: "Active",
+        portalLevel,
+    }, { merge: true });
+    await batch.commit();
+    return { success: true, role: "STUDENT", roleLabel: "Student", regNo };
+});
 //# sourceMappingURL=index.js.map
