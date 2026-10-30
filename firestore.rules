@@ -197,11 +197,15 @@ service cloud.firestore {
     }
 
     // ─── Admission Applications ───────────────────────────────────────
-    // Anyone can create (public admission form); admins/registrar manage all.
-    // Applicants may only read their own record (matched by email).
+    // Applications are written only by the `submitAdmissionApplication`
+    // callable (Admin SDK, which bypasses these rules), so form numbering,
+    // duplicate-email checks and the fee record cannot be forged by a
+    // direct browser write. Admins/registrar manage all records; an
+    // applicant may read only the record matching their own email.
     match /admissionApplications/{appId} {
-      allow read: if isAdmin() || hasRole('REGISTRAR') || request.auth.token.email == resource.data.email;
-      allow create: if true;
+      allow create: if false;
+      allow read: if isAdmin() || hasRole('REGISTRAR') ||
+        (isAuth() && request.auth.token.email == resource.data.email);
       allow update: if isAdmin() || hasRole('REGISTRAR');
       allow delete: if isAdmin() || hasRole('REGISTRAR');
     }
