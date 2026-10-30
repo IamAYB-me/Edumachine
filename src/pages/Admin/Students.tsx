@@ -443,8 +443,6 @@ type StudentFilterStatus = 'All' | Student['status'];
 type StudentFilterPortalLevel = 'All' | PortalLevel;
 type StudentFormErrors = Partial<Record<keyof StudentFormState | 'name', string>>;
 
-const normalizeValue = (value?: string) => value?.trim().toLowerCase() ?? '';
-
 const getStudentYearValue = (
   student: Partial<Pick<Student, 'level' | 'class'>>,
   portalLevel: PortalLevel,
@@ -649,6 +647,16 @@ export default function StudentsDirectory() {
         }
       }
 
+      // For class-based portals (Nursery/Primary/Secondary) the year of study
+      // lives in `class`; for tertiary portals (College/Polytechnic/University)
+      // it lives in `level`. Keep the stored value aligned so the Learners
+      // directory "Year N" cohort filter has a value to match on.
+      const pickedClass = pick('class', 'Class', 'Grade', 'Level');
+      const pickedLevelRaw = pick('level', 'Level', 'Year / Level', 'Current Level');
+      const yearValue = promotesByClass(activePortalLevel)
+        ? pickedClass
+        : (pickedLevelRaw || pickedClass);
+
       const result = addStudent({
         ...base,
         ...(authUid ? { id: authUid } : {}),
@@ -657,7 +665,11 @@ export default function StudentsDirectory() {
         regNo: pick('regNo', 'Reg No', 'RegNo', 'Registration Number', 'ID') || base.regNo,
         admissionNumber: pick('admissionNumber', 'Admission Number', 'AdmissionNo', 'Adm No', 'Matric Number', 'Matric No', 'Matriculation Number') || base.admissionNumber,
         nin: pick('nin', 'NIN', 'National Identification Number'),
-        class: pick('class', 'Class', 'Grade', 'Level'),
+        // For class-based portals (Nursery/Primary/Secondary) the year of study
+        // lives in `class`; for tertiary portals (College/Polytechnic/University)
+        // it lives in `level`. Keep it aligned so the Learners directory "Year N"
+        // cohort filter has a value to match on.
+        class: pickedClass,
         classDepartment: pick('classDepartment', 'Class / Department', 'Class Department', 'Department', 'class', 'Class'),
         parentName: pick('parentName', 'Parent Name', 'Parent', 'Guardian Name', 'Guardian'),
         email,
@@ -749,7 +761,7 @@ export default function StudentsDirectory() {
         department: pick('department', 'Department', 'Dept'),
         programme: pick('programme', 'Programme', 'Program'),
         degreeType: pick('degreeType', 'Degree Type', 'Degree'),
-        level: pick('level', 'Level', 'Year / Level', 'Current Level'),
+        level: yearValue,
         entryMode: pick('entryMode', 'Entry Mode', 'Mode of Entry'),
         admissionType: pick('admissionType', 'Admission Type', 'Type of Admission'),
         screeningScore: pick('screeningScore', 'Screening Score', 'Post-UTME Score'),
