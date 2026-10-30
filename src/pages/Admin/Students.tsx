@@ -11,7 +11,7 @@ import { COLLEGE_PROGRAMMES, POLYTECHNIC_PROGRAMMES } from '@/utils/portalProgra
 import { PrintableIdCardModal } from '@/components/ui/PrintableIdCardModal';
 import Pagination from '@/components/ui/Pagination';
 import { usePagination } from '@/hooks/usePagination';
-import { adminCreateUser } from '@/services/authService';
+import { adminCreateUser, changeStudentLoginEmail } from '@/services/authService';
 
 type StudentFormState = Omit<Student, 'id'>;
 
@@ -960,10 +960,25 @@ export default function StudentsDirectory() {
       return;
     }
 
+    const nextEmail = (formData.email || '').trim();
+    const previousEmail = (editingStudent?.email || '').trim();
+    if (editingStudent && nextEmail && nextEmail.toLowerCase() !== previousEmail.toLowerCase()) {
+      // Keep the Firebase Auth login in sync; a Firestore-only change would
+      // leave the student unable to sign in with the new address.
+      const emailResult = await changeStudentLoginEmail(editingStudent.id, nextEmail);
+      if (!emailResult.success) {
+        showToast({
+          title: 'Login email could not be changed',
+          description: emailResult.error || 'That email is already in use or invalid.',
+          variant: 'error',
+        });
+        return;
+      }
+    }
+
     const result = editingStudent
       ? updateStudent(editingStudent.id, payload)
       : addStudent(payload);
-
     if (!result.success) {
       showToast({
         title: editingStudent ? `${labels.learnerSingular} update blocked` : `${labels.learnerSingular} creation blocked`,

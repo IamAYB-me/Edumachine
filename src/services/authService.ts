@@ -392,6 +392,19 @@ export async function promoteApplicantToStudent(
   }
 }
 
+export async function changeStudentLoginEmail(
+  studentId: string,
+  email: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const updateEmail = httpsCallable(functions, 'updateStudentEmail');
+    await updateEmail({ studentId, email });
+    return { success: true };
+  } catch (error: unknown) {
+    return { success: false, error: friendlyErrorMessage(error, 'Could not update the login email.') };
+  }
+}
+
 export async function changeUserPassword(
   currentPassword: string,
   newPassword: string,

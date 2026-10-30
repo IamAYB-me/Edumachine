@@ -1144,3 +1144,81 @@ export const promoteAdmittedApplicant = functions.https.onCall(async (request: a
   return { success: true, role: "STUDENT", roleLabel: "Student", regNo };
 });
 
+/**
+ * updateStudentEmail
+ *
+ * Lets an administrator correct a learner's login email. The Firebase Auth
+ * account is the source of truth for sign-in, so renaming it here keeps the
+ * portal login, the users/{uid} document and the students/{uid} record in sync
+ * (a client-side write alone would only change the label, not the login).
+ *
+ * Allowed for SUPER_ADMIN, ADMIN and REGISTRAR.
+ */
+export const updateStudentEmail = functions.https.onCall(async (request: any) => {
+  const auth = request.auth;
+  if (!auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Sign in to continue.");
+  }
+
+  const data = request.data || {};
+  const studentId = String(data.studentId || "").trim();
+  const email = String(data.email || "").trim().toLowerCase();
+
+  if (!studentId) {
+    throw new functions.https.HttpsError("invalid-argument", "A student id is required.");
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new functions.https.HttpsError("invalid-argument", "Enter a valid email address.");
+  }
+
+  const callerSnap = await db.collection("users").doc(auth.uid).get();
+  const callerRole = callerSnap.exists ? String((callerSnap.data() as any)?.role || "") : "";
+  if (!["SUPER_ADMIN", "ADMIN", "REGISTRAR"].includes(callerRole)) {
+    throw new functions.https.HttpsError(
+      "permission-denied",
+      "You are not allowed to change a student's login email."
+    );
+  }
+
+  const studentRef = db.collection("students").doc(studentId);
+  const studentSnap = await studentRef.get();
+  if (!studentSnap.exists) {
+    throw new functions.https.HttpsError("not-found", "Student record not found.");
+  }
+
+  let authUpdated = false;
+  try {
+    await admin.auth().updateUser(studentId, { email, emailVerified: false });
+    authUpdated = true;
+  } catch (error: any) {
+    const code = String(error?.code || "");
+    if (code === "auth/user-not-found") {
+      // No login account yet — update the record only.
+      authUpdated = false;
+    } else if (code === "auth/email-already-exists") {
+      throw new functions.https.HttpsError(
+        "already-exists",
+        "That email is already used by another account."
+      );
+    } else if (code === "auth/invalid-email") {
+      throw new functions.https.HttpsError("invalid-argument", "Enter a valid email address.");
+    } else {
+      console.error("[updateStudentEmail] auth update failed:", error);
+      throw new functions.https.HttpsError("internal", "Could not update the login email.");
+    }
+  }
+
+  const batch = db.batch();
+  batch.set(studentRef, { email }, { merge: true });
+
+  const userRef = db.collection("users").doc(studentId);
+  const userSnap = await userRef.get();
+  if (userSnap.exists) {
+    batch.set(userRef, { email }, { merge: true });
+  }
+
+  await batch.commit();
+
+  return { success: true, email, authUpdated };
+});
+
