@@ -38,8 +38,8 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isAuth();
 
-      allow create: if (isAuth() && request.auth.uid == userId) ||
-        hasRole('SUPER_ADMIN');
+      allow create: if isAdmin() ||
+        (isAuth() && request.auth.uid == userId);
 
       allow update: if (isAuth() && request.auth.uid == userId && !isPrivilegedUserChange()) ||
         (isAdmin() && !isPrivilegedUserChange()) ||

@@ -485,6 +485,14 @@ const toIsoDate = (value: string): string => {
   const raw = (value || '').trim();
   if (!raw) return '';
   if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+  // Sheet dates are month/day/year (e.g. 5/16/2008). Parse explicitly so the
+  // result does not shift by a day depending on the browser's timezone.
+  const slash = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (slash) {
+    const month = slash[1].padStart(2, '0');
+    const day = slash[2].padStart(2, '0');
+    return `${slash[3]}-${month}-${day}`;
+  }
   if (/^\d{4,6}(\.\d+)?$/.test(raw)) {
     const serial = Number(raw);
     if (serial > 20000 && serial < 80000) {
@@ -1037,19 +1045,11 @@ export default function StudentsDirectory() {
       }
     }
 
-    const result = editingStudent
-      ? updateStudent(editingStudent.id, payload)
-      : addStudent(payload);
-    if (!result.success) {
-      showToast({
-        title: editingStudent ? `${labels.learnerSingular} update blocked` : `${labels.learnerSingular} creation blocked`,
-        description: result.error || `Unable to save the ${labels.learnerSingular.toLowerCase()} record right now.`,
-        variant: 'error',
-      });
-      return;
-    }
-
-    // If creating a new student with a password, also create their auth account
+    // Create the login account first so the student record can be keyed by the
+    // auth uid. Otherwise the student signs in but the portal cannot find their
+    // record (the account uid and the student id would not match).
+    let authUid: string | undefined;
+    let authError: string | undefined;
     if (!editingStudent && studentPassword && formData.email) {
       setCreatingAuthUser(true);
       const authResult = await adminCreateUser(
@@ -1063,16 +1063,34 @@ export default function StudentsDirectory() {
         activePortalLevel,
       );
       setCreatingAuthUser(false);
-
-      if (!authResult.success) {
-        showToast({
-          title: `${labels.learnerSingular} record created, but login account failed`,
-          description: authResult.error || 'The student record was saved but the login account could not be created.',
-          variant: 'warning',
-        });
-        closeModal();
-        return;
+      if (authResult.success && authResult.uid) {
+        authUid = authResult.uid;
+      } else {
+        authError = authResult.error || 'The login account could not be created.';
       }
+    }
+
+    const result = editingStudent
+      ? updateStudent(editingStudent.id, payload)
+      : addStudent({ ...payload, ...(authUid ? { id: authUid } : {}) });
+
+    if (!result.success) {
+      showToast({
+        title: editingStudent ? `${labels.learnerSingular} update blocked` : `${labels.learnerSingular} creation blocked`,
+        description: result.error || `Unable to save the ${labels.learnerSingular.toLowerCase()} record right now.`,
+        variant: 'error',
+      });
+      return;
+    }
+
+    if (authError) {
+      showToast({
+        title: `${labels.learnerSingular} record saved, but login account failed`,
+        description: authError,
+        variant: 'warning',
+      });
+      closeModal();
+      return;
     }
 
     showToast({

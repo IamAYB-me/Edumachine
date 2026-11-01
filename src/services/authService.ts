@@ -1,3 +1,4 @@
+import { initializeApp, deleteApp, type FirebaseApp } from 'firebase/app';
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -9,11 +10,13 @@ import {
   EmailAuthProvider,
   updatePassword as firebaseUpdatePassword,
   deleteUser,
+  getAuth,
+  type Auth,
   type User as FirebaseUser,
 } from 'firebase/auth';
 import { httpsCallable } from 'firebase/functions';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db, functions } from '@/config/firebase';
+import app, { auth, db, functions } from '@/config/firebase';
 import { friendlyErrorMessage } from '@/utils/errors';
 
 export interface FirestoreUser {
@@ -155,14 +158,24 @@ export async function adminCreateUser(
   phone?: string,
   portalLevel?: string,
 ): Promise<{ success: boolean; error?: string; uid?: string }> {
-  let createdUser: FirebaseUser | null = null;
+  // Use a throwaway Firebase app so creating an account does not sign the
+  // administrator out of their own session (createUserWithEmailAndPassword
+  // signs in whichever app it is called on).
+  const secondaryName = `admin-create-${Date.now()}`;
+  let secondaryApp: FirebaseApp | null = null;
+  let secondaryAuth: Auth | null = null;
+  let createdUid: string | null = null;
+
   try {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    createdUser = userCredential.user;
+    secondaryApp = initializeApp(app.options, secondaryName);
+    secondaryAuth = getAuth(secondaryApp);
+
+    const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+    createdUid = userCredential.user.uid;
 
     await writeDocWithRetry(() =>
-      setDoc(doc(db, 'users', createdUser!.uid), {
-        uid: createdUser!.uid,
+      setDoc(doc(db, 'users', createdUid!), {
+        uid: createdUid!,
         name,
         email,
         role,
@@ -175,11 +188,11 @@ export async function adminCreateUser(
       } satisfies FirestoreUser),
     );
 
-    return { success: true, uid: createdUser.uid };
+    return { success: true, uid: createdUid };
   } catch (error: unknown) {
-    if (createdUser) {
+    if (createdUid && secondaryAuth?.currentUser) {
       try {
-        await deleteUser(createdUser);
+        await deleteUser(secondaryAuth.currentUser);
       } catch (rollbackError) {
         console.warn('[authService] Could not roll back newly created account:', rollbackError);
       }
@@ -189,6 +202,21 @@ export async function adminCreateUser(
       return { success: false, error: 'An account with this email already exists.' };
     }
     return { success: false, error: friendlyErrorMessage(error, 'Account creation failed. Please try again.') };
+  } finally {
+    if (secondaryAuth) {
+      try {
+        await signOut(secondaryAuth);
+      } catch {
+        // The throwaway app is being disposed anyway.
+      }
+    }
+    if (secondaryApp) {
+      try {
+        await deleteApp(secondaryApp);
+      } catch {
+        // Nothing actionable if the secondary app is already gone.
+      }
+    }
   }
 }
 
