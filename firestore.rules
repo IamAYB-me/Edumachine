@@ -264,7 +264,7 @@ service cloud.firestore {
     }
 
     match /hostelRooms/{roomId} {
-      allow read: if isAuth();
+      allow read: if isAdmin() || hasRole('WARDEN') || hasRole('REGISTRAR');
       allow write: if isAdmin() || hasRole('WARDEN');
     }
 
