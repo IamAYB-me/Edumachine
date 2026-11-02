@@ -639,6 +639,14 @@ export default function AdmissionsManagement() {
                 </div>
               </Section>
 
+              {/* Accommodation */}
+              <Section title="Accommodation">
+                <div className="grid grid-cols-2 gap-4">
+                  <DetailRow label="Day / Boarding" value={selectedApp.accommodationType || 'Day Student'} />
+                  <DetailRow label="Hostel Preference" value={selectedApp.hostelPreference || '—'} />
+                </div>
+              </Section>
+
               {/* Sponsor */}
               <Section title="Sponsor Information">
                 <div className="grid grid-cols-2 gap-4">

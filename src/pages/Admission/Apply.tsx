@@ -73,6 +73,9 @@ interface FormData {
   password: string;
   passwordConfirm: string;
   maritalStatus: string;
+  // Accommodation
+  accommodationType: string;
+  hostelPreference: string;
   // Course Choices
   faculty: string;
   department: string;
@@ -124,6 +127,7 @@ const initialForm: FormData = {
   surname: '', firstName: '', middleName: '', dateOfBirth: '', placeOfBirth: '',
   gender: '', lga: '', stateOfOrigin: '', nationality: 'Nigerian',
   residentialAddress: '', phone: '', email: '', password: '', passwordConfirm: '', maritalStatus: 'Single',
+  accommodationType: 'Day Student', hostelPreference: '',
 
   faculty: '', department: '', firstChoiceCourse: '', secondChoiceCourse: '',
   sponsorFullName: '', sponsorAddress: '', sponsorPhone: '',
@@ -152,6 +156,7 @@ export default function AdmissionApply() {
   const [error, setError] = useState('');
   const [remoteFaculties, setRemoteFaculties] = useState<{ id: string; name: string; code: string }[]>([]);
   const [remoteDepartments, setRemoteDepartments] = useState<{ id: string; name: string; code: string; facultyId: string; portalLevel?: PortalLevel }[]>([]);
+  const [hostelOptions, setHostelOptions] = useState<string[]>([]);
 
   useEffect(() => {
     const unsubFaculties = subscribeToCollection('faculties', (data) => {
@@ -160,7 +165,16 @@ export default function AdmissionApply() {
     const unsubDepts = subscribeToCollection('departments', (data) => {
       setRemoteDepartments(data.map((d: any) => ({ id: d.id, name: d.name, code: d.code, facultyId: d.facultyId || '', portalLevel: (d.portalLevel as PortalLevel) || undefined })));
     }, (err) => console.error('[Apply] departments subscription error:', err));
-    return () => { unsubFaculties(); unsubDepts(); };
+    // Hostel names are public so applicants can pick a boarding preference.
+    const unsubHostels = subscribeToCollection('hostels', (data) => {
+      setHostelOptions(
+        data
+          .filter((h: any) => h.active !== false)
+          .map((h: any) => String(h.name || ''))
+          .filter(Boolean),
+      );
+    }, (err) => console.error('[Apply] hostels subscription error:', err));
+    return () => { unsubFaculties(); unsubDepts(); unsubHostels(); };
   }, []);
 
   const prefix = globalSettings.admissionFormPrefix || 'BRO';
@@ -263,6 +277,8 @@ export default function AdmissionApply() {
         phone: form.phone,
         email: form.email,
         maritalStatus: form.maritalStatus,
+        accommodationType: form.accommodationType,
+        hostelPreference: form.accommodationType === 'Boarding Student' ? form.hostelPreference : '',
         password: form.password,
         courseOfStudy: form.department
           ? `${remoteDepartments.find((d) => d.id === form.department)?.name || form.department} — ${remoteFaculties.find((f) => f.id === form.faculty)?.name || form.faculty}`
@@ -795,6 +811,38 @@ export default function AdmissionApply() {
                   <label className={labelClass}>Email Address *</label>
                   <input type="email" value={form.email} onChange={(e) => update('email', e.target.value)}
                     placeholder="student@email.com" className={inputClass} />
+                </div>
+              </div>
+
+              {/* Accommodation */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className={labelClass}>Day / Boarding Student</label>
+                  <select
+                    value={form.accommodationType}
+                    onChange={(e) => update('accommodationType', e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="Day Student">Day Student</option>
+                    <option value="Boarding Student">Boarding Student</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className={labelClass}>Hostel Preference</label>
+                  <select
+                    value={form.hostelPreference}
+                    onChange={(e) => update('hostelPreference', e.target.value)}
+                    className={inputClass}
+                    disabled={form.accommodationType !== 'Boarding Student'}
+                  >
+                    <option value="">No preference</option>
+                    {hostelOptions.map((hostel) => (
+                      <option key={hostel} value={hostel}>{hostel}</option>
+                    ))}
+                  </select>
+                  {hostelOptions.length === 0 ? (
+                    <p className="text-[10px] text-slate-400">Hostel list will appear here once the school adds hostels.</p>
+                  ) : null}
                 </div>
               </div>
 

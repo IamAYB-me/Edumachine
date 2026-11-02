@@ -29,6 +29,26 @@ export const buildDefaultAdmissionFormConfig = (portalLevel: PortalLevel): Admis
   return { enabledFields: defaults[portalLevel] ?? defaults.Secondary };
 };
 
+export interface Hostel {
+  id: string;
+  name: string;
+  /** Which residents the hostel accepts. */
+  gender: 'Male' | 'Female' | 'Mixed';
+  active: boolean;
+  createdAt?: string;
+}
+
+export interface HostelRoom {
+  id: string;
+  hostelId: string;
+  hostelName: string;
+  roomNo: string;
+  type: 'Single' | 'Double' | 'Triple' | 'Quad';
+  capacity: number;
+  status: 'Available' | 'Full' | 'Maintenance';
+  createdAt?: string;
+}
+
 export interface Student {
   id: string;
   name: string;
@@ -142,6 +162,7 @@ export interface Student {
   branch?: string;
   house?: string;
   hostel?: string;
+  hostelId?: string;
   hostelPreference?: string;
   accommodationType?: string;
   classDepartment?: string;
@@ -566,6 +587,10 @@ export interface AdmissionApplication {
   maritalStatus?: string;
   courseOfStudy?: string;
 
+  // Accommodation
+  accommodationType?: string;
+  hostelPreference?: string;
+
   // Course Choices
   firstChoiceCourse?: string;
   secondChoiceCourse?: string;
@@ -766,6 +791,8 @@ const getDuplicateStudentError = (
 
 interface DataState {
   students: Student[];
+  hostels: Hostel[];
+  hostelRooms: HostelRoom[];
   parents: Parent[];
   staff: Staff[];
   feeRecords: FeeRecord[];
@@ -811,6 +838,16 @@ interface DataState {
   clearStudents: () => Promise<number>;
   clearStaff: () => Promise<number>;
   clearSchools: () => Promise<number>;
+
+  // Hostel Actions
+  addHostel: (hostel: Omit<Hostel, 'id'> & { id?: string }) => void;
+  updateHostel: (id: string, hostel: Partial<Hostel>) => void;
+  deleteHostel: (id: string) => void;
+  addHostelRoom: (room: Omit<HostelRoom, 'id'> & { id?: string }) => void;
+  updateHostelRoom: (id: string, room: Partial<HostelRoom>) => void;
+  deleteHostelRoom: (id: string) => void;
+  allocateRoom: (studentId: string, room: HostelRoom, bedSpace?: string) => StudentMutationResult;
+  vacateRoom: (studentId: string) => StudentMutationResult;
   
   // Parent Actions
   addParent: (parent: Omit<Parent, 'id'> & { id?: string }) => void;
@@ -956,6 +993,8 @@ const deliveredSubscriptionCols = new Set<string>();
 
 export const useDataStore = create<DataState>()((set, get) => ({
   students: [],
+  hostels: [],
+  hostelRooms: [],
   parents: [],
   staff: [],
   feeRecords: [],
@@ -1004,14 +1043,14 @@ export const useDataStore = create<DataState>()((set, get) => ({
     set({ dataReady: false } as Partial<DataState>);
 
     const ROLE_COLLECTIONS: Partial<Record<Role, string[]>> = {
-      SUPER_ADMIN: ['schools', 'users', 'plans', 'delegatedAccess', 'registrationConfigs', 'admissionApplications', 'settings', 'notifications', 'activityLogs', 'students', 'teachers', 'parents', 'staff', 'classes', 'feeRecords', 'exams', 'examResults', 'attendance', 'expenses', 'payroll', 'subjects', 'faculties', 'departments', 'academicSessions', 'notices', 'timetable', 'courseRegistrations'],
-      ADMIN: ['students', 'teachers', 'parents', 'staff', 'classes', 'faculties', 'departments', 'subjects', 'academicSessions', 'feeRecords', 'feeStructures', 'exams', 'examResults', 'examTimetable', 'attendance', 'attendanceTokens', 'expenses', 'payroll', 'delegatedAccess', 'admissionApplications', 'notifications', 'notices', 'timetable', 'schools', 'activityLogs', 'courseRegistrations'],
-      REGISTRAR: ['students', 'admissionApplications', 'classes', 'faculties', 'departments', 'academicSessions', 'feeStructures', 'notifications', 'notices', 'schools', 'courseRegistrations'],
+      SUPER_ADMIN: ['schools', 'users', 'plans', 'delegatedAccess', 'registrationConfigs', 'admissionApplications', 'settings', 'notifications', 'activityLogs', 'students', 'teachers', 'parents', 'staff', 'classes', 'feeRecords', 'exams', 'examResults', 'attendance', 'expenses', 'payroll', 'subjects', 'faculties', 'departments', 'academicSessions', 'notices', 'timetable', 'courseRegistrations', 'hostels', 'hostelRooms'],
+      ADMIN: ['students', 'teachers', 'parents', 'staff', 'classes', 'faculties', 'departments', 'subjects', 'academicSessions', 'feeRecords', 'feeStructures', 'exams', 'examResults', 'examTimetable', 'attendance', 'attendanceTokens', 'expenses', 'payroll', 'delegatedAccess', 'admissionApplications', 'notifications', 'notices', 'timetable', 'schools', 'activityLogs', 'courseRegistrations', 'hostels', 'hostelRooms'],
+      REGISTRAR: ['students', 'admissionApplications', 'classes', 'faculties', 'departments', 'academicSessions', 'feeStructures', 'notifications', 'notices', 'schools', 'courseRegistrations', 'hostels', 'hostelRooms'],
       TEACHER: ['students', 'classes', 'faculties', 'departments', 'subjects', 'exams', 'examResults', 'attendance', 'attendanceTokens', 'notifications', 'notices', 'timetable', 'teachers', 'schools'],
       STUDENT: ['students', 'classes', 'departments', 'subjects', 'exams', 'examResults', 'examTimetable', 'feeRecords', 'feeStructures', 'academicSessions', 'notifications', 'notices', 'timetable', 'schools', 'courseRegistrations'],
       PARENT: ['students', 'attendance', 'feeRecords', 'notifications', 'notices', 'schools'],
       HR: ['staff', 'attendance', 'payroll', 'notifications', 'notices', 'schools'],
-      WARDEN: ['students', 'notifications', 'schools'],
+      WARDEN: ['students', 'notifications', 'schools', 'hostels', 'hostelRooms'],
       ACCOUNTANT: ['students', 'feeRecords', 'feeStructures', 'academicSessions', 'expenses', 'payroll', 'notifications', 'schools'],
       TRANSPORT: ['students', 'notifications', 'schools'],
       LIBRARIAN: ['students', 'notifications', 'schools'],
@@ -1047,6 +1086,8 @@ export const useDataStore = create<DataState>()((set, get) => ({
       users: 'platformUsers',
       plans: 'plans',
       activityLogs: 'activityLogs',
+      hostels: 'hostels',
+      hostelRooms: 'hostelRooms',
     };
 
     const allowedCollections = role ? (ROLE_COLLECTIONS[role] ?? Object.keys(COLLECTION_STORE_MAP)) : Object.keys(COLLECTION_STORE_MAP);
@@ -1302,6 +1343,110 @@ export const useDataStore = create<DataState>()((set, get) => ({
     const count = await clearCollection('schools');
     set({ schools: [] });
     return count;
+  },
+
+  addHostel: (hostel) => {
+    const id = hostel.id || `HST-${generateId()}`;
+    const record: Hostel = { ...hostel, id, createdAt: hostel.createdAt ?? new Date().toISOString() };
+    set((state) => ({ hostels: [...state.hostels, record] }));
+    addDocumentWithId('hostels', id, record).catch(console.error);
+    logActivity({ action: 'CREATE', module: 'hostel', description: `Created hostel ${record.name}`, targetId: id, targetName: record.name }).catch(console.error);
+  },
+
+  updateHostel: (id, hostel) => {
+    set((state) => ({ hostels: state.hostels.map((h) => (h.id === id ? { ...h, ...hostel } : h)) }));
+    updateDocument('hostels', id, hostel as Record<string, unknown>).catch(console.error);
+    logActivity({ action: 'UPDATE', module: 'hostel', description: 'Updated hostel', targetId: id }).catch(console.error);
+  },
+
+  deleteHostel: (id) => {
+    const rooms = get().hostelRooms.filter((r) => r.hostelId === id);
+    set((state) => ({
+      hostels: state.hostels.filter((h) => h.id !== id),
+      hostelRooms: state.hostelRooms.filter((r) => r.hostelId !== id),
+    }));
+    rooms.forEach((room) => deleteDocument('hostelRooms', room.id).catch(console.error));
+    deleteDocument('hostels', id).catch(console.error);
+    logActivity({ action: 'DELETE', module: 'hostel', description: 'Deleted hostel', targetId: id }).catch(console.error);
+  },
+
+  addHostelRoom: (room) => {
+    const id = room.id || `ROOM-${generateId()}`;
+    const record: HostelRoom = { ...room, id, createdAt: room.createdAt ?? new Date().toISOString() };
+    set((state) => ({ hostelRooms: [...state.hostelRooms, record] }));
+    addDocumentWithId('hostelRooms', id, record).catch(console.error);
+    logActivity({ action: 'CREATE', module: 'hostel', description: `Added room ${record.roomNo} in ${record.hostelName}`, targetId: id, targetName: `${record.hostelName} ${record.roomNo}` }).catch(console.error);
+  },
+
+  updateHostelRoom: (id, room) => {
+    set((state) => ({ hostelRooms: state.hostelRooms.map((r) => (r.id === id ? { ...r, ...room } : r)) }));
+    updateDocument('hostelRooms', id, room as Record<string, unknown>).catch(console.error);
+    logActivity({ action: 'UPDATE', module: 'hostel', description: 'Updated hostel room', targetId: id }).catch(console.error);
+  },
+
+  deleteHostelRoom: (id) => {
+    set((state) => ({ hostelRooms: state.hostelRooms.filter((r) => r.id !== id) }));
+    deleteDocument('hostelRooms', id).catch(console.error);
+    logActivity({ action: 'DELETE', module: 'hostel', description: 'Deleted hostel room', targetId: id }).catch(console.error);
+  },
+
+  allocateRoom: (studentId, room, bedSpace) => {
+    let result: StudentMutationResult = { success: false, error: 'Room allocation failed.' };
+    set((state) => {
+      const student = state.students.find((s) => s.id === studentId);
+      if (!student) {
+        result = { success: false, error: 'Student could not be found.' };
+        return {};
+      }
+      const occupants = state.students.filter(
+        (s) => s.hostelName === room.hostelName && s.roomNumber === room.roomNo && s.id !== studentId,
+      );
+      if (room.status === 'Maintenance') {
+        result = { success: false, error: `Room ${room.roomNo} is under maintenance.` };
+        return {};
+      }
+      if (occupants.length >= room.capacity) {
+        result = { success: false, error: `Room ${room.roomNo} is already full.` };
+        return {};
+      }
+      const bed = bedSpace || String(occupants.length + 1);
+      const update: Partial<Student> = {
+        hostelId: room.hostelId,
+        hostel: room.hostelName,
+        hostelName: room.hostelName,
+        roomNumber: room.roomNo,
+        bedSpace: bed,
+        accommodationType: 'Boarding Student',
+      };
+      updateDocument('students', studentId, update as Record<string, unknown>).catch(console.error);
+      logActivity({ action: 'UPDATE', module: 'hostel', description: `Allocated ${student.name} to ${room.hostelName} ${room.roomNo}`, targetId: studentId, targetName: student.name }).catch(console.error);
+      result = { success: true, student: { ...student, ...update } };
+      return { students: state.students.map((s) => (s.id === studentId ? { ...s, ...update } : s)) };
+    });
+    return result;
+  },
+
+  vacateRoom: (studentId) => {
+    let result: StudentMutationResult = { success: false, error: 'Could not vacate the room.' };
+    set((state) => {
+      const student = state.students.find((s) => s.id === studentId);
+      if (!student) {
+        result = { success: false, error: 'Student could not be found.' };
+        return {};
+      }
+      const update: Partial<Student> = {
+        hostelId: '',
+        hostel: '',
+        hostelName: '',
+        roomNumber: '',
+        bedSpace: '',
+      };
+      updateDocument('students', studentId, update as Record<string, unknown>).catch(console.error);
+      logActivity({ action: 'UPDATE', module: 'hostel', description: `Vacated hostel room for ${student.name}`, targetId: studentId, targetName: student.name }).catch(console.error);
+      result = { success: true, student: { ...student, ...update } };
+      return { students: state.students.map((s) => (s.id === studentId ? { ...s, ...update } : s)) };
+    });
+    return result;
   },
 
   addParent: (parent) => {

@@ -255,6 +255,19 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ─── Hostels & Rooms ──────────────────────────────────────────────
+    // Hostel names are listed on the public admission form, so they are
+    // readable without auth. Room inventory and all writes are staff-only.
+    match /hostels/{hostelId} {
+      allow read: if true;
+      allow write: if isAdmin() || hasRole('WARDEN');
+    }
+
+    match /hostelRooms/{roomId} {
+      allow read: if isAuth();
+      allow write: if isAdmin() || hasRole('WARDEN');
+    }
+
     // ─── Catch-all: deny everything else ──────────────────────────────
     match /{document=**} {
       allow read, write: if false;

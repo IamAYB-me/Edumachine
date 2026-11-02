@@ -64,6 +64,8 @@ export function buildStudentPayloadFromApplication(
     dateOfAdmission: options.dateOfAdmission || new Date().toISOString().split('T')[0],
     admissionStatus: 'Admitted',
     digitalSignatureUrl: app.sponsorSignatureUrl,
+    accommodationType: app.accommodationType || 'Day Student',
+    hostelPreference: app.accommodationType === 'Boarding Student' ? app.hostelPreference || '' : '',
     ...(hasAcademicHistory
       ? {
           oLevelExaminationBody: app.firstSittingExamBody || app.secondSittingExamBody,

@@ -13,26 +13,30 @@ export default function WardenStudents() {
   const schoolProfile = resolveSchoolProfile(user, schools);
   const labels = getPortalLevelLabels(schoolProfile.portalLevel);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedBlock, setSelectedBlock] = useState<'All Blocks' | 'Block A' | 'Block B' | 'Block C'>('All Blocks');
+  const [selectedBlock, setSelectedBlock] = useState<string>('All Hostels');
   const showToast = useToastStore((state) => state.showToast);
-
-  const blockCycle = ['Block A', 'Block B', 'Block C'] as const;
 
   const hostelStudents = useMemo(
     () =>
-      students.slice(0, 15).map((student, index) => {
-        const block = blockCycle[index % blockCycle.length];
-        const roomNumber = 101 + index;
-
-        return {
-          ...student,
-          block,
-          room: `${block} - ${roomNumber}`,
-          feesStatus: index % 4 === 0 ? 'Pending' : 'Cleared',
-        };
-      }),
+      students
+        .filter((student) => Boolean(student.roomNumber))
+        .map((student) => {
+          const block = student.hostelName || student.hostel || 'Hostel';
+          return {
+            ...student,
+            block,
+            room: `${block} - ${student.roomNumber}`,
+            feesStatus: 'Cleared' as 'Cleared' | 'Pending',
+          };
+        }),
     [students]
   );
+
+  const hostelFilterOptions = useMemo(
+    () => ['All Hostels', ...Array.from(new Set(hostelStudents.map((student) => student.block)))],
+    [hostelStudents],
+  );
+
 
   const filteredStudents = hostelStudents.filter((student) => {
     const matchesSearch =
@@ -40,7 +44,7 @@ export default function WardenStudents() {
       student.regNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
       student.class.toLowerCase().includes(searchTerm.toLowerCase()) ||
       student.room.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesBlock = selectedBlock === 'All Blocks' || student.block === selectedBlock;
+    const matchesBlock = selectedBlock === 'All Hostels' || student.block === selectedBlock;
 
     return matchesSearch && matchesBlock;
   });
@@ -49,9 +53,9 @@ export default function WardenStudents() {
 
   const cycleBlockFilter = () => {
     setSelectedBlock((current) => {
-      const order: Array<'All Blocks' | 'Block A' | 'Block B' | 'Block C'> = ['All Blocks', 'Block A', 'Block B', 'Block C'];
-      const nextIndex = (order.indexOf(current) + 1) % order.length;
-      const nextValue = order[nextIndex];
+      const order = hostelFilterOptions;
+      const nextIndex = (order.indexOf(current) + 1) % Math.max(1, order.length);
+      const nextValue = order[nextIndex] ?? 'All Hostels';
 
       showToast({
         title: 'Resident filter updated',
@@ -76,7 +80,7 @@ export default function WardenStudents() {
     });
   };
 
-  const handleViewStudent = (studentName: string, room: string, feesStatus: string) => {
+  const handleViewStudent = (studentName: string) => {
     showToast({
       title: `${labels.learnerSingular} profile`,
       description: `Viewing detailed profile for ${studentName}.`,
@@ -196,7 +200,7 @@ export default function WardenStudents() {
                   </td>
                   <td className="py-4 px-6 text-center">
                     <button
-                      onClick={() => handleViewStudent(student.name, student.room, student.feesStatus)}
+                      onClick={() => handleViewStudent(student.name)}
                       className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-all"
                     >
                       <ChevronRight className="w-5 h-5" />

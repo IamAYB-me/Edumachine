@@ -8,7 +8,6 @@ import { cn } from '@/utils';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import { useCurrency } from '@/hooks/useCurrency';
-import { useToastStore } from '@/store/useToastStore';
 import { useDataStore } from '@/store/useDataStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
@@ -25,7 +24,6 @@ const listItemVariants: Variants = {
 export default function HostelDashboard() {
   const navigate = useNavigate();
   const { format } = useCurrency();
-  const showToast = useToastStore((state) => state.showToast);
   const students = useDataStore((s) => s.students);
   const feeRecords = useDataStore((s) => s.feeRecords);
   const schools = useDataStore((s) => s.schools);
@@ -33,13 +31,15 @@ export default function HostelDashboard() {
   const schoolProfile = resolveSchoolProfile(authUser, schools);
   const labels = getPortalLevelLabels(schoolProfile.portalLevel);
 
-  const hostelStudents = students.filter(s => s.hostel);
+  const hostelStudents = students.filter((s) => s.hostelName || s.hostel || s.roomNumber);
   const totalHostelStudents = hostelStudents.length;
+  const hostelRooms = useDataStore((s) => s.hostelRooms);
+  const totalBeds = hostelRooms.reduce((sum, room) => sum + room.capacity, 0);
   const pendingFees = feeRecords.filter(f => f.status === 'Pending' || f.status === 'Partial').reduce((sum, f) => sum + f.amount, 0);
 
   const occupancyData = [
     { name: 'Occupied', value: totalHostelStudents },
-    { name: 'Available', value: Math.max(0, 128 - totalHostelStudents) },
+    { name: 'Available', value: Math.max(0, totalBeds - totalHostelStudents) },
   ];
   const OCCUPANCY_COLORS = ['#10b981', '#3b82f6'];
 
@@ -75,7 +75,7 @@ export default function HostelDashboard() {
           <StaggerItem variant="fadeUp">
             <KPICard
               title="Total Rooms"
-              value="128"
+              value={String(totalBeds)}
               icon={BedDouble}
               iconBgClass="bg-emerald-50"
               iconColorClass="text-emerald-600"
@@ -97,7 +97,7 @@ export default function HostelDashboard() {
           <StaggerItem variant="fadeUp">
             <KPICard
               title="Available Rooms"
-              value={Math.max(0, 128 - totalHostelStudents)}
+              value={Math.max(0, totalBeds - totalHostelStudents)}
               icon={Key}
               iconBgClass="bg-blue-50"
               iconColorClass="text-blue-600"
@@ -143,7 +143,7 @@ export default function HostelDashboard() {
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-2xl font-bold text-slate-900">{totalHostelStudents > 0 ? Math.round((totalHostelStudents / 128) * 100) : 0}%</span>
+                <span className="text-2xl font-bold text-slate-900">{totalHostelStudents > 0 ? Math.round((totalHostelStudents / Math.max(1, totalBeds)) * 100) : 0}%</span>
                 <span className="text-xs text-slate-500">Occupied</span>
               </div>
             </div>
@@ -160,7 +160,7 @@ export default function HostelDashboard() {
                     <div className="w-3 h-3 rounded-full" style={{backgroundColor: OCCUPANCY_COLORS[i]}}></div>
                     <span className="text-slate-600">{item.name} Rooms</span>
                   </div>
-                  <span className="font-semibold text-slate-900">{item.value} ({Math.round((item.value/128)*100)}%)</span>
+                  <span className="font-semibold text-slate-900">{item.value} ({Math.round((item.value / Math.max(1, totalBeds))*100)}%)</span>
                 </motion.div>
               ))}
             </div>
