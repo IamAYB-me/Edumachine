@@ -49,6 +49,18 @@ export interface HostelRoom {
   createdAt?: string;
 }
 
+export interface HostelMaintenanceRequest {
+  id: string;
+  hostelName: string;
+  roomNo: string;
+  title: string;
+  priority: 'High' | 'Medium' | 'Low';
+  status: 'Pending' | 'In Progress' | 'Completed';
+  reportedBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Student {
   id: string;
   name: string;
@@ -793,6 +805,7 @@ interface DataState {
   students: Student[];
   hostels: Hostel[];
   hostelRooms: HostelRoom[];
+  hostelMaintenance: HostelMaintenanceRequest[];
   parents: Parent[];
   staff: Staff[];
   feeRecords: FeeRecord[];
@@ -848,6 +861,9 @@ interface DataState {
   deleteHostelRoom: (id: string) => void;
   allocateRoom: (studentId: string, room: HostelRoom, bedSpace?: string) => StudentMutationResult;
   vacateRoom: (studentId: string) => StudentMutationResult;
+  addHostelMaintenance: (request: Omit<HostelMaintenanceRequest, 'id'> & { id?: string }) => void;
+  updateHostelMaintenance: (id: string, request: Partial<HostelMaintenanceRequest>) => void;
+  deleteHostelMaintenance: (id: string) => void;
   
   // Parent Actions
   addParent: (parent: Omit<Parent, 'id'> & { id?: string }) => void;
@@ -995,6 +1011,7 @@ export const useDataStore = create<DataState>()((set, get) => ({
   students: [],
   hostels: [],
   hostelRooms: [],
+  hostelMaintenance: [],
   parents: [],
   staff: [],
   feeRecords: [],
@@ -1043,14 +1060,14 @@ export const useDataStore = create<DataState>()((set, get) => ({
     set({ dataReady: false } as Partial<DataState>);
 
     const ROLE_COLLECTIONS: Partial<Record<Role, string[]>> = {
-      SUPER_ADMIN: ['schools', 'users', 'plans', 'delegatedAccess', 'registrationConfigs', 'admissionApplications', 'settings', 'notifications', 'activityLogs', 'students', 'teachers', 'parents', 'staff', 'classes', 'feeRecords', 'exams', 'examResults', 'attendance', 'expenses', 'payroll', 'subjects', 'faculties', 'departments', 'academicSessions', 'notices', 'timetable', 'courseRegistrations', 'hostels', 'hostelRooms'],
-      ADMIN: ['students', 'teachers', 'parents', 'staff', 'classes', 'faculties', 'departments', 'subjects', 'academicSessions', 'feeRecords', 'feeStructures', 'exams', 'examResults', 'examTimetable', 'attendance', 'attendanceTokens', 'expenses', 'payroll', 'delegatedAccess', 'admissionApplications', 'notifications', 'notices', 'timetable', 'schools', 'activityLogs', 'courseRegistrations', 'hostels', 'hostelRooms'],
-      REGISTRAR: ['students', 'admissionApplications', 'classes', 'faculties', 'departments', 'academicSessions', 'feeStructures', 'notifications', 'notices', 'schools', 'courseRegistrations', 'hostels', 'hostelRooms'],
+      SUPER_ADMIN: ['schools', 'users', 'plans', 'delegatedAccess', 'registrationConfigs', 'admissionApplications', 'settings', 'notifications', 'activityLogs', 'students', 'teachers', 'parents', 'staff', 'classes', 'feeRecords', 'exams', 'examResults', 'attendance', 'expenses', 'payroll', 'subjects', 'faculties', 'departments', 'academicSessions', 'notices', 'timetable', 'courseRegistrations', 'hostels', 'hostelRooms', 'hostelMaintenance'],
+      ADMIN: ['students', 'teachers', 'parents', 'staff', 'classes', 'faculties', 'departments', 'subjects', 'academicSessions', 'feeRecords', 'feeStructures', 'exams', 'examResults', 'examTimetable', 'attendance', 'attendanceTokens', 'expenses', 'payroll', 'delegatedAccess', 'admissionApplications', 'notifications', 'notices', 'timetable', 'schools', 'activityLogs', 'courseRegistrations', 'hostels', 'hostelRooms', 'hostelMaintenance'],
+      REGISTRAR: ['students', 'admissionApplications', 'classes', 'faculties', 'departments', 'academicSessions', 'feeStructures', 'notifications', 'notices', 'schools', 'courseRegistrations', 'hostels', 'hostelRooms', 'hostelMaintenance'],
       TEACHER: ['students', 'classes', 'faculties', 'departments', 'subjects', 'exams', 'examResults', 'attendance', 'attendanceTokens', 'notifications', 'notices', 'timetable', 'teachers', 'schools'],
       STUDENT: ['students', 'classes', 'departments', 'subjects', 'exams', 'examResults', 'examTimetable', 'feeRecords', 'feeStructures', 'academicSessions', 'notifications', 'notices', 'timetable', 'schools', 'courseRegistrations'],
       PARENT: ['students', 'attendance', 'feeRecords', 'notifications', 'notices', 'schools'],
       HR: ['staff', 'attendance', 'payroll', 'notifications', 'notices', 'schools'],
-      WARDEN: ['students', 'notifications', 'schools', 'hostels', 'hostelRooms'],
+      WARDEN: ['students', 'notifications', 'schools', 'hostels', 'hostelRooms', 'hostelMaintenance'],
       ACCOUNTANT: ['students', 'feeRecords', 'feeStructures', 'academicSessions', 'expenses', 'payroll', 'notifications', 'schools'],
       TRANSPORT: ['students', 'notifications', 'schools'],
       LIBRARIAN: ['students', 'notifications', 'schools'],
@@ -1088,6 +1105,7 @@ export const useDataStore = create<DataState>()((set, get) => ({
       activityLogs: 'activityLogs',
       hostels: 'hostels',
       hostelRooms: 'hostelRooms',
+      hostelMaintenance: 'hostelMaintenance',
     };
 
     const allowedCollections = role ? (ROLE_COLLECTIONS[role] ?? Object.keys(COLLECTION_STORE_MAP)) : Object.keys(COLLECTION_STORE_MAP);
@@ -1447,6 +1465,30 @@ export const useDataStore = create<DataState>()((set, get) => ({
       return { students: state.students.map((s) => (s.id === studentId ? { ...s, ...update } : s)) };
     });
     return result;
+  },
+
+  addHostelMaintenance: (request) => {
+    const id = request.id || `MNT-${generateId()}`;
+    const now = new Date().toISOString();
+    const record: HostelMaintenanceRequest = { ...request, id, createdAt: request.createdAt ?? now, updatedAt: now };
+    set((state) => ({ hostelMaintenance: [record, ...state.hostelMaintenance] }));
+    addDocumentWithId('hostelMaintenance', id, record).catch(console.error);
+    logActivity({ action: 'CREATE', module: 'hostel', description: `Logged maintenance: ${record.title}`, targetId: id, targetName: `${record.hostelName} ${record.roomNo}` }).catch(console.error);
+  },
+
+  updateHostelMaintenance: (id, request) => {
+    const payload = { ...request, updatedAt: new Date().toISOString() };
+    set((state) => ({
+      hostelMaintenance: state.hostelMaintenance.map((r) => (r.id === id ? { ...r, ...payload } : r)),
+    }));
+    updateDocument('hostelMaintenance', id, payload as Record<string, unknown>).catch(console.error);
+    logActivity({ action: 'UPDATE', module: 'hostel', description: 'Updated maintenance request', targetId: id }).catch(console.error);
+  },
+
+  deleteHostelMaintenance: (id) => {
+    set((state) => ({ hostelMaintenance: state.hostelMaintenance.filter((r) => r.id !== id) }));
+    deleteDocument('hostelMaintenance', id).catch(console.error);
+    logActivity({ action: 'DELETE', module: 'hostel', description: 'Deleted maintenance request', targetId: id }).catch(console.error);
   },
 
   addParent: (parent) => {

@@ -60,6 +60,17 @@ const roleNavLinks: Record<Role, NavItem[]> = {
     { name: 'System Settings', icon: Settings, path: '/super-admin/settings' },
     { name: 'Deletion Requests', icon: ShieldAlert, path: '/super-admin/deletion-requests' },
     { name: 'Delete Test Users', icon: Trash2, path: '/super-admin/cleanup-users' },
+    {
+      name: 'Hostel',
+      icon: BedDouble,
+      subItems: [
+        { name: 'Hostel Dashboard', path: '/hostel', icon: LayoutDashboard },
+        { name: 'Rooms', path: '/hostel/rooms', icon: BedDouble },
+        { name: 'Allocation', path: '/hostel/allocation', icon: Key },
+        { name: 'Residents', path: '/hostel/students', icon: Users },
+        { name: 'Maintenance', path: '/hostel/maintenance', icon: Settings },
+      ]
+    },
   ],
   ADMIN: [
     { name: 'Dashboard', icon: LayoutDashboard, path: '/admin' },
@@ -103,6 +114,17 @@ const roleNavLinks: Record<Role, NavItem[]> = {
       ]
     },
     { name: 'Admissions', icon: UserPlus, path: '/admin/admissions' },
+    {
+      name: 'Hostel',
+      icon: BedDouble,
+      subItems: [
+        { name: 'Hostel Dashboard', path: '/hostel', icon: LayoutDashboard },
+        { name: 'Rooms', path: '/hostel/rooms', icon: BedDouble },
+        { name: 'Allocation', path: '/hostel/allocation', icon: Key },
+        { name: 'Residents', path: '/hostel/students', icon: Users },
+        { name: 'Maintenance', path: '/hostel/maintenance', icon: Settings },
+      ]
+    },
     { name: 'Promotions', icon: ArrowRightLeft, path: '/admin/promotions' },
     { name: 'Activity Logs', icon: ScrollText, path: '/admin/activity-logs' },
   ],

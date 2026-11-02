@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion, type Variants } from 'framer-motion';
 import { Users, BedDouble, Key, AlertTriangle, Building, DollarSign } from 'lucide-react';
 import { KPICard } from '@/components/ui/KPICard';
@@ -34,7 +34,26 @@ export default function HostelDashboard() {
   const hostelStudents = students.filter((s) => s.hostelName || s.hostel || s.roomNumber);
   const totalHostelStudents = hostelStudents.length;
   const hostelRooms = useDataStore((s) => s.hostelRooms);
+  const hostelMaintenance = useDataStore((s) => s.hostelMaintenance);
   const totalBeds = hostelRooms.reduce((sum, room) => sum + room.capacity, 0);
+
+  const byHostel = useMemo(() => {
+    const map = new Map<string, number>();
+    hostelStudents.forEach((student) => {
+      const name = student.hostelName || student.hostel || '';
+      if (!name) return;
+      map.set(name, (map.get(name) ?? 0) + 1);
+    });
+    return Array.from(map.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [hostelStudents]);
+
+  const recentResidents = hostelStudents.slice(0, 3);
+  const openRequests = useMemo(
+    () => hostelMaintenance.filter((request) => request.status !== 'Completed').slice(0, 3),
+    [hostelMaintenance],
+  );
   const pendingFees = feeRecords.filter(f => f.status === 'Pending' || f.status === 'Partial').reduce((sum, f) => sum + f.amount, 0);
 
   const occupancyData = [
@@ -170,29 +189,28 @@ export default function HostelDashboard() {
           <AnimatedCard delay={0.16} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
             <h3 className="text-lg font-semibold text-slate-900 mb-6">{labels.learnerPlural} by Hostel</h3>
             <div className="space-y-4">
-              {[
-                { name: 'Maple Hostel', count: 98 },
-                { name: 'Oak Hostel', count: 72 },
-                { name: 'Pine Hostel', count: 54 },
-                { name: 'Cedar Hostel', count: 32 },
-              ].map((hostel, i) => (
-                <motion.div
-                  key={i}
-                  custom={i}
-                  initial="hidden"
-                  animate="visible"
-                  variants={listItemVariants}
-                  className="flex justify-between items-center p-3 hover:bg-slate-50 rounded-lg transition-colors border border-transparent hover:border-slate-100"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-                      <Building className="w-4 h-4" />
+              {byHostel.length === 0 ? (
+                <p className="text-sm text-slate-500">No residents allocated yet.</p>
+              ) : (
+                byHostel.map((hostel, i) => (
+                  <motion.div
+                    key={hostel.name}
+                    custom={i}
+                    initial="hidden"
+                    animate="visible"
+                    variants={listItemVariants}
+                    className="flex justify-between items-center p-3 hover:bg-slate-50 rounded-lg transition-colors border border-transparent hover:border-slate-100"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                        <Building className="w-4 h-4" />
+                      </div>
+                      <span className="font-medium text-slate-900 text-sm">{hostel.name}</span>
                     </div>
-                    <span className="font-medium text-slate-900 text-sm">{hostel.name}</span>
-                  </div>
-                  <span className="font-bold text-slate-700">{hostel.count}</span>
-                </motion.div>
-              ))}
+                    <span className="font-bold text-slate-700">{hostel.count}</span>
+                  </motion.div>
+                ))
+              )}
             </div>
           </AnimatedCard>
 
@@ -208,29 +226,32 @@ export default function HostelDashboard() {
               </AnimatedButton>
             </div>
             <div className="space-y-4">
-              {[
-                { name: 'Maple Wilson', room: 'Room 202, Maple Hostel', date: 'May 28, 2025' },
-                { name: 'Daniel Brown', room: 'Room 305, Oak Hostel', date: 'May 23, 2025' },
-                { name: 'William Smith', room: 'Room 102, Pine Hostel', date: 'May 20, 2025' },
-              ].map((student, i) => (
-                <motion.div
-                  key={i}
-                  custom={i}
-                  initial="hidden"
-                  animate="visible"
-                  variants={listItemVariants}
-                  className="flex justify-between items-start pb-4 border-b border-slate-100 last:border-0 last:pb-0"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">{student.name.charAt(0)}</div>
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">{student.name}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">{student.room}</p>
+              {recentResidents.length === 0 ? (
+                <p className="text-sm text-slate-500">No check-ins yet.</p>
+              ) : (
+                recentResidents.map((student, i) => (
+                  <motion.div
+                    key={student.id}
+                    custom={i}
+                    initial="hidden"
+                    animate="visible"
+                    variants={listItemVariants}
+                    className="flex justify-between items-start pb-4 border-b border-slate-100 last:border-0 last:pb-0"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
+                        {student.name.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-slate-900">{student.name}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Room {student.roomNumber}, {student.hostelName || student.hostel}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <span className="text-[10px] text-slate-500 mt-1">{student.date}</span>
-                </motion.div>
-              ))}
+                  </motion.div>
+                ))
+              )}
             </div>
           </AnimatedCard>
 
@@ -241,31 +262,42 @@ export default function HostelDashboard() {
           <AnimatedCard delay={0.32} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
             <h3 className="text-lg font-semibold text-slate-900 mb-6">Maintenance Requests</h3>
             <div className="space-y-3">
-              {[
-                { issue: 'Fan not working', room: 'Room 205', hostel: 'Maple Hostel', priority: 'High', color: 'text-rose-700', bg: 'bg-rose-100' },
-                { issue: 'Water leaking', room: 'Room 310', hostel: 'Oak Hostel', priority: 'Medium', color: 'text-amber-700', bg: 'bg-amber-100' },
-                { issue: 'Light not working', room: 'Room 101', hostel: 'Pine Hostel', priority: 'Low', color: 'text-emerald-700', bg: 'bg-emerald-100' },
-              ].map((req, i) => (
-                <motion.div
-                  key={i}
-                  custom={i}
-                  initial="hidden"
-                  animate="visible"
-                  variants={listItemVariants}
-                  className="flex justify-between items-center p-3 border border-slate-100 rounded-lg"
-                >
-                  <div className="flex gap-3 items-start">
-                    <AlertTriangle className="w-4 h-4 text-slate-400 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">{req.issue} - {req.room}</p>
-                      <p className="text-[10px] text-slate-500 mt-0.5">{req.hostel}</p>
+              {openRequests.length === 0 ? (
+                <p className="text-sm text-slate-500">No open maintenance requests.</p>
+              ) : (
+                openRequests.map((req, i) => (
+                  <motion.div
+                    key={req.id}
+                    custom={i}
+                    initial="hidden"
+                    animate="visible"
+                    variants={listItemVariants}
+                    className="flex justify-between items-center p-3 border border-slate-100 rounded-lg"
+                  >
+                    <div className="flex gap-3 items-start">
+                      <AlertTriangle className="w-4 h-4 text-slate-400 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-slate-900">
+                          {req.title} - {req.roomNo}
+                        </p>
+                        <p className="text-[10px] text-slate-500 mt-0.5">{req.hostelName}</p>
+                      </div>
                     </div>
-                  </div>
-                  <span className={cn("text-[10px] font-semibold px-2 py-1 rounded-full", req.bg, req.color)}>
-                    {req.priority}
-                  </span>
-                </motion.div>
-              ))}
+                    <span
+                      className={cn(
+                        'text-[10px] font-semibold px-2 py-1 rounded-full',
+                        req.priority === 'High'
+                          ? 'bg-rose-100 text-rose-700'
+                          : req.priority === 'Medium'
+                            ? 'bg-amber-100 text-amber-700'
+                            : 'bg-emerald-100 text-emerald-700',
+                      )}
+                    >
+                      {req.priority}
+                    </span>
+                  </motion.div>
+                ))
+              )}
             </div>
           </AnimatedCard>
 
