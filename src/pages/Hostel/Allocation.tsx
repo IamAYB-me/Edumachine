@@ -35,7 +35,12 @@ export default function RoomAllocation() {
   const occupiedBeds = hostelRooms.reduce((total, room) => total + occupantsOf(room.id).length, 0);
   const totalBeds = hostelRooms.reduce((total, room) => total + room.capacity, 0);
   const freeBeds = Math.max(0, totalBeds - occupiedBeds);
-  const unallocated = students.filter((student) => student.status === 'Active' && !student.roomNumber);
+  const unallocated = students.filter(
+    (student) =>
+      student.status === 'Active' &&
+      !student.roomNumber &&
+      student.accommodationType === 'Boarding Student',
+  );
 
   const roomsWithSpace = hostelRooms.filter(
     (room) => room.status !== 'Maintenance' && occupantsOf(room.id).length < room.capacity,
@@ -222,10 +227,11 @@ export default function RoomAllocation() {
                   className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition focus:border-blue-500"
                 >
                   <option value="">Select {labels.learnerSingular.toLowerCase()}…</option>
-                  {[...unallocated, ...students.filter((s) => s.roomNumber)].map((student) => (
+                  {[...unallocated, ...students.filter((s) => !unallocated.some((u) => u.id === s.id))].map((student) => (
                     <option key={student.id} value={student.id}>
                       {student.name}
                       {student.roomNumber ? ` — currently ${student.hostelName || ''} ${student.roomNumber}` : ''}
+                      {student.accommodationType === 'Boarding Student' && !student.roomNumber ? ' — boarding, awaiting room' : ''}
                     </option>
                   ))}
                 </select>

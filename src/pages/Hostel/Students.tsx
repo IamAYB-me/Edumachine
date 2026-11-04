@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Search, Filter, Users, Home, UserCheck, ShieldAlert, ChevronRight, Mail } from 'lucide-react';
+import { Search, Filter, Users, Home, ShieldAlert, ChevronRight, Mail } from 'lucide-react';
 import { cn } from '@/utils';
 import { KPICard } from '@/components/ui/KPICard';
 import { useDataStore } from '@/store/useDataStore';
@@ -8,7 +8,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
 
 export default function WardenStudents() {
-  const { students, schools } = useDataStore();
+  const { students, schools, hostels, hostelRooms } = useDataStore();
   const user = useAuthStore((state) => state.user);
   const schoolProfile = resolveSchoolProfile(user, schools);
   const labels = getPortalLevelLabels(schoolProfile.portalLevel);
@@ -108,33 +108,37 @@ export default function WardenStudents() {
 
       {/* Stats Widgets */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard 
-          title="Total Residents" 
-          value="248" 
-          icon={Users} 
+        <KPICard
+          title="Total Residents"
+          value={String(hostelStudents.length)}
+          icon={Users}
           iconBgClass="bg-blue-50 dark:bg-blue-900/20"
           iconColorClass="text-blue-600 dark:text-blue-400"
         />
-        <KPICard 
-          title="In Hostel" 
-          value="242" 
-          icon={UserCheck} 
+        <KPICard
+          title="Hostels"
+          value={String(hostels.length)}
+          icon={Home}
           iconBgClass="bg-emerald-50 dark:bg-emerald-900/20"
           iconColorClass="text-emerald-600 dark:text-emerald-400"
         />
-        <KPICard 
-          title="On Leave" 
-          value="6" 
-          icon={Home} 
+        <KPICard
+          title="Rooms"
+          value={String(hostelRooms.length)}
+          icon={Home}
+          iconBgClass="bg-indigo-50 dark:bg-indigo-900/20"
+          iconColorClass="text-indigo-600 dark:text-indigo-400"
+        />
+        <KPICard
+          title="Awaiting Room"
+          value={String(
+            students.filter(
+              (student) => student.accommodationType === 'Boarding Student' && !student.roomNumber,
+            ).length,
+          )}
+          icon={ShieldAlert}
           iconBgClass="bg-amber-50 dark:bg-amber-900/20"
           iconColorClass="text-amber-600 dark:text-amber-400"
-        />
-        <KPICard 
-          title="Fee Defaulters" 
-          value="14" 
-          icon={ShieldAlert} 
-          iconBgClass="bg-rose-50 dark:bg-rose-900/20"
-          iconColorClass="text-rose-600 dark:text-rose-400"
         />
       </div>
 
