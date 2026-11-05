@@ -15,7 +15,7 @@ import {
   type User as FirebaseUser,
 } from 'firebase/auth';
 import { httpsCallable } from 'firebase/functions';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, setDoc, serverTimestamp } from 'firebase/firestore';
 import app, { auth, db, functions } from '@/config/firebase';
 import { friendlyErrorMessage } from '@/utils/errors';
 
@@ -59,6 +59,22 @@ async function writeDocWithRetry(write: () => Promise<void>): Promise<void> {
   throw lastError;
 }
 
+/**
+ * Name key used to spot a self-registration that duplicates an existing learner
+ * record. Names arrive in different orders/cases ("Abosede Shittu Opeyemi" vs
+ * "SHITTU ABOSEDE OPEYEMI"), so compare the sorted word set instead of the raw
+ * string.
+ */
+function studentNameKey(value: unknown): string {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .sort()
+    .join(' ');
+}
+
 export async function registerUser(
   email: string,
   password: string,
@@ -76,6 +92,35 @@ export async function registerUser(
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     createdUser = userCredential.user;
+
+    // Self-registration creates a bare student record. If the school already
+    // has a learner with the same name, the new account is almost always a
+    // duplicate sign-up (different email, same person). Reject it before any
+    // profile/student document is written and roll the auth account back.
+    if (role === 'STUDENT') {
+      const nameKey = studentNameKey(name);
+      if (nameKey) {
+        try {
+          const existingStudents = await getDocs(collection(db, 'students'));
+          const duplicate = existingStudents.docs.find(
+            (studentDoc) => studentNameKey(studentDoc.data().name) === nameKey,
+          );
+          if (duplicate) {
+            await deleteUser(createdUser);
+            createdUser = null;
+            return {
+              success: false,
+              error:
+                'A student record with this name already exists. Please sign in with the existing account or contact the school administrator.',
+            };
+          }
+        } catch (lookupError) {
+          // Rules/network hiccup: never block a legitimate registration just
+          // because the duplicate check could not run.
+          console.warn('[authService] Student duplicate check skipped:', lookupError);
+        }
+      }
+    }
 
     await writeDocWithRetry(() =>
       setDoc(doc(db, 'users', createdUser!.uid), {
