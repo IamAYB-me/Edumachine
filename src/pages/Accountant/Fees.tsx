@@ -32,7 +32,7 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { useDataStore, FeeRecord } from '@/store/useDataStore';
 import { buildOnRollLookup } from '@/utils/studentFilters';
 import { useOnRollFilters } from '@/hooks/useOnRollFilters';
-import { buildFeeOverview, deriveStudentFees, isNewEntrantStudent } from '@/utils/feeGating';
+import { buildFeeOverview, deriveStudentFees, isCollectedFeeStatus, isNewEntrantStudent } from '@/utils/feeGating';
 import { useToastStore } from '@/store/useToastStore';
 import { downloadFromUrl, readFileAsDataUrl } from '@/utils/fileHelpers';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -162,20 +162,18 @@ export default function AccountantFees() {
 
   const stats = useMemo(() => {
     const totalPaid = scopeFees
-      .filter((item) => item.status === 'Paid')
+      .filter((item) => isCollectedFeeStatus(item.status))
       .reduce((sum, item) => sum + item.amount, 0);
     const totalPending = scopeFees
-      .filter((item) => item.status !== 'Paid')
+      .filter((item) => item.status === 'Pending')
       .reduce((sum, item) => sum + item.amount, 0);
     const uniquePayers = new Set(scopeFees.map((item) => item.studentId)).size;
     const today = new Date().toISOString().split('T')[0];
     const todaysCollection = scopeFees
-      .filter((item) => item.status === 'Paid' && item.date === today)
+      .filter((item) => isCollectedFeeStatus(item.status) && item.date === today)
       .reduce((sum, item) => sum + item.amount, 0);
-    const collectionProgress =
-      scopeFees.length > 0
-        ? Math.round((scopeFees.filter((item) => item.status === 'Paid').length / scopeFees.length) * 100)
-        : 0;
+    const collectable = totalPaid + totalPending;
+    const collectionProgress = collectable > 0 ? Math.round((totalPaid / collectable) * 100) : 0;
 
     return { totalPaid, totalPending, uniquePayers, todaysCollection, collectionProgress };
   }, [scopeFees]);

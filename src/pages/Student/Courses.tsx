@@ -447,7 +447,7 @@ export default function StudentCourses() {
                 Registration Locked — Fees Required
               </h3>
               <p className="text-xs sm:text-sm text-rose-700 dark:text-rose-400 mt-0.5">
-                {gatingBlockerMessage('course_registration', myStudent?.class)}
+                {gatingBlockerMessage('course_registration')}
               </p>
               <div className="mt-2.5 space-y-1.5">
                 {gating.blockers.map((b) => (
@@ -569,7 +569,7 @@ export default function StudentCourses() {
               </div>
               <p className="text-xl font-bold text-slate-900 dark:text-white">Registration Locked — Fees Required</p>
               <p className="text-sm text-slate-600 dark:text-slate-400 mt-2 max-w-md">
-                {gatingBlockerMessage('course_registration', myStudent?.class)} Pay the required amounts below to unlock your ${labels.subjectPlural.toLowerCase()} for this ${labels.termLabel.toLowerCase()}.
+                {gatingBlockerMessage('course_registration')} Pay the required amounts below to unlock your ${labels.subjectPlural.toLowerCase()} for this ${labels.termLabel.toLowerCase()}.
               </p>
               <div className="mt-5 w-full max-w-md space-y-2">
                 {gating.blockers.map((b) => (

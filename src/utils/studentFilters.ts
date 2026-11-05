@@ -35,12 +35,17 @@ export function filterStudentsOnRoll(students: Student[], selection: OnRollSelec
     const studentSession = studentSessionKey(student);
     const studentTerm = studentTermKey(student);
     const studentStructure = studentStructureKey(student);
+    // "On roll" means currently enrolled. Graduated, withdrawn, inactive and
+    // suspended learners must not inflate expected fees. A missing status is
+    // treated as Active for older imports.
+    const status = (student.status || 'Active').trim().toLowerCase();
 
     const matchesSession = session === 'all' || studentSession === session;
     const matchesTerm = term === 'all' || !studentTerm || studentTerm === term;
     const matchesStructure = structure === 'all' || studentStructure === structure;
+    const matchesStatus = status === 'active';
 
-    return matchesSession && matchesTerm && matchesStructure;
+    return matchesSession && matchesTerm && matchesStructure && matchesStatus;
   });
 }
 

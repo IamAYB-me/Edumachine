@@ -10,7 +10,7 @@ import { useDataStore } from '@/store/useDataStore';
 import { downloadFromUrl, openPaymentReceiptWindow, readFileAsDataUrl } from '@/utils/fileHelpers';
 import { useLocation } from 'react-router-dom';
 import { useToastStore } from '@/store/useToastStore';
-import { formatTransactionTime } from '@/utils/feeGating';
+import { formatTransactionTime, isCollectedFeeStatus } from '@/utils/feeGating';
 
 export default function FeesAndPayments() {
   const { format } = useCurrency();
@@ -29,8 +29,8 @@ export default function FeesAndPayments() {
     return feeRecords.filter(record => childrenIds.includes(record.studentId));
   }, [feeRecords, childrenIds]);
 
-  const outstandingFees = childrenFees.filter(t => t.status !== 'Paid');
-  const paidFees = childrenFees.filter(t => t.status === 'Paid');
+  const outstandingFees = childrenFees.filter((t) => t.status === 'Pending');
+  const paidFees = childrenFees.filter((t) => isCollectedFeeStatus(t.status));
 
   const stats = useMemo(() => {
     const paid = paidFees.reduce((acc, f) => acc + f.amount, 0);

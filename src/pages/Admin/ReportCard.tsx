@@ -8,6 +8,7 @@ import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfil
 import StudentAccessToggle from '@/components/ui/StudentAccessToggle';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { cn } from '@/utils';
+import { isCollectedFeeStatus } from '@/utils/feeGating';
 
 const getGrade = (score: number, total: number) => {
   if (!total || total <= 0) return { label: 'N/A', remark: 'No Data', color: 'text-slate-400', bg: 'bg-slate-50 dark:bg-slate-800/60' };
@@ -131,7 +132,7 @@ export default function ReportCard() {
 
     const studentFees = feeRecords.filter(f => f.studentId === selectedStudent?.id);
     const totalFees = studentFees.reduce((sum, f) => sum + f.amount, 0);
-    const paidFees = studentFees.filter(f => f.status === 'Paid').reduce((sum, f) => sum + f.amount, 0);
+    const paidFees = studentFees.filter((f) => isCollectedFeeStatus(f.status)).reduce((sum, f) => sum + f.amount, 0);
     const pendingFees = totalFees - paidFees;
 
     return {

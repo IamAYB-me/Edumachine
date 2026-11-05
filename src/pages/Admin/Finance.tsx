@@ -12,7 +12,7 @@ import { downloadFromUrl, readFileAsDataUrl } from '@/utils/fileHelpers';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/useAuthStore';
 import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
-import { formatTransactionTime } from '@/utils/feeGating';
+import { formatTransactionTime, isCollectedFeeStatus } from '@/utils/feeGating';
 
 export default function AdminFinanceDashboard() {
   const { format, currency, symbol } = useCurrency();
@@ -191,8 +191,12 @@ export default function AdminFinanceDashboard() {
   };
 
   const stats = useMemo(() => {
-    const totalRevenue = feeRecords.reduce((acc, curr) => acc + curr.amount, 0);
-    const pendingFees = feeRecords.filter(f => f.status === 'Pending').reduce((acc, curr) => acc + curr.amount, 0);
+    const totalRevenue = feeRecords
+      .filter((record) => isCollectedFeeStatus(record.status))
+      .reduce((acc, curr) => acc + curr.amount, 0);
+    const pendingFees = feeRecords
+      .filter((record) => record.status === 'Pending')
+      .reduce((acc, curr) => acc + curr.amount, 0);
     const totalExpenses = expenses.reduce((acc, curr) => acc + curr.amount, 0);
     return { totalRevenue, pendingFees, totalExpenses };
   }, [expenses, feeRecords]);
@@ -207,7 +211,7 @@ export default function AdminFinanceDashboard() {
   ]), [stats.totalExpenses, stats.totalRevenue]);
 
   const feeData = useMemo(() => ([
-    { name: 'Collected', value: stats.totalRevenue - stats.pendingFees },
+    { name: 'Collected', value: stats.totalRevenue },
     { name: 'Pending', value: stats.pendingFees },
   ]), [stats.pendingFees, stats.totalRevenue]);
 

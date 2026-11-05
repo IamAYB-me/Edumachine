@@ -61,6 +61,15 @@ export interface GatingStatus {
 }
 
 /**
+ * True when a fee record represents money actually received. A 'Partial'
+ * record stores the amount paid so far, so it belongs with the collected
+ * total rather than the pending balance.
+ */
+export function isCollectedFeeStatus(status: FeeRecord['status'] | string | undefined): boolean {
+  return status === 'Paid' || status === 'Partial';
+}
+
+/**
  * Computes the total amount a student has paid toward one fee category.
  * A FeeRecord has a type (the category name) and a status. Any 'Paid'
  * record counts fully; a 'Partial' record counts its amount toward the total.
@@ -357,10 +366,7 @@ export function formatTransactionTime(source?: TransactionTimeSource | null): st
 /**
  * Human readable description of a blocked action.
  */
-export function gatingBlockerMessage(
-  action: GatedAction,
-  studentClass: string | undefined,
-): string {
+export function gatingBlockerMessage(action: GatedAction): string {
   const actionNames: Record<GatedAction, string> = {
     course_registration: 'course registration',
     admission_letter: 'admission letter',

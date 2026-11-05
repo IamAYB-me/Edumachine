@@ -50,7 +50,7 @@ export default function StudentAccessGate({ children }: { children: React.ReactN
               Portal Locked — Fees Required
             </h2>
             <p className="mt-2 text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">
-              {gatingBlockerMessage('course_registration', myStudent?.class)} Complete your required fee payments below to activate this page.
+              {gatingBlockerMessage('course_registration')} Complete your required fee payments below to activate this page.
             </p>
 
             {blockers.length > 0 && (

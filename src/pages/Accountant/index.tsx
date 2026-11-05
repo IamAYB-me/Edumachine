@@ -11,7 +11,7 @@ import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfil
 import { useOnRollFilters } from '@/hooks/useOnRollFilters';
 import { AnimatedCard } from '@/components/ui/AnimatedCard';
 import { AnimatedPage, StaggerContainer, StaggerItem, AnimatedButton, AnimatedProgress } from '@/components/ui/motion';
-import { buildFeeOverview, formatTransactionTime } from '@/utils/feeGating';
+import { buildFeeOverview, formatTransactionTime, isCollectedFeeStatus } from '@/utils/feeGating';
 
 export default function AccountantDashboard() {
   const { format } = useCurrency();
@@ -28,7 +28,7 @@ export default function AccountantDashboard() {
   const labels = getPortalLevelLabels(schoolProfile.portalLevel);
 
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0) + payroll.reduce((sum, p) => sum + p.net, 0);
-  const totalRevenue = feeRecords.filter(f => f.status === 'Paid').reduce((sum, f) => sum + f.amount, 0);
+  const totalRevenue = feeRecords.filter((f) => isCollectedFeeStatus(f.status)).reduce((sum, f) => sum + f.amount, 0);
   const netProfit = totalRevenue - totalExpenses;
 
   const sessionNames = useMemo(
@@ -63,7 +63,7 @@ export default function AccountantDashboard() {
   const resetFilters = onRoll.reset;
 
   const recentTransactions = [
-    ...feeRecords.filter(f => f.status === 'Paid').slice(0, 5).map(f => ({
+    ...feeRecords.filter((f) => isCollectedFeeStatus(f.status)).slice(0, 5).map(f => ({
       id: f.id.slice(0, 12),
       date: formatTransactionTime({ date: f.date, createdAt: f.createdAt, paidAt: f.paidAt }),
       desc: `Fee Payment - ${f.studentName}`,
