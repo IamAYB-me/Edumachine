@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { DollarSign, TrendingUp, TrendingDown, FileText, CreditCard, Receipt, Wallet, AlertTriangle, SlidersHorizontal, RotateCcw, Percent } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, FileText, CreditCard, Receipt, Wallet, AlertTriangle, SlidersHorizontal, RotateCcw, Percent, ChevronDown } from 'lucide-react';
 import { KPICard } from '@/components/ui/KPICard';
 import { useCurrency } from '@/hooks/useCurrency';
 import { cn } from '@/utils';
@@ -37,6 +37,7 @@ export default function AccountantDashboard() {
   );
   const onRoll = useOnRollFilters(students, labels.termOptions, sessionNames);
   const onRollStudents = onRoll.onRollStudents;
+  const [showFeeBreakdown, setShowFeeBreakdown] = useState(false);
 
   // Shared with the Fees page so both screens show the same expected,
   // collected and outstanding figures for the current session/term/structure
@@ -273,7 +274,23 @@ export default function AccountantDashboard() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <button
+          type="button"
+          onClick={() => setShowFeeBreakdown((current) => !current)}
+          aria-expanded={showFeeBreakdown}
+          className="flex w-full items-center justify-between gap-3 border-t border-slate-100 px-6 py-4 text-left transition-colors hover:bg-slate-50/70 dark:border-slate-800 dark:hover:bg-slate-800/40"
+        >
+          <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+            Breakdown by Fee Category
+          </span>
+          <span className="inline-flex items-center gap-2 text-xs font-bold text-blue-600 dark:text-blue-400">
+            {showFeeBreakdown ? 'Show less' : 'Show more'}
+            <ChevronDown className={cn('h-4 w-4 transition-transform', showFeeBreakdown && 'rotate-180')} />
+          </span>
+        </button>
+
+        {showFeeBreakdown ? (
+        <div className="overflow-x-auto border-t border-slate-100 dark:border-slate-800">
           <table className="w-full border-collapse text-left">
             <thead>
               <tr className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:border-slate-800 dark:text-slate-500">
@@ -315,6 +332,7 @@ export default function AccountantDashboard() {
             ) : null}
           </table>
         </div>
+        ) : null}
       </AnimatedCard>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
