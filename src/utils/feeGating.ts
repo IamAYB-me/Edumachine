@@ -1,4 +1,5 @@
 import type { FeeRecord, FeeStructure } from '@/store/useDataStore';
+import { studentStructureKey } from '@/utils/studentFilters';
 
 export type GatedAction =
   | 'course_registration'
@@ -210,6 +211,98 @@ export function deriveStudentFees(
       minPayable: minimumPayableFor({ amount: s.amount, requiredPercentage }),
     };
   });
+}
+
+/** Minimal student shape needed to scope an expected-fee overview. */
+export interface FeeOverviewStudent extends StudentEntrantInfo {
+  id: string;
+  regNo?: string;
+  class?: string;
+  classDepartment?: string;
+  department?: string;
+}
+
+export interface FeeOverviewRow {
+  category: string;
+  expected: number;
+  collected: number;
+  outstanding: number;
+}
+
+export interface FeeOverview {
+  expected: number;
+  collected: number;
+  outstanding: number;
+  rate: number;
+  breakdown: FeeOverviewRow[];
+}
+
+/**
+ * Single source of truth for the finance "expected vs collected" overview.
+ *
+ * Expected fees are the active, non-optional structures that apply to each
+ * student on roll (universal + their class/department), restricted to the
+ * selected term when one is chosen. "New entrants only" fees are counted only
+ * for new entrants. Collected fees are those students' Paid + Partial records,
+ * so a part payment counts toward what has actually been received.
+ */
+export function buildFeeOverview(
+  feeStructures: FeeStructure[],
+  feeRecords: FeeRecord[],
+  students: FeeOverviewStudent[],
+  term: string = 'all',
+): FeeOverview {
+  const structures = feeStructures.filter(
+    (structure) =>
+      structure.status === 'Active' &&
+      !structure.isOptional &&
+      (term === 'all' || !structure.term || structure.term === term),
+  );
+
+  const rows = new Map<string, FeeOverviewRow>();
+  const ensureRow = (category: string) => {
+    let row = rows.get(category);
+    if (!row) {
+      row = { category, expected: 0, collected: 0, outstanding: 0 };
+      rows.set(category, row);
+    }
+    return row;
+  };
+
+  let expected = 0;
+  students.forEach((student) => {
+    const structureKey = studentStructureKey(student);
+    const newEntrant = isNewEntrantStudent(student);
+    structures.forEach((structure) => {
+      if (!structure.isUniversal && structure.className !== structureKey) return;
+      if (structure.newEntrantsOnly && !newEntrant) return;
+      ensureRow(structure.category).expected += structure.amount;
+      expected += structure.amount;
+    });
+  });
+
+  const ids = new Set(students.map((student) => student.id));
+  const regNos = new Set(
+    students.map((student) => student.regNo).filter((value): value is string => !!value),
+  );
+
+  let collected = 0;
+  feeRecords.forEach((record) => {
+    if (!ids.has(record.studentId) && !regNos.has(record.studentId)) return;
+    if (record.status !== 'Paid' && record.status !== 'Partial') return;
+    collected += record.amount;
+    ensureRow(record.type).collected += record.amount;
+  });
+
+  const breakdown = Array.from(rows.values())
+    .map((row) => ({ ...row, outstanding: Math.max(0, row.expected - row.collected) }))
+    .filter((row) => row.expected > 0 || row.collected > 0)
+    .sort((a, b) => b.expected - a.expected || b.collected - a.collected);
+
+  const outstanding = Math.max(0, expected - collected);
+  const rate = expected > 0 ? Math.min(100, Math.round((collected / expected) * 100)) : 0;
+
+  return { expected, collected, outstanding, rate, breakdown };
 }
 
 export type StoredTimestamp =

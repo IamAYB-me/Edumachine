@@ -8,11 +8,10 @@ import { useNavigate } from 'react-router-dom';
 import { useDataStore } from '@/store/useDataStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { resolveSchoolProfile, getPortalLevelLabels } from '@/utils/schoolProfile';
-import { studentStructureKey, buildOnRollLookup } from '@/utils/studentFilters';
 import { useOnRollFilters } from '@/hooks/useOnRollFilters';
 import { AnimatedCard } from '@/components/ui/AnimatedCard';
 import { AnimatedPage, StaggerContainer, StaggerItem, AnimatedButton, AnimatedProgress } from '@/components/ui/motion';
-import { formatTransactionTime } from '@/utils/feeGating';
+import { buildFeeOverview, formatTransactionTime } from '@/utils/feeGating';
 
 export default function AccountantDashboard() {
   const { format } = useCurrency();
@@ -39,32 +38,18 @@ export default function AccountantDashboard() {
   const onRoll = useOnRollFilters(students, labels.termOptions, sessionNames);
   const onRollStudents = onRoll.onRollStudents;
 
-  // Expected fees = every active structure (including optional ones) that
-  // applies to each student on roll (universal + their class/department).
-  // Collected fees are the 'Paid' records belonging to those same students;
-  // the remainder is outstanding.
+  // Shared with the Fees page so both screens show the same expected,
+  // collected and outstanding figures for the current session/term/structure
+  // filters. Optional fee structures are not obligations, so they are excluded.
   const feeCollection = useMemo(() => {
-    const activeStructures = feeStructures.filter((fee) => fee.status === 'Active');
-    const { ids, regNos } = buildOnRollLookup(onRollStudents);
-
-    let expected = 0;
-
-    onRollStudents.forEach((student) => {
-      const structure = studentStructureKey(student);
-      const applicable = activeStructures.filter((fee) => fee.isUniversal || fee.className === structure);
-      if (applicable.length === 0) return;
-      expected += applicable.reduce((sum, fee) => sum + fee.amount, 0);
-    });
-
-    const collected = feeRecords
-      .filter((fee) => fee.status === 'Paid' && (ids.has(fee.studentId) || regNos.has(fee.studentId)))
-      .reduce((sum, fee) => sum + fee.amount, 0);
-
-    const outstanding = Math.max(0, expected - collected);
-    const collectionRate = expected > 0 ? Math.min(100, Math.round((collected / expected) * 100)) : 0;
-
-    return { expected, collected, outstanding, collectionRate };
-  }, [onRollStudents, feeStructures, feeRecords]);
+    const overview = buildFeeOverview(feeStructures, feeRecords, onRollStudents, onRoll.term);
+    return {
+      expected: overview.expected,
+      collected: overview.collected,
+      outstanding: overview.outstanding,
+      collectionRate: overview.rate,
+    };
+  }, [onRollStudents, onRoll.term, feeStructures, feeRecords]);
 
   const hasActiveFilters = onRoll.hasActiveFilters;
   const filtersSummary = [

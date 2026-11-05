@@ -1,6 +1,12 @@
 import type { Student } from '@/store/useDataStore';
 
-export const studentStructureKey = (student: Student) =>
+export interface StudentStructureInfo {
+  class?: string;
+  classDepartment?: string;
+  department?: string;
+}
+
+export const studentStructureKey = (student: StudentStructureInfo) =>
   (student.class || student.classDepartment || student.department || '').trim();
 
 export const studentSessionKey = (student: Student) =>

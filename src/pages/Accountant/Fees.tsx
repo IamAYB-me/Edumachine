@@ -30,9 +30,9 @@ import { FeeStructureManager } from '@/components/ui/FeeStructureManager';
 import CourseRegistrationToggle from '@/components/ui/CourseRegistrationToggle';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useDataStore, FeeRecord } from '@/store/useDataStore';
-import { buildOnRollLookup, studentStructureKey } from '@/utils/studentFilters';
+import { buildOnRollLookup } from '@/utils/studentFilters';
 import { useOnRollFilters } from '@/hooks/useOnRollFilters';
-import { deriveStudentFees, isNewEntrantStudent } from '@/utils/feeGating';
+import { buildFeeOverview, deriveStudentFees, isNewEntrantStudent } from '@/utils/feeGating';
 import { useToastStore } from '@/store/useToastStore';
 import { downloadFromUrl, readFileAsDataUrl } from '@/utils/fileHelpers';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -181,59 +181,12 @@ export default function AccountantFees() {
   }, [scopeFees]);
 
   // Overall expected vs collected vs outstanding for the students currently on
-  // roll (already narrowed by session / semester / structure / student), broken
-  // down by fee category. Optional fee structures are excluded from the totals.
-  const feeOverview = useMemo(() => {
-    const activeStructures = feeStructures.filter(
-      (structure) => structure.status === 'Active' && !structure.isOptional,
-    );
-    const termStructures =
-      onRoll.term !== 'all'
-        ? activeStructures.filter((structure) => !structure.term || structure.term === onRoll.term)
-        : activeStructures;
-
-    const { ids, regNos } = buildOnRollLookup(onRoll.onRollStudents);
-    const records = feeRecords.filter(
-      (fee) => ids.has(fee.studentId) || regNos.has(fee.studentId),
-    );
-
-    const rows = new Map<string, { category: string; expected: number; collected: number }>();
-    const ensureRow = (category: string) => {
-      let row = rows.get(category);
-      if (!row) {
-        row = { category, expected: 0, collected: 0 };
-        rows.set(category, row);
-      }
-      return row;
-    };
-
-    let expected = 0;
-    onRoll.onRollStudents.forEach((student) => {
-      const structureKey = studentStructureKey(student);
-      termStructures.forEach((structure) => {
-        if (!structure.isUniversal && structure.className !== structureKey) return;
-        ensureRow(structure.category).expected += structure.amount;
-        expected += structure.amount;
-      });
-    });
-
-    let collected = 0;
-    records.forEach((record) => {
-      if (record.status !== 'Paid' && record.status !== 'Partial') return;
-      collected += record.amount;
-      ensureRow(record.type).collected += record.amount;
-    });
-
-    const breakdown = Array.from(rows.values())
-      .map((row) => ({ ...row, outstanding: Math.max(0, row.expected - row.collected) }))
-      .filter((row) => row.expected > 0 || row.collected > 0)
-      .sort((a, b) => b.expected - a.expected || b.collected - a.collected);
-
-    const outstanding = Math.max(0, expected - collected);
-    const rate = expected > 0 ? Math.min(100, Math.round((collected / expected) * 100)) : 0;
-
-    return { expected, collected, outstanding, rate, breakdown };
-  }, [feeStructures, feeRecords, onRoll.onRollStudents, onRoll.term]);
+  // roll (already narrowed by session / semester / structure), broken down by
+  // fee category. Shared with the Accountant dashboard so both screens agree.
+  const feeOverview = useMemo(
+    () => buildFeeOverview(feeStructures, feeRecords, onRoll.onRollStudents, onRoll.term),
+    [feeStructures, feeRecords, onRoll.onRollStudents, onRoll.term],
+  );
 
   const feeStatusData = [
     { name: 'Collected', value: stats.collectionProgress, color: '#10b981' },
