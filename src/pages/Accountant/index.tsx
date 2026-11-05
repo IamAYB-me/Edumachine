@@ -53,6 +53,13 @@ export default function AccountantDashboard() {
     collectionRate: feeOverview.rate,
   };
 
+  // Show the biggest categories up front; "Show more" only reveals the rest.
+  const breakdownPreviewLimit = 3;
+  const visibleFeeBreakdown = showFeeBreakdown
+    ? feeOverview.breakdown
+    : feeOverview.breakdown.slice(0, breakdownPreviewLimit);
+  const hiddenFeeBreakdownCount = feeOverview.breakdown.length - visibleFeeBreakdown.length;
+
   const hasActiveFilters = onRoll.hasActiveFilters;
   const filtersSummary = [
     onRoll.session !== 'all' ? `Session: ${onRoll.session}` : '',
@@ -274,22 +281,23 @@ export default function AccountantDashboard() {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowFeeBreakdown((current) => !current)}
-          aria-expanded={showFeeBreakdown}
-          className="flex w-full items-center justify-between gap-3 border-t border-slate-100 px-6 py-4 text-left transition-colors hover:bg-slate-50/70 dark:border-slate-800 dark:hover:bg-slate-800/40"
-        >
+        <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-6 py-4 dark:border-slate-800">
           <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
             Breakdown by Fee Category
           </span>
-          <span className="inline-flex items-center gap-2 text-xs font-bold text-blue-600 dark:text-blue-400">
-            {showFeeBreakdown ? 'Show less' : 'Show more'}
-            <ChevronDown className={cn('h-4 w-4 transition-transform', showFeeBreakdown && 'rotate-180')} />
-          </span>
-        </button>
+          {feeOverview.breakdown.length > breakdownPreviewLimit ? (
+            <button
+              type="button"
+              onClick={() => setShowFeeBreakdown((current) => !current)}
+              aria-expanded={showFeeBreakdown}
+              className="inline-flex items-center gap-2 text-xs font-bold text-blue-600 hover:underline dark:text-blue-400"
+            >
+              {showFeeBreakdown ? 'Show less' : `Show more (${hiddenFeeBreakdownCount})`}
+              <ChevronDown className={cn('h-4 w-4 transition-transform', showFeeBreakdown && 'rotate-180')} />
+            </button>
+          ) : null}
+        </div>
 
-        {showFeeBreakdown ? (
         <div className="overflow-x-auto border-t border-slate-100 dark:border-slate-800">
           <table className="w-full border-collapse text-left">
             <thead>
@@ -301,14 +309,14 @@ export default function AccountantDashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm dark:divide-slate-800">
-              {feeOverview.breakdown.length === 0 ? (
+              {visibleFeeBreakdown.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-6 py-8 text-center text-sm text-slate-400">
                     No active fee categories match the current filters.
                   </td>
                 </tr>
               ) : (
-                feeOverview.breakdown.map((row) => (
+                visibleFeeBreakdown.map((row) => (
                   <tr key={row.category} className="transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
                     <td className="px-6 py-4 font-bold text-slate-700 dark:text-slate-200">{row.category}</td>
                     <td className="px-6 py-4 text-right font-medium text-slate-600 dark:text-slate-300">{format(row.expected)}</td>
@@ -332,7 +340,6 @@ export default function AccountantDashboard() {
             ) : null}
           </table>
         </div>
-        ) : null}
       </AnimatedCard>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
