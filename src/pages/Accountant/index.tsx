@@ -41,15 +41,16 @@ export default function AccountantDashboard() {
   // Shared with the Fees page so both screens show the same expected,
   // collected and outstanding figures for the current session/term/structure
   // filters. Optional fee structures are not obligations, so they are excluded.
-  const feeCollection = useMemo(() => {
-    const overview = buildFeeOverview(feeStructures, feeRecords, onRollStudents, onRoll.term);
-    return {
-      expected: overview.expected,
-      collected: overview.collected,
-      outstanding: overview.outstanding,
-      collectionRate: overview.rate,
-    };
-  }, [onRollStudents, onRoll.term, feeStructures, feeRecords]);
+  const feeOverview = useMemo(
+    () => buildFeeOverview(feeStructures, feeRecords, onRollStudents, onRoll.term),
+    [onRollStudents, onRoll.term, feeStructures, feeRecords],
+  );
+  const feeCollection = {
+    expected: feeOverview.expected,
+    collected: feeOverview.collected,
+    outstanding: feeOverview.outstanding,
+    collectionRate: feeOverview.rate,
+  };
 
   const hasActiveFilters = onRoll.hasActiveFilters;
   const filtersSummary = [
@@ -252,6 +253,69 @@ export default function AccountantDashboard() {
           />
         </StaggerItem>
       </StaggerContainer>
+
+      {/* Fee collection by category — mirrors the Admin > Fee Collection breakdown */}
+      <AnimatedCard delay={0.16} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50/50 p-6 dark:border-slate-800 dark:bg-slate-800/50 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Fee Collection by Category</h3>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              Overall expected and outstanding for{' '}
+              <span className="font-bold text-slate-700 dark:text-slate-200">{onRollStudents.length}</span>{' '}
+              {labels.learnerPlural.toLowerCase()} on roll, by fee category
+              {filtersSummary ? ` · ${filtersSummary}` : ''}.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 self-start rounded-2xl bg-slate-100 px-4 py-2 dark:bg-slate-800">
+            <Percent className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Collection Rate</span>
+            <span className="text-lg font-black text-slate-900 dark:text-white">{feeOverview.rate}%</span>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left">
+            <thead>
+              <tr className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:border-slate-800 dark:text-slate-500">
+                <th className="px-6 py-4">Fee Category</th>
+                <th className="px-6 py-4 text-right">Expected</th>
+                <th className="px-6 py-4 text-right">Collected</th>
+                <th className="px-6 py-4 text-right">Outstanding</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+              {feeOverview.breakdown.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-6 py-8 text-center text-sm text-slate-400">
+                    No active fee categories match the current filters.
+                  </td>
+                </tr>
+              ) : (
+                feeOverview.breakdown.map((row) => (
+                  <tr key={row.category} className="transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                    <td className="px-6 py-4 font-bold text-slate-700 dark:text-slate-200">{row.category}</td>
+                    <td className="px-6 py-4 text-right font-medium text-slate-600 dark:text-slate-300">{format(row.expected)}</td>
+                    <td className="px-6 py-4 text-right font-medium text-emerald-600 dark:text-emerald-400">{format(row.collected)}</td>
+                    <td className={cn('px-6 py-4 text-right font-black', row.outstanding > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400')}>
+                      {format(row.outstanding)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+            {feeOverview.breakdown.length > 0 ? (
+              <tfoot>
+                <tr className="border-t border-slate-200 text-sm dark:border-slate-700">
+                  <td className="px-6 py-4 font-black uppercase tracking-tight text-slate-900 dark:text-white">Total</td>
+                  <td className="px-6 py-4 text-right font-black text-slate-900 dark:text-white">{format(feeOverview.expected)}</td>
+                  <td className="px-6 py-4 text-right font-black text-emerald-600 dark:text-emerald-400">{format(feeOverview.collected)}</td>
+                  <td className="px-6 py-4 text-right font-black text-rose-600 dark:text-rose-400">{format(feeOverview.outstanding)}</td>
+                </tr>
+              </tfoot>
+            ) : null}
+          </table>
+        </div>
+      </AnimatedCard>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Expense Breakdown */}
