@@ -188,15 +188,6 @@ export default function AccountantFees() {
     [feeStructures, feeRecords, onRoll.onRollStudents, onRoll.term],
   );
 
-  // Keep the biggest categories visible at all times and let "Show more"
-  // reveal the rest. This avoids an empty-looking card while still keeping the
-  // long category list collapsible.
-  const breakdownPreviewLimit = 3;
-  const visibleBreakdown = showBreakdown
-    ? feeOverview.breakdown
-    : feeOverview.breakdown.slice(0, breakdownPreviewLimit);
-  const hiddenBreakdownCount = feeOverview.breakdown.length - visibleBreakdown.length;
-
   const feeStatusData = [
     { name: 'Collected', value: stats.collectionProgress, color: '#10b981' },
     { name: 'Pending', value: 100 - stats.collectionProgress, color: '#f59e0b' },
@@ -555,23 +546,22 @@ export default function AccountantFees() {
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-6 py-4 dark:border-slate-800">
-          <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+        <div className="border-t border-slate-100 px-6 py-4 dark:border-slate-800">
+          <span className="block text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
             Breakdown by Fee Category
           </span>
-          {feeOverview.breakdown.length > breakdownPreviewLimit ? (
-            <button
-              type="button"
-              onClick={() => setShowBreakdown((current) => !current)}
-              aria-expanded={showBreakdown}
-              className="inline-flex items-center gap-2 text-xs font-bold text-blue-600 hover:underline dark:text-blue-400"
-            >
-              {showBreakdown ? 'Show less' : `Show more (${hiddenBreakdownCount})`}
-              <ChevronDown className={cn('h-4 w-4 transition-transform', showBreakdown && 'rotate-180')} />
-            </button>
-          ) : null}
+          <button
+            type="button"
+            onClick={() => setShowBreakdown((current) => !current)}
+            aria-expanded={showBreakdown}
+            className="mt-3 inline-flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-2 text-xs font-bold text-blue-600 transition-colors hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30"
+          >
+            {showBreakdown ? 'Hide breakdown' : 'Show breakdown'}
+            <ChevronDown className={cn('h-4 w-4 transition-transform', showBreakdown && 'rotate-180')} />
+          </button>
         </div>
 
+        {showBreakdown ? (
         <div className="overflow-x-auto border-t border-slate-100 dark:border-slate-800">
           <table className="w-full border-collapse text-left">
             <thead>
@@ -583,14 +573,14 @@ export default function AccountantFees() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm dark:divide-slate-800">
-              {visibleBreakdown.length === 0 ? (
+              {feeOverview.breakdown.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-6 py-8 text-center text-sm text-slate-400">
                     No active fee categories match the current filters.
                   </td>
                 </tr>
               ) : (
-                visibleBreakdown.map((row) => (
+                feeOverview.breakdown.map((row) => (
                   <tr key={row.category} className="transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
                     <td className="px-6 py-4 font-bold text-slate-700 dark:text-slate-200">{row.category}</td>
                     <td className="px-6 py-4 text-right font-medium text-slate-600 dark:text-slate-300">{format(row.expected)}</td>
@@ -614,6 +604,7 @@ export default function AccountantFees() {
             ) : null}
           </table>
         </div>
+        ) : null}
       </div>
 
       <div className="hidden border-b-2 border-slate-900 pb-8 print:block">
